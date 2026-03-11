@@ -6,7 +6,7 @@
  */
 
 import { Router, type Request, type Response } from "express";
-import type Database from "better-sqlite3";
+import type pg from "pg";
 import type { EventTypeName } from "../types.js";
 import { EVENT_TYPES } from "../types.js";
 import {
@@ -22,7 +22,7 @@ import {
   getStats,
 } from "../db/queries.js";
 
-export function createRouter(db: Database.Database): Router {
+export function createRouter(pool: pg.Pool): Router {
   const router = Router();
 
   // ---- Health / Stats ----
@@ -31,8 +31,8 @@ export function createRouter(db: Database.Database): Router {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
   });
 
-  router.get("/stats", (_req: Request, res: Response) => {
-    const stats = getStats(db);
+  router.get("/stats", async (_req: Request, res: Response) => {
+    const stats = await getStats(pool);
     res.json(stats);
   });
 
@@ -42,7 +42,7 @@ export function createRouter(db: Database.Database): Router {
    * GET /events
    * Query params: limit, offset, order (asc|desc), type (event name filter)
    */
-  router.get("/events", (req: Request, res: Response) => {
+  router.get("/events", async (req: Request, res: Response) => {
     const params = parsePagination(req);
     const eventName = req.query.type as string | undefined;
 
@@ -51,12 +51,12 @@ export function createRouter(db: Database.Database): Router {
         res.status(400).json({ error: `Unknown event type: ${eventName}` });
         return;
       }
-      const events = getEventsByType(db, eventName as EventTypeName, params);
+      const events = await getEventsByType(pool, eventName as EventTypeName, params);
       res.json({ events, ...params });
       return;
     }
 
-    const events = getEvents(db, params);
+    const events = await getEvents(pool, params);
     res.json({ events, ...params });
   });
 
@@ -64,7 +64,7 @@ export function createRouter(db: Database.Database): Router {
    * GET /events/tribe/:tribeId
    * All events for a tribe. Optional `type` query param to filter.
    */
-  router.get("/events/tribe/:tribeId", (req: Request, res: Response) => {
+  router.get("/events/tribe/:tribeId", async (req: Request, res: Response) => {
     const tribeId = req.params.tribeId as string;
     const params = parsePagination(req);
     const eventName = req.query.type as string | undefined;
@@ -74,7 +74,7 @@ export function createRouter(db: Database.Database): Router {
       return;
     }
 
-    const events = getEventsByTribe(db, tribeId, {
+    const events = await getEventsByTribe(pool, tribeId, {
       ...params,
       eventName: eventName as EventTypeName | undefined,
     });
@@ -85,10 +85,10 @@ export function createRouter(db: Database.Database): Router {
    * GET /events/character/:characterId
    * All events involving a specific character.
    */
-  router.get("/events/character/:characterId", (req: Request, res: Response) => {
+  router.get("/events/character/:characterId", async (req: Request, res: Response) => {
     const characterId = req.params.characterId as string;
     const params = parsePagination(req);
-    const events = getEventsByCharacter(db, characterId, params);
+    const events = await getEventsByCharacter(pool, characterId, params);
     res.json({ events, character_id: characterId, ...params });
   });
 
@@ -96,10 +96,10 @@ export function createRouter(db: Database.Database): Router {
    * GET /events/object/:objectId
    * All events for a primary object (job, order, tribe, registry, proposal).
    */
-  router.get("/events/object/:objectId", (req: Request, res: Response) => {
+  router.get("/events/object/:objectId", async (req: Request, res: Response) => {
     const objectId = req.params.objectId as string;
     const params = parsePagination(req);
-    const events = getEventsByPrimaryId(db, objectId, params);
+    const events = await getEventsByPrimaryId(pool, objectId, params);
     res.json({ events, object_id: objectId, ...params });
   });
 
@@ -109,11 +109,11 @@ export function createRouter(db: Database.Database): Router {
    * GET /reputation/:tribeId/:characterId
    * Current reputation snapshot + full audit trail with checkpoint proofs.
    */
-  router.get("/reputation/:tribeId/:characterId", (req: Request, res: Response) => {
+  router.get("/reputation/:tribeId/:characterId", async (req: Request, res: Response) => {
     const tribeId = req.params.tribeId as string;
     const characterId = req.params.characterId as string;
-    const snapshot = getReputation(db, tribeId, characterId);
-    const auditTrail = getReputationAuditTrail(db, tribeId, characterId);
+    const snapshot = await getReputation(pool, tribeId, characterId);
+    const auditTrail = await getReputationAuditTrail(pool, tribeId, characterId);
 
     res.json({
       snapshot: snapshot ?? null,
@@ -127,10 +127,10 @@ export function createRouter(db: Database.Database): Router {
    * GET /reputation/:tribeId/leaderboard
    * Top members by reputation in a tribe.
    */
-  router.get("/reputation/:tribeId/leaderboard", (req: Request, res: Response) => {
+  router.get("/reputation/:tribeId/leaderboard", async (req: Request, res: Response) => {
     const tribeId = req.params.tribeId as string;
     const limit = Math.min(Number(req.query.limit) || 50, 200);
-    const leaderboard = getTribeLeaderboard(db, tribeId, limit);
+    const leaderboard = await getTribeLeaderboard(pool, tribeId, limit);
     res.json({ leaderboard, tribe_id: tribeId });
   });
 
@@ -140,7 +140,7 @@ export function createRouter(db: Database.Database): Router {
    * GET /jobs/:tribeId
    * Job event history for a tribe (created, accepted, completed, etc.)
    */
-  router.get("/jobs/:tribeId", (req: Request, res: Response) => {
+  router.get("/jobs/:tribeId", async (req: Request, res: Response) => {
     const tribeId = req.params.tribeId as string;
     const params = parsePagination(req);
     const jobEventTypes: EventTypeName[] = [
@@ -149,7 +149,7 @@ export function createRouter(db: Database.Database): Router {
     ];
 
     // Get all job events for this tribe
-    const events = getEventsByTribe(db, tribeId, params);
+    const events = await getEventsByTribe(pool, tribeId, params);
     const jobEvents = events.filter((e) =>
       jobEventTypes.includes(e.event_name as EventTypeName),
     );
@@ -162,7 +162,7 @@ export function createRouter(db: Database.Database): Router {
    * GET /manufacturing/:tribeId
    * Manufacturing event history for a tribe.
    */
-  router.get("/manufacturing/:tribeId", (req: Request, res: Response) => {
+  router.get("/manufacturing/:tribeId", async (req: Request, res: Response) => {
     const tribeId = req.params.tribeId as string;
     const params = parsePagination(req);
     const mfgEventTypes: EventTypeName[] = [
@@ -170,7 +170,7 @@ export function createRouter(db: Database.Database): Router {
       "OrderCreatedEvent", "OrderFulfilledEvent", "OrderCancelledEvent",
     ];
 
-    const events = getEventsByTribe(db, tribeId, params);
+    const events = await getEventsByTribe(pool, tribeId, params);
     const mfgEvents = events.filter((e) =>
       mfgEventTypes.includes(e.event_name as EventTypeName),
     );
@@ -187,14 +187,14 @@ export function createRouter(db: Database.Database): Router {
    * A verifier can use this to independently confirm the event occurred
    * on-chain by checking the checkpoint against the validator set.
    */
-  router.get("/proof/:eventId", (req: Request, res: Response) => {
+  router.get("/proof/:eventId", async (req: Request, res: Response) => {
     const eventId = Number(req.params.eventId);
     if (isNaN(eventId)) {
       res.status(400).json({ error: "Invalid event ID" });
       return;
     }
 
-    const event = getEventById(db, eventId);
+    const event = await getEventById(pool, eventId);
     if (!event) {
       res.status(404).json({ error: "Event not found" });
       return;

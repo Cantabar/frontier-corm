@@ -268,8 +268,8 @@ export interface IndexerConfig {
     contractBoard: string;
     forgePlanner: string;
   };
-  /** SQLite database file path */
-  dbPath: string;
+  /** Postgres connection string */
+  databaseUrl: string;
   /** API server port */
   apiPort: number;
   /** Polling interval for event queries (ms) */
@@ -283,7 +283,7 @@ export const DEFAULT_CONFIG: IndexerConfig = {
     contractBoard: process.env.PACKAGE_CONTRACT_BOARD ?? "",
     forgePlanner: process.env.PACKAGE_FORGE_PLANNER ?? "",
   },
-  dbPath: process.env.DB_PATH ?? "./data/frontier-lattice.db",
+  databaseUrl: process.env.DATABASE_URL ?? "postgresql://lattice:lattice@localhost:5432/frontier_lattice",
   apiPort: Number(process.env.API_PORT) || 3100,
   pollIntervalMs: Number(process.env.POLL_INTERVAL_MS) || 2000,
 };

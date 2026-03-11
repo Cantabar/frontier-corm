@@ -12,7 +12,7 @@
  *   PACKAGE_TRIBE        — Deployed tribe package ID
  *   PACKAGE_CONTRACT_BOARD — Deployed contract_board package ID
  *   PACKAGE_FORGE_PLANNER — Deployed forge_planner package ID
- *   DB_PATH              — SQLite file path (default: ./data/frontier-lattice.db)
+ *   DATABASE_URL         — Postgres connection string (default: postgresql://lattice:lattice@localhost:5432/frontier_lattice)
  *   API_PORT             — API server port (default: 3100)
  *   POLL_INTERVAL_MS     — Event poll interval in ms (default: 2000)
  */
@@ -28,7 +28,7 @@ async function main() {
 
   console.log("=== Frontier Lattice Event Indexer ===");
   console.log(`  Sui RPC:   ${config.suiRpcUrl}`);
-  console.log(`  DB:        ${config.dbPath}`);
+  console.log(`  DB:        ${config.databaseUrl.replace(/\/\/.*@/, "//***@")}`);
   console.log(`  API port:  ${config.apiPort}`);
   console.log(`  Poll:      ${config.pollIntervalMs}ms`);
 
@@ -50,17 +50,17 @@ async function main() {
   }
 
   // 1. Init database
-  const db = initDatabase(config.dbPath);
+  const pool = await initDatabase(config.databaseUrl);
   console.log("[db] Database initialised.");
 
   // 2. Init archiver
-  const archiver = new EventArchiver(db);
+  const archiver = new EventArchiver(pool);
 
   // 3. Init subscriber
-  const subscriber = new CheckpointSubscriber(config, db, archiver);
+  const subscriber = new CheckpointSubscriber(config, pool, archiver);
 
   // 4. Start API server
-  const server = createServer(db, config.apiPort);
+  const server = createServer(pool, config.apiPort);
 
   // 5. Start subscriber (only if at least one package ID is configured)
   if (missingPackages.length < 3) {
@@ -74,8 +74,8 @@ async function main() {
   const shutdown = () => {
     console.log("\nShutting down...");
     subscriber.stop();
-    server.close(() => {
-      db.close();
+    server.close(async () => {
+      await pool.end();
       console.log("Goodbye.");
       process.exit(0);
     });

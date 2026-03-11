@@ -1,11 +1,10 @@
 /**
- * Prepared SQL queries for the Frontier Lattice event indexer.
+ * SQL queries for the Frontier Lattice event indexer (Postgres).
  *
- * All queries are prepared once at init time for performance.
- * Callers pass the Database instance; queries are stateless.
+ * All queries are async and use the pg Pool for connection management.
  */
 
-import type Database from "better-sqlite3";
+import type pg from "pg";
 import type { ArchivedEvent, EventTypeName } from "../types.js";
 
 // ============================================================
@@ -13,31 +12,45 @@ import type { ArchivedEvent, EventTypeName } from "../types.js";
 // ============================================================
 
 const INSERT_EVENT_SQL = `
-  INSERT OR IGNORE INTO events (
+  INSERT INTO events (
     event_type, event_name, module, event_data,
     tx_digest, event_seq, checkpoint_seq, checkpoint_digest, timestamp_ms,
     primary_id, tribe_id, character_id
   ) VALUES (
-    @event_type, @event_name, @module, @event_data,
-    @tx_digest, @event_seq, @checkpoint_seq, @checkpoint_digest, @timestamp_ms,
-    @primary_id, @tribe_id, @character_id
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
   )
+  ON CONFLICT (tx_digest, event_seq) DO NOTHING
+  RETURNING id
 `;
 
-export function insertEvent(db: Database.Database, event: ArchivedEvent): number {
-  const stmt = db.prepare(INSERT_EVENT_SQL);
-  const result = stmt.run(event);
-  return result.lastInsertRowid as number;
+function eventParams(event: ArchivedEvent) {
+  return [
+    event.event_type, event.event_name, event.module, event.event_data,
+    event.tx_digest, event.event_seq, event.checkpoint_seq,
+    event.checkpoint_digest, event.timestamp_ms,
+    event.primary_id, event.tribe_id, event.character_id,
+  ];
 }
 
-export function insertEventsBatch(db: Database.Database, events: ArchivedEvent[]): void {
-  const stmt = db.prepare(INSERT_EVENT_SQL);
-  const tx = db.transaction((items: ArchivedEvent[]) => {
-    for (const event of items) {
-      stmt.run(event);
+export async function insertEvent(pool: pg.Pool, event: ArchivedEvent): Promise<number> {
+  const result = await pool.query(INSERT_EVENT_SQL, eventParams(event));
+  return result.rows[0]?.id ?? 0;
+}
+
+export async function insertEventsBatch(pool: pg.Pool, events: ArchivedEvent[]): Promise<void> {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    for (const event of events) {
+      await client.query(INSERT_EVENT_SQL, eventParams(event));
     }
-  });
-  tx(events);
+    await client.query("COMMIT");
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 // ============================================================
@@ -46,26 +59,21 @@ export function insertEventsBatch(db: Database.Database, events: ArchivedEvent[]
 
 const UPSERT_REPUTATION_SQL = `
   INSERT INTO reputation_snapshots (tribe_id, character_id, score, last_event_id, updated_at)
-  VALUES (@tribe_id, @character_id, @score, @last_event_id, datetime('now'))
-  ON CONFLICT(tribe_id, character_id) DO UPDATE SET
-    score = @score,
-    last_event_id = @last_event_id,
-    updated_at = datetime('now')
+  VALUES ($1, $2, $3, $4, NOW())
+  ON CONFLICT (tribe_id, character_id) DO UPDATE SET
+    score = $3,
+    last_event_id = $4,
+    updated_at = NOW()
 `;
 
-export function upsertReputation(
-  db: Database.Database,
+export async function upsertReputation(
+  pool: pg.Pool,
   tribeId: string,
   characterId: string,
   score: number,
   lastEventId: number,
-): void {
-  db.prepare(UPSERT_REPUTATION_SQL).run({
-    tribe_id: tribeId,
-    character_id: characterId,
-    score,
-    last_event_id: lastEventId,
-  });
+): Promise<void> {
+  await pool.query(UPSERT_REPUTATION_SQL, [tribeId, characterId, score, lastEventId]);
 }
 
 // ============================================================
@@ -74,15 +82,16 @@ export function upsertReputation(
 
 const UPDATE_CURSOR_SQL = `
   UPDATE indexer_cursor SET
-    last_tx_digest = @last_tx_digest,
-    last_event_seq = @last_event_seq,
-    last_checkpoint = @last_checkpoint,
-    updated_at = datetime('now')
+    last_tx_digest = $1,
+    last_event_seq = $2,
+    last_checkpoint = $3,
+    updated_at = NOW()
   WHERE id = 1
 `;
 
 const GET_CURSOR_SQL = `
-  SELECT last_tx_digest, last_event_seq, last_checkpoint FROM indexer_cursor WHERE id = 1
+  SELECT last_tx_digest, last_event_seq, last_checkpoint
+  FROM indexer_cursor WHERE id = 1
 `;
 
 export interface IndexerCursor {
@@ -91,21 +100,18 @@ export interface IndexerCursor {
   last_checkpoint: string | null;
 }
 
-export function updateCursor(
-  db: Database.Database,
+export async function updateCursor(
+  pool: pg.Pool,
   txDigest: string,
   eventSeq: number,
   checkpoint: string,
-): void {
-  db.prepare(UPDATE_CURSOR_SQL).run({
-    last_tx_digest: txDigest,
-    last_event_seq: eventSeq,
-    last_checkpoint: checkpoint,
-  });
+): Promise<void> {
+  await pool.query(UPDATE_CURSOR_SQL, [txDigest, eventSeq, checkpoint]);
 }
 
-export function getCursor(db: Database.Database): IndexerCursor {
-  return db.prepare(GET_CURSOR_SQL).get() as IndexerCursor;
+export async function getCursor(pool: pg.Pool): Promise<IndexerCursor> {
+  const result = await pool.query(GET_CURSOR_SQL);
+  return result.rows[0] as IndexerCursor;
 }
 
 // ============================================================
@@ -126,86 +132,91 @@ function defaultParams(params?: EventQueryParams) {
   };
 }
 
-export function getEvents(
-  db: Database.Database,
+export async function getEvents(
+  pool: pg.Pool,
   params?: EventQueryParams,
-): ArchivedEvent[] {
+): Promise<ArchivedEvent[]> {
   const { limit, offset, order } = defaultParams(params);
   const dir = order === "asc" ? "ASC" : "DESC";
-  return db
-    .prepare(`SELECT * FROM events ORDER BY id ${dir} LIMIT ? OFFSET ?`)
-    .all(limit, offset) as ArchivedEvent[];
+  const result = await pool.query(
+    `SELECT * FROM events ORDER BY id ${dir} LIMIT $1 OFFSET $2`,
+    [limit, offset],
+  );
+  return result.rows as ArchivedEvent[];
 }
 
-export function getEventsByType(
-  db: Database.Database,
+export async function getEventsByType(
+  pool: pg.Pool,
   eventName: EventTypeName,
   params?: EventQueryParams,
-): ArchivedEvent[] {
+): Promise<ArchivedEvent[]> {
   const { limit, offset, order } = defaultParams(params);
   const dir = order === "asc" ? "ASC" : "DESC";
-  return db
-    .prepare(`SELECT * FROM events WHERE event_name = ? ORDER BY id ${dir} LIMIT ? OFFSET ?`)
-    .all(eventName, limit, offset) as ArchivedEvent[];
+  const result = await pool.query(
+    `SELECT * FROM events WHERE event_name = $1 ORDER BY id ${dir} LIMIT $2 OFFSET $3`,
+    [eventName, limit, offset],
+  );
+  return result.rows as ArchivedEvent[];
 }
 
-export function getEventsByTribe(
-  db: Database.Database,
+export async function getEventsByTribe(
+  pool: pg.Pool,
   tribeId: string,
   params?: EventQueryParams & { eventName?: EventTypeName },
-): ArchivedEvent[] {
+): Promise<ArchivedEvent[]> {
   const { limit, offset, order } = defaultParams(params);
   const dir = order === "asc" ? "ASC" : "DESC";
   if (params?.eventName) {
-    return db
-      .prepare(
-        `SELECT * FROM events WHERE tribe_id = ? AND event_name = ?
-         ORDER BY id ${dir} LIMIT ? OFFSET ?`,
-      )
-      .all(tribeId, params.eventName, limit, offset) as ArchivedEvent[];
+    const result = await pool.query(
+      `SELECT * FROM events WHERE tribe_id = $1 AND event_name = $2
+       ORDER BY id ${dir} LIMIT $3 OFFSET $4`,
+      [tribeId, params.eventName, limit, offset],
+    );
+    return result.rows as ArchivedEvent[];
   }
-  return db
-    .prepare(`SELECT * FROM events WHERE tribe_id = ? ORDER BY id ${dir} LIMIT ? OFFSET ?`)
-    .all(tribeId, limit, offset) as ArchivedEvent[];
+  const result = await pool.query(
+    `SELECT * FROM events WHERE tribe_id = $1 ORDER BY id ${dir} LIMIT $2 OFFSET $3`,
+    [tribeId, limit, offset],
+  );
+  return result.rows as ArchivedEvent[];
 }
 
-export function getEventsByCharacter(
-  db: Database.Database,
+export async function getEventsByCharacter(
+  pool: pg.Pool,
   characterId: string,
   params?: EventQueryParams,
-): ArchivedEvent[] {
+): Promise<ArchivedEvent[]> {
   const { limit, offset, order } = defaultParams(params);
   const dir = order === "asc" ? "ASC" : "DESC";
-  return db
-    .prepare(
-      `SELECT * FROM events WHERE character_id = ?
-       ORDER BY id ${dir} LIMIT ? OFFSET ?`,
-    )
-    .all(characterId, limit, offset) as ArchivedEvent[];
+  const result = await pool.query(
+    `SELECT * FROM events WHERE character_id = $1
+     ORDER BY id ${dir} LIMIT $2 OFFSET $3`,
+    [characterId, limit, offset],
+  );
+  return result.rows as ArchivedEvent[];
 }
 
-export function getEventsByPrimaryId(
-  db: Database.Database,
+export async function getEventsByPrimaryId(
+  pool: pg.Pool,
   primaryId: string,
   params?: EventQueryParams,
-): ArchivedEvent[] {
+): Promise<ArchivedEvent[]> {
   const { limit, offset, order } = defaultParams(params);
   const dir = order === "asc" ? "ASC" : "DESC";
-  return db
-    .prepare(
-      `SELECT * FROM events WHERE primary_id = ?
-       ORDER BY id ${dir} LIMIT ? OFFSET ?`,
-    )
-    .all(primaryId, limit, offset) as ArchivedEvent[];
+  const result = await pool.query(
+    `SELECT * FROM events WHERE primary_id = $1
+     ORDER BY id ${dir} LIMIT $2 OFFSET $3`,
+    [primaryId, limit, offset],
+  );
+  return result.rows as ArchivedEvent[];
 }
 
-export function getEventById(
-  db: Database.Database,
+export async function getEventById(
+  pool: pg.Pool,
   id: number,
-): ArchivedEvent | undefined {
-  return db.prepare("SELECT * FROM events WHERE id = ?").get(id) as
-    | ArchivedEvent
-    | undefined;
+): Promise<ArchivedEvent | undefined> {
+  const result = await pool.query("SELECT * FROM events WHERE id = $1", [id]);
+  return result.rows[0] as ArchivedEvent | undefined;
 }
 
 // ============================================================
@@ -220,31 +231,31 @@ export interface ReputationSnapshot {
   updated_at: string;
 }
 
-export function getReputation(
-  db: Database.Database,
+export async function getReputation(
+  pool: pg.Pool,
   tribeId: string,
   characterId: string,
-): ReputationSnapshot | undefined {
-  return db
-    .prepare(
-      "SELECT * FROM reputation_snapshots WHERE tribe_id = ? AND character_id = ?",
-    )
-    .get(tribeId, characterId) as ReputationSnapshot | undefined;
+): Promise<ReputationSnapshot | undefined> {
+  const result = await pool.query(
+    "SELECT * FROM reputation_snapshots WHERE tribe_id = $1 AND character_id = $2",
+    [tribeId, characterId],
+  );
+  return result.rows[0] as ReputationSnapshot | undefined;
 }
 
-export function getTribeLeaderboard(
-  db: Database.Database,
+export async function getTribeLeaderboard(
+  pool: pg.Pool,
   tribeId: string,
   limit = 50,
-): ReputationSnapshot[] {
-  return db
-    .prepare(
-      `SELECT * FROM reputation_snapshots
-       WHERE tribe_id = ?
-       ORDER BY score DESC
-       LIMIT ?`,
-    )
-    .all(tribeId, limit) as ReputationSnapshot[];
+): Promise<ReputationSnapshot[]> {
+  const result = await pool.query(
+    `SELECT * FROM reputation_snapshots
+     WHERE tribe_id = $1
+     ORDER BY score DESC
+     LIMIT $2`,
+    [tribeId, limit],
+  );
+  return result.rows as ReputationSnapshot[];
 }
 
 /**
@@ -252,18 +263,18 @@ export function getTribeLeaderboard(
  * tribe×character pair, ordered chronologically. Each event includes
  * checkpoint proof metadata for independent verification.
  */
-export function getReputationAuditTrail(
-  db: Database.Database,
+export async function getReputationAuditTrail(
+  pool: pg.Pool,
   tribeId: string,
   characterId: string,
-): ArchivedEvent[] {
-  return db
-    .prepare(
-      `SELECT * FROM events
-       WHERE tribe_id = ? AND character_id = ? AND event_name = 'ReputationUpdatedEvent'
-       ORDER BY id ASC`,
-    )
-    .all(tribeId, characterId) as ArchivedEvent[];
+): Promise<ArchivedEvent[]> {
+  const result = await pool.query(
+    `SELECT * FROM events
+     WHERE tribe_id = $1 AND character_id = $2 AND event_name = 'ReputationUpdatedEvent'
+     ORDER BY id ASC`,
+    [tribeId, characterId],
+  );
+  return result.rows as ArchivedEvent[];
 }
 
 // ============================================================
@@ -277,22 +288,29 @@ export interface IndexerStats {
   latest_timestamp: string | null;
 }
 
-export function getStats(db: Database.Database): IndexerStats {
-  const total = (
-    db.prepare("SELECT COUNT(*) as count FROM events").get() as { count: number }
-  ).count;
+export async function getStats(pool: pg.Pool): Promise<IndexerStats> {
+  const totalResult = await pool.query("SELECT COUNT(*) as count FROM events");
+  const total = Number(totalResult.rows[0].count);
 
-  const byModule = db
-    .prepare("SELECT module, COUNT(*) as count FROM events GROUP BY module")
-    .all() as { module: string; count: number }[];
+  const byModuleResult = await pool.query(
+    "SELECT module, COUNT(*) as count FROM events GROUP BY module",
+  );
 
-  const latest = db
-    .prepare("SELECT checkpoint_seq, timestamp_ms FROM events ORDER BY id DESC LIMIT 1")
-    .get() as { checkpoint_seq: string; timestamp_ms: string } | undefined;
+  const latestResult = await pool.query(
+    "SELECT checkpoint_seq, timestamp_ms FROM events ORDER BY id DESC LIMIT 1",
+  );
+  const latest = latestResult.rows[0] as
+    | { checkpoint_seq: string; timestamp_ms: string }
+    | undefined;
 
   return {
     total_events: total,
-    events_by_module: Object.fromEntries(byModule.map((r) => [r.module, r.count])),
+    events_by_module: Object.fromEntries(
+      byModuleResult.rows.map((r: { module: string; count: string }) => [
+        r.module,
+        Number(r.count),
+      ]),
+    ),
     latest_checkpoint: latest?.checkpoint_seq ?? null,
     latest_timestamp: latest?.timestamp_ms ?? null,
   };

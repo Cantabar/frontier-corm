@@ -4,19 +4,23 @@
 
 import express from "express";
 import cors from "cors";
-import type Database from "better-sqlite3";
+import type pg from "pg";
 import { createRouter } from "./routes.js";
 
-export function createServer(db: Database.Database, port: number) {
+export function createServer(pool: pg.Pool, port: number) {
   const app = express();
 
   app.use(cors());
   app.use(express.json());
 
   // Mount API routes under /api/v1
-  app.use("/api/v1", createRouter(db));
+  app.use("/api/v1", createRouter(pool));
 
-  // Root health check
+  // Health check (used by ALB and docker-compose)
+  app.get("/health", (_req, res) => {
+    res.json({ status: "ok", timestamp: new Date().toISOString() });
+  });
+
   app.get("/", (_req, res) => {
     res.json({
       service: "frontier-lattice-indexer",

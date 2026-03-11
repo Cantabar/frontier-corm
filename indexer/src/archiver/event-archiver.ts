@@ -18,7 +18,7 @@
  *   - The event was emitted by that transaction
  */
 
-import type Database from "better-sqlite3";
+import type pg from "pg";
 import type { ArchivedEvent, EventTypeName } from "../types.js";
 import { insertEvent, upsertReputation } from "../db/queries.js";
 
@@ -35,18 +35,18 @@ export interface RawEventInput {
 }
 
 export class EventArchiver {
-  private db: Database.Database;
+  private pool: pg.Pool;
   private eventCount = 0;
 
-  constructor(db: Database.Database) {
-    this.db = db;
+  constructor(pool: pg.Pool) {
+    this.pool = pool;
   }
 
   /**
    * Archive a single event. Extracts denormalised fields, inserts into
    * the events table, and updates materialised views.
    */
-  archive(input: RawEventInput): void {
+  async archive(input: RawEventInput): Promise<void> {
     const { primaryId, tribeId, characterId } = extractDenormalisedFields(
       input.eventName,
       input.eventData,
@@ -67,13 +67,13 @@ export class EventArchiver {
       character_id: characterId,
     };
 
-    const eventId = insertEvent(this.db, archived);
+    const eventId = await insertEvent(this.pool, archived);
     this.eventCount++;
 
     // Update materialised views
     if (input.eventName === "ReputationUpdatedEvent" && eventId > 0) {
       const score = Number(input.eventData.new_score ?? 0);
-      upsertReputation(this.db, tribeId, characterId ?? "", score, eventId);
+      await upsertReputation(this.pool, tribeId, characterId ?? "", score, eventId);
     }
 
     if (this.eventCount % 100 === 0) {

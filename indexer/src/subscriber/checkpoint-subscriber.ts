@@ -11,7 +11,7 @@
  */
 
 import { SuiClient, type SuiEvent } from "@mysten/sui/client";
-import type Database from "better-sqlite3";
+import type pg from "pg";
 import type { IndexerConfig, EventTypeName } from "../types.js";
 import { EVENT_TYPES } from "../types.js";
 import { getCursor, updateCursor } from "../db/queries.js";
@@ -26,7 +26,7 @@ export interface CheckpointMetadata {
 export class CheckpointSubscriber {
   private client: SuiClient;
   private config: IndexerConfig;
-  private db: Database.Database;
+  private pool: pg.Pool;
   private archiver: EventArchiver;
   private running = false;
   private timer: ReturnType<typeof setTimeout> | null = null;
@@ -39,11 +39,11 @@ export class CheckpointSubscriber {
 
   constructor(
     config: IndexerConfig,
-    db: Database.Database,
+    pool: pg.Pool,
     archiver: EventArchiver,
   ) {
     this.config = config;
-    this.db = db;
+    this.pool = pool;
     this.archiver = archiver;
     this.client = new SuiClient({ url: config.suiRpcUrl });
 
@@ -138,7 +138,7 @@ export class CheckpointSubscriber {
    * checkpoint data, and pass to the archiver.
    */
   private async pollOnce(): Promise<void> {
-    const cursor = getCursor(this.db);
+    const cursor = await getCursor(this.pool);
 
     // Build the event cursor for Sui RPC
     const suiCursor = cursor.last_tx_digest
@@ -167,8 +167,8 @@ export class CheckpointSubscriber {
         // Update cursor to last event in this batch
         const lastEvent = result.data[result.data.length - 1];
         if (lastEvent?.id) {
-          updateCursor(
-            this.db,
+          await updateCursor(
+            this.pool,
             lastEvent.id.txDigest,
             Number(lastEvent.id.eventSeq),
             lastEvent.timestampMs ?? "0",
@@ -204,7 +204,7 @@ export class CheckpointSubscriber {
       return;
     }
 
-    this.archiver.archive({
+    await this.archiver.archive({
       eventType: event.type,
       eventName,
       module: moduleName,

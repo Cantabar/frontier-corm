@@ -1,5 +1,5 @@
 /**
- * SQLite schema for the Frontier Lattice event indexer.
+ * Postgres schema for the Frontier Lattice event indexer.
  *
  * Tables:
  *   - events: all archived on-chain events with checkpoint proof metadata
@@ -9,58 +9,62 @@
  * Run standalone to create/migrate: `tsx src/db/schema.ts`
  */
 
-import Database from "better-sqlite3";
-import path from "node:path";
-import fs from "node:fs";
+import pg from "pg";
+const { Pool } = pg;
 
-export function initDatabase(dbPath: string): Database.Database {
-  // Ensure the directory exists
-  const dir = path.dirname(dbPath);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
+/**
+ * Initialise a Postgres connection pool and apply the schema.
+ * Retries connection up to 5 times (useful when Postgres is still starting
+ * in docker-compose).
+ */
+export async function initDatabase(databaseUrl: string): Promise<pg.Pool> {
+  const pool = new Pool({ connectionString: databaseUrl });
+
+  for (let attempt = 1; attempt <= 5; attempt++) {
+    try {
+      await pool.query("SELECT 1");
+      break;
+    } catch (err) {
+      if (attempt < 5) {
+        console.log(
+          `[db] Postgres not ready (attempt ${attempt}/5), retrying in 2s...`,
+        );
+        await new Promise((r) => setTimeout(r, 2000));
+      } else {
+        console.error("[db] Could not connect to Postgres after 5 attempts.");
+        throw err;
+      }
+    }
   }
 
-  const db = new Database(dbPath);
-
-  // Performance pragmas for write-heavy indexer workload
-  db.pragma("journal_mode = WAL");
-  db.pragma("synchronous = NORMAL");
-  db.pragma("foreign_keys = ON");
-
-  db.exec(SCHEMA_SQL);
-  return db;
+  await pool.query(SCHEMA_SQL);
+  return pool;
 }
 
 const SCHEMA_SQL = `
-  -- Core event archive table.
-  -- Each row is a single on-chain event with its checkpoint proof metadata.
   CREATE TABLE IF NOT EXISTS events (
-    id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    event_type      TEXT    NOT NULL,  -- fully qualified: package::module::EventName
-    event_name      TEXT    NOT NULL,  -- short name: "JobCompletedEvent"
-    module          TEXT    NOT NULL,  -- "tribe" | "contract_board" | "forge_planner"
+    id              SERIAL PRIMARY KEY,
+    event_type      TEXT    NOT NULL,
+    event_name      TEXT    NOT NULL,
+    module          TEXT    NOT NULL,
 
-    event_data      TEXT    NOT NULL,  -- JSON blob of the event fields
+    event_data      TEXT    NOT NULL,
 
-    -- Checkpoint proof chain: event → tx → checkpoint
     tx_digest           TEXT NOT NULL,
     event_seq           INTEGER NOT NULL,
-    checkpoint_seq      TEXT NOT NULL,  -- u64 as string
+    checkpoint_seq      TEXT NOT NULL,
     checkpoint_digest   TEXT NOT NULL,
-    timestamp_ms        TEXT NOT NULL,  -- checkpoint timestamp (u64 as string)
+    timestamp_ms        TEXT NOT NULL,
 
-    -- Denormalised fields for efficient queries
-    primary_id      TEXT NOT NULL,  -- tribe_id / job_id / order_id / registry_id
+    primary_id      TEXT NOT NULL,
     tribe_id        TEXT NOT NULL,
-    character_id    TEXT,           -- NULL for events without a character actor
+    character_id    TEXT,
 
-    archived_at     TEXT NOT NULL DEFAULT (datetime('now')),
+    archived_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
-    -- Dedup: same tx + event seq should not be archived twice
     UNIQUE(tx_digest, event_seq)
   );
 
-  -- Indexes for the query API
   CREATE INDEX IF NOT EXISTS idx_events_event_name   ON events(event_name);
   CREATE INDEX IF NOT EXISTS idx_events_tribe_id     ON events(tribe_id);
   CREATE INDEX IF NOT EXISTS idx_events_character_id ON events(character_id);
@@ -68,44 +72,42 @@ const SCHEMA_SQL = `
   CREATE INDEX IF NOT EXISTS idx_events_module       ON events(module);
   CREATE INDEX IF NOT EXISTS idx_events_timestamp    ON events(timestamp_ms);
   CREATE INDEX IF NOT EXISTS idx_events_checkpoint   ON events(checkpoint_seq);
+  CREATE INDEX IF NOT EXISTS idx_events_tribe_name   ON events(tribe_id, event_name);
 
-  -- Compound index for tribe-scoped event queries (most common pattern)
-  CREATE INDEX IF NOT EXISTS idx_events_tribe_name ON events(tribe_id, event_name);
-
-  -- Materialised reputation snapshot.
-  -- Updated on every ReputationUpdatedEvent. Enables fast "current rep" lookups
-  -- without scanning the full event history.
   CREATE TABLE IF NOT EXISTS reputation_snapshots (
     tribe_id      TEXT NOT NULL,
     character_id  TEXT NOT NULL,
     score         INTEGER NOT NULL DEFAULT 0,
     last_event_id INTEGER REFERENCES events(id),
-    updated_at    TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (tribe_id, character_id)
   );
 
-  -- Indexer cursor: tracks the last processed event for resumable polling.
-  -- Single row table (id = 1).
   CREATE TABLE IF NOT EXISTS indexer_cursor (
     id              INTEGER PRIMARY KEY CHECK (id = 1),
     last_tx_digest  TEXT,
     last_event_seq  INTEGER,
-    last_checkpoint  TEXT,
-    updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
+    last_checkpoint TEXT,
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
 
-  -- Seed the cursor row if it doesn't exist
-  INSERT OR IGNORE INTO indexer_cursor (id, last_tx_digest, last_event_seq, last_checkpoint)
-  VALUES (1, NULL, NULL, NULL);
+  INSERT INTO indexer_cursor (id, last_tx_digest, last_event_seq, last_checkpoint)
+  VALUES (1, NULL, NULL, NULL)
+  ON CONFLICT (id) DO NOTHING;
 `;
 
 // Allow running standalone for migration
-const isMain = process.argv[1]?.endsWith("schema.ts") ||
-               process.argv[1]?.endsWith("schema.js");
+const isMain =
+  process.argv[1]?.endsWith("schema.ts") ||
+  process.argv[1]?.endsWith("schema.js");
 if (isMain) {
-  const dbPath = process.argv[2] ?? "./data/frontier-lattice.db";
-  console.log(`Migrating database at ${dbPath}...`);
-  const db = initDatabase(dbPath);
-  console.log("Schema applied successfully.");
-  db.close();
+  const databaseUrl =
+    process.argv[2] ??
+    process.env.DATABASE_URL ??
+    "postgresql://lattice:lattice@localhost:5432/frontier_lattice";
+  console.log(`Migrating database at ${databaseUrl}...`);
+  initDatabase(databaseUrl).then((pool) => {
+    console.log("Schema applied successfully.");
+    pool.end();
+  });
 }
