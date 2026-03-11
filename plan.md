@@ -1,4 +1,4 @@
-# Frontier Forge — A Toolkit for Civilization
+# Frontier Lattice — A Toolkit for Civilization
 
 ## EVE Frontier × Sui Hackathon 2026
 
@@ -10,7 +10,7 @@
 
 ## Thesis
 
-Civilization requires **division of labor**, and division of labor requires **trust infrastructure**. Frontier Forge provides that trust layer on Sui — a connected suite of tools that let players organize, coordinate work, plan manufacturing, and build reputation, all composable on-chain.
+Civilization requires **division of labor**, and division of labor requires **trust infrastructure**. Frontier Lattice provides that trust layer on Sui
 
 ---
 
@@ -19,17 +19,17 @@ Civilization requires **division of labor**, and division of labor requires **tr
 ```mermaid
 graph TD
     subgraph "On-Chain (Sui Move)"
-        ORG[Organization Registry]
-        JB[Contract Board + Escrow]
+        ORG[Tribe Registry<br/>+ Per-Tribe Reputation]
+        JB[Contract Board + Escrow<br/>Active Jobs Only]
         FP[Recipe Registry + Manufacturing Orders]
-        REP[Reputation Ledger]
         ZK[zkProof Verifier]
     end
 
     subgraph "Off-Chain"
-        AUTH[Auth Middleware<br/>Wallet Signature → Session]
+        AUTH[Auth Middleware<br/>Wallet Signature -> Session]
         OPT[Forge Optimizer<br/>Resource Gap Analysis]
         PRIV[Encrypted Storage<br/>Confidential Contract Details]
+        IDX[Event Indexer<br/>Checkpoint Summaries + Hash Paths]
     end
 
     subgraph "EVE Frontier World Contracts"
@@ -42,11 +42,12 @@ graph TD
     end
 
     ORG -->|membership checks| JB
+    ORG -->|per-tribe rep gates| JB
     JB -->|auto-generate delivery jobs| FP
-    JB -->|update scores| REP
-    REP -->|min rep requirements| JB
+    JB -->|emit JobCompletedEvent| IDX
+    JB -->|update tribe rep on completion| ORG
     ORG -->|shared treasury| JB
-    ORG -->|org-wide goals| FP
+    ORG -->|tribe-wide goals| FP
 
     JB -->|escrow EVE tokens| EVE
     JB -->|verify delivery| SSU
@@ -56,12 +57,15 @@ graph TD
 
     FP -->|read inventory| SSU
     FP -->|resource reservation| SSU
+    FP -->|emit ManufacturingCompleteEvent| IDX
 
-    AUTH -->|verify wallet → Character| CHAR
+    AUTH -->|verify wallet -> Character| CHAR
     AUTH -->|read on-chain roles| ORG
     OPT -->|read inventory state| SSU
     PRIV -->|commitment hashes| JB
     ZK -->|Groth16 verify| JB
+
+    IDX -->|archive events + checkpoint proofs| IDX
 
     AC -->|OwnerCap pattern| ORG
     AC -->|OwnerCap pattern| JB
@@ -71,21 +75,24 @@ graph TD
 
 ## Modules
 
-### Phase 1 — Foundation (Days 1–4): Organization Registry
+### Phase 1 — Foundation (Days 1–4): Tribe Registry
 
 **On-chain Move package.**
 
 The auth primitive everything else depends on.
 
-- `Organization` shared object
+- `Tribe` shared object
   - name, leader (Character ID)
   - membership `Table<ID, Role>`
   - Roles: `Leader`, `Officer`, `Member`
-- `OrgCap` — capability issued to members, scoped to org functions
-- Org-level shared treasury (holds EVE tokens via `assets/EVE.move`)
+  - `reputation: Table<ID, ReputationScore>` — per-tribe reputation for each Character
+    - A player's standing is specific to each tribe they interact with
+    - High rep in one tribe says nothing about standing in another
+- `TribeCap` — capability issued to members, scoped to tribe functions
+- Tribe-level shared treasury (holds EVE tokens via `assets/EVE.move`)
 - On-chain voting for treasury spend (configurable threshold)
 
-**Sui showcase:** Object model — each org is a first-class object with its own membership table, treasury, and governance. Composes naturally with the world contracts `OwnerCap` pattern.
+**Sui showcase:** Object model — each tribe is a first-class object with its own membership table, treasury, reputation, and governance. Per-tribe reputation avoids a global shared-object bottleneck. Composes naturally with the world contracts `OwnerCap` pattern.
 
 **Key files in world-contracts:**
 - `contracts/world/sources/access/access_control.move` — OwnerCap, AdminACL patterns
@@ -100,15 +107,17 @@ The auth primitive everything else depends on.
 
 #### On-Chain
 
-- `JobPosting` shared object
+- `JobPosting` shared object — **only active jobs exist on-chain**
   - `poster_id` (Character ID)
   - `reward_type_id`, `reward_quantity`
   - `escrow` (EVE tokens locked on creation)
   - `completion_type` enum
   - `assignee` (optional Character ID)
   - `deadline` (timestamp)
-  - `status` enum: `Open`, `Assigned`, `Completed`, `Disputed`, `Expired`
+  - `status` enum: `Open`, `Assigned`, `Disputed`
 - `JobEscrow` — wraps EVE tokens or items, released on verified completion
+- **On completion/expiry:** job emits `JobCompletedEvent` or `JobExpiredEvent`, updates poster tribe's reputation table for the assignee, releases escrow, then **deletes the JobPosting object** (reclaims storage rebate)
+- Completed/expired job history lives exclusively in events, not on-chain objects
 
 #### Completion Verification Types
 
@@ -130,7 +139,7 @@ Leveraging existing world contract events/objects:
   — without revealing the target publicly
 - **Sui native:** `sui::groth16::verify_groth16_proof`
 
-**Sui showcase:** Escrow via object ownership, event-driven verification, native zkProof verification, composability with world contract Killmail/Inventory/Gate events.
+**Sui showcase:** Escrow via object ownership, event-driven verification, native zkProof verification, on-chain object lifecycle (create → use → delete with storage rebate), composability with world contract Killmail/Inventory/Gate events.
 
 **Key files in world-contracts:**
 - `contracts/world/sources/killmail/killmail.move` — KillmailCreatedEvent, victim_id, killer_id
@@ -150,14 +159,16 @@ Leveraging existing world contract events/objects:
 
 - `RecipeRegistry` shared object
   - `Table<u64, Recipe>` mapping output `type_id` → input requirements `vector<{type_id, quantity}>`
-  - Admin-managed (org leaders can propose recipes)
-- `ManufacturingOrder` shared object
+  - Admin-managed (tribe leaders can propose recipes)
+- `ManufacturingOrder` shared object — **only active orders exist on-chain**
   - Target item (`type_id`, `quantity`)
   - Required inputs (from recipe resolution)
   - Allocated resources / status
-  - Linked org ID
+  - Linked tribe ID
 - Resource reservation via StorageUnit extension pattern
   - Withdraw → hold in order escrow → deposit on completion or return on cancellation
+- **On completion/cancellation:** emits `ManufacturingCompleteEvent` or `ManufacturingCancelledEvent`, then **deletes the order object**
+- Order history lives exclusively in events
 
 #### Off-Chain Optimizer
 
@@ -175,25 +186,52 @@ Leveraging existing world contract events/objects:
 
 ---
 
-### Phase 4 — Reputation & Polish (Days 17–20)
+### Phase 4 — Event Indexer + Verifiable History (Days 17–18)
 
-#### Reputation Ledger (On-Chain)
+**Off-chain TypeScript service.**
 
-- `ReputationRegistry` shared object
-  - `Table<ID, ReputationScore>` keyed by Character ID
-- Auto-updated on job completion:
-  - Successful completion → +rep
-  - Abandonment/expiry → -rep
-- Queryable on-chain by any module or external tool
-- Optional: Organization-level aggregate reputation
+All completed contracts, reputation changes, and manufacturing orders are recorded as on-chain events. The indexer captures these and archives them with cryptographic proofs for long-term verifiability.
 
-#### Cross-Module Integration Polish
+#### Indexer Service
 
-- Org → Job Board: only org members can post from org treasury
+- Subscribes to Sui checkpoints via RPC / WebSocket
+- Listens for Frontier Lattice events:
+  - `JobCompletedEvent`, `JobExpiredEvent`, `JobDisputedEvent`
+  - `ReputationUpdatedEvent` (emitted when tribe rep table changes)
+  - `ManufacturingCompleteEvent`, `ManufacturingCancelledEvent`
+  - `TribeMemberJoinedEvent`, `TribeMemberRemovedEvent`, `TreasurySpendEvent`
+- For each event, archives:
+  - The full event data
+  - The **checkpoint summary** (digest, sequence number, epoch, validator signatures)
+  - The **hash path** from event → transaction effects → checkpoint content digest (inclusion proof)
+- Stores in Postgres (or SQLite for hackathon scope)
+- Exposes a query API for the web app (event history, reputation audit trails)
+
+#### Dispute Resolution
+
+- If a tribe's on-chain reputation for a player is challenged, the indexer can produce the full event trail with checkpoint inclusion proofs
+- Any third party with knowledge of the validator set for that epoch can independently verify the proofs
+- Events are the authoritative source of truth; on-chain reputation scores are a materialized cache
+
+**Sui showcase:** Demonstrates the event-sourcing pattern — on-chain objects as live state, events as provable history. Checkpoint inclusion proofs provide trust without requiring archival nodes.
+
+---
+
+### Phase 5 — Integration Polish (Days 19–20)
+
+#### Cross-Module Integration
+
+- Tribe → Job Board: only tribe members can post from tribe treasury
 - Job Board → Forge Planner: missing resources auto-generate delivery contracts
-- Job Board → Reputation: completed jobs update scores
-- Reputation → Job Board: high-value contracts require minimum rep
-- Org → Forge Planner: org-wide manufacturing goals using shared inventory
+- Job Board → Tribe Reputation: completed jobs update the posting tribe's rep table for the assignee
+- Tribe Reputation → Job Board: high-value contracts require minimum rep within that tribe
+- Tribe → Forge Planner: tribe-wide manufacturing goals using shared inventory
+
+#### Object Lifecycle Cleanup
+
+- Completed/expired jobs and manufacturing orders are deleted after emitting events (storage rebate)
+- Only active, in-progress objects remain on-chain at any time
+- Indexer provides historical query capability for the web app
 
 ---
 
@@ -226,6 +264,15 @@ sequenceDiagram
 
 ---
 
+## Design Principles
+
+- **Objects as live state, events as history.** On-chain objects represent only pending/active state. Completed work is recorded in events and deleted from on-chain storage (reclaiming rebates).
+- **Per-tribe reputation, not global.** Each tribe maintains its own reputation table. A player's standing is contextual to each tribe relationship.
+- **Verifiable off-chain history.** The event indexer archives events with checkpoint inclusion proofs, providing cryptographic verifiability without requiring archival nodes.
+- **Minimize shared object contention.** Favor owned objects and per-entity sharding over global registries to preserve Sui's parallel execution advantage.
+
+---
+
 ## Technical Stack
 
 | Layer | Technology |
@@ -233,8 +280,9 @@ sequenceDiagram
 | Smart Contracts | Sui Move |
 | zkProofs | Groth16 via `sui::groth16` |
 | Off-chain Auth | Wallet signature verification → session tokens |
+| Event Indexer | TypeScript + Postgres (archives events with checkpoint proofs) |
 | External Tools | TypeScript/React web app |
-| Data Layer | Sui RPC for on-chain reads, encrypted off-chain storage |
+| Data Layer | Sui RPC for on-chain reads, indexer for historical queries, encrypted off-chain storage |
 | World Integration | EVE Frontier World Contracts (typed witness extension pattern) |
 
 ---
@@ -246,7 +294,7 @@ sequenceDiagram
 | **Utility** | Manufacturing planner + job board directly change how players coordinate and survive |
 | **Technical Implementation** | Heavy Sui usage: Move packages, escrow, zkProofs, composable extensions |
 | **Creative** | Connected "G-Suite" concept with privacy layer is novel for Frontier |
-| **Live Frontier Integration** | Org system + job board deployable to Stillness for real player testing |
+| **Live Frontier Integration** | Tribe system + job board deployable to Stillness for real player testing |
 
 ---
 
@@ -267,7 +315,7 @@ hackathon/
 ├── plan.md                          # This file
 ├── world-contracts/                 # Reference: EVE Frontier world contracts (cloned)
 ├── contracts/                       # Our Sui Move packages
-│   ├── organization/                # Phase 1: Org registry + treasury + voting
+│   ├── tribe/                # Phase 1: Tribe registry + treasury + voting
 │   │   ├── Move.toml
 │   │   ├── sources/
 │   │   └── tests/
@@ -279,10 +327,14 @@ hackathon/
 │   │   ├── Move.toml
 │   │   ├── sources/
 │   │   └── tests/
-│   └── reputation/                  # Phase 4: Reputation ledger
-│       ├── Move.toml
-│       ├── sources/
-│       └── tests/
+├── indexer/                         # Phase 4: Event indexer + verifiable history
+│   ├── src/
+│   │   ├── subscriber/              # Checkpoint subscription + event filtering
+│   │   ├── archiver/                # Store events + checkpoint summaries + inclusion proofs
+│   │   ├── api/                     # Query API for historical events + reputation audit
+│   │   └── db/                      # Postgres/SQLite schema + migrations
+│   ├── package.json
+│   └── tsconfig.json
 ├── app/                             # Off-chain web application
 │   ├── src/
 │   │   ├── auth/                    # Wallet signature auth middleware
