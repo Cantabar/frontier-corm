@@ -1,0 +1,203 @@
+import { useState } from "react";
+import styled from "styled-components";
+import { useOptimizer, type ResolvedNode, type GapAnalysis } from "../../hooks/useOptimizer";
+import type { RecipeData } from "../../lib/types";
+
+const Panel = styled.section`
+  background: ${({ theme }) => theme.colors.surface.raised};
+  border: 1px solid ${({ theme }) => theme.colors.surface.border};
+  border-radius: ${({ theme }) => theme.radii.md};
+  padding: ${({ theme }) => theme.spacing.lg};
+`;
+
+const SectionTitle = styled.h3`
+  font-size: 14px;
+  font-weight: 600;
+  color: ${({ theme }) => theme.colors.text.primary};
+  margin-bottom: ${({ theme }) => theme.spacing.md};
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+`;
+
+const Row = styled.div`
+  display: flex;
+  gap: ${({ theme }) => theme.spacing.sm};
+  align-items: center;
+  margin-bottom: ${({ theme }) => theme.spacing.md};
+`;
+
+const Input = styled.input`
+  flex: 1;
+  background: ${({ theme }) => theme.colors.surface.bg};
+  border: 1px solid ${({ theme }) => theme.colors.surface.border};
+  border-radius: ${({ theme }) => theme.radii.sm};
+  padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.md};
+  color: ${({ theme }) => theme.colors.text.primary};
+  font-size: 14px;
+
+  &:focus {
+    outline: none;
+    border-color: ${({ theme }) => theme.colors.primary.main};
+  }
+`;
+
+const Button = styled.button`
+  background: ${({ theme }) => theme.colors.primary.main};
+  color: #fff;
+  border: none;
+  border-radius: ${({ theme }) => theme.radii.sm};
+  padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.md};
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+
+  &:hover {
+    background: ${({ theme }) => theme.colors.primary.hover};
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+`;
+
+const Divider = styled.hr`
+  border: none;
+  border-top: 1px solid ${({ theme }) => theme.colors.surface.border};
+  margin: ${({ theme }) => theme.spacing.md} 0;
+`;
+
+const TreeNode = styled.div<{ $depth: number }>`
+  padding-left: ${({ $depth }) => $depth * 16}px;
+  font-size: 13px;
+  color: ${({ theme }) => theme.colors.text.secondary};
+  line-height: 1.6;
+`;
+
+const CraftBadge = styled.span`
+  font-size: 11px;
+  font-weight: 600;
+  color: ${({ theme }) => theme.colors.module.forgePlanner};
+`;
+
+const RawBadge = styled.span`
+  font-size: 11px;
+  font-weight: 600;
+  color: ${({ theme }) => theme.colors.text.muted};
+`;
+
+const GapRow = styled.div`
+  display: flex;
+  justify-content: space-between;
+  padding: ${({ theme }) => theme.spacing.xs} 0;
+  font-size: 13px;
+  color: ${({ theme }) => theme.colors.text.secondary};
+  border-bottom: 1px solid ${({ theme }) => theme.colors.surface.border};
+`;
+
+const Missing = styled.span`
+  font-weight: 600;
+  color: ${({ theme }) => theme.colors.danger};
+`;
+
+const Summary = styled.div`
+  font-size: 13px;
+  color: ${({ theme }) => theme.colors.text.muted};
+  margin-top: ${({ theme }) => theme.spacing.sm};
+`;
+
+function renderTree(node: ResolvedNode, depth = 0): JSX.Element[] {
+  const badge = node.isCraftable ? (
+    <CraftBadge> ({node.runs}× {node.quantityPerRun}/run)</CraftBadge>
+  ) : (
+    <RawBadge> [RAW]</RawBadge>
+  );
+
+  const elements = [
+    <TreeNode key={`${node.typeId}-${depth}`} $depth={depth}>
+      Type {node.typeId} ×{node.quantityNeeded}{badge}
+    </TreeNode>,
+  ];
+
+  for (const child of node.children) {
+    elements.push(...renderTree(child, depth + 1));
+  }
+
+  return elements;
+}
+
+function renderGaps(gaps: GapAnalysis) {
+  return (
+    <>
+      {gaps.shoppingList.map((item) => (
+        <GapRow key={item.typeId}>
+          <span>Type {item.typeId}</span>
+          <span>
+            {item.onHand}/{item.required} — <Missing>{item.missing} missing</Missing>
+          </span>
+        </GapRow>
+      ))}
+      <Summary>
+        {gaps.totalOnHand}/{gaps.totalRequired} on hand · {gaps.totalMissing} missing
+      </Summary>
+    </>
+  );
+}
+
+export function OptimizerPanel({ recipes }: { recipes: RecipeData[] }) {
+  const { result, optimize, clear } = useOptimizer(recipes);
+  const [targetType, setTargetType] = useState("");
+  const [quantity, setQuantity] = useState("1");
+
+  function handleOptimize() {
+    const typeId = Number(targetType);
+    if (!typeId) return;
+    optimize(typeId, Number(quantity));
+  }
+
+  return (
+    <Panel>
+      <SectionTitle>Optimizer</SectionTitle>
+
+      <Row>
+        <Input
+          type="number"
+          placeholder="Target Type ID"
+          value={targetType}
+          onChange={(e) => setTargetType(e.target.value)}
+        />
+        <Input
+          type="number"
+          placeholder="Qty"
+          value={quantity}
+          onChange={(e) => setQuantity(e.target.value)}
+          style={{ flex: "0 0 80px" }}
+        />
+        <Button onClick={handleOptimize} disabled={!targetType}>
+          Resolve
+        </Button>
+        {result && (
+          <Button onClick={clear} style={{ background: "#2D2B2B" }}>
+            Clear
+          </Button>
+        )}
+      </Row>
+
+      {result && (
+        <>
+          <Divider />
+          <SectionTitle>Dependency Tree</SectionTitle>
+          {renderTree(result.tree)}
+
+          <Divider />
+          <SectionTitle>Gap Analysis</SectionTitle>
+          {result.gaps.shoppingList.length === 0 ? (
+            <Summary>All materials satisfied!</Summary>
+          ) : (
+            renderGaps(result.gaps)
+          )}
+        </>
+      )}
+    </Panel>
+  );
+}
