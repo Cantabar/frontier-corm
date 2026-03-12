@@ -62,7 +62,12 @@ procs:
       POLL_INTERVAL_MS: "2000"
     stop: "SIGTERM"
 
-  # ── Giveitem Helper (Vite dev UI) ───────────────────────────────
+  # ── Web UI (Vite dev on :5173, proxies /api → indexer) ─────────────
+  web:
+    shell: "npm --prefix web run dev"
+    stop: "SIGINT"
+
+  # ── Giveitem Helper (Vite dev UI) ───────────────────────────────────────
   giveitem-helper:
     shell: |
       trap 'kill 0' EXIT
