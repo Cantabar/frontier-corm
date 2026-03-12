@@ -1,0 +1,71 @@
+import type { ReactNode } from "react";
+import styled from "styled-components";
+
+const Overlay = styled.div`
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+`;
+
+const Panel = styled.div`
+  background: ${({ theme }) => theme.colors.surface.overlay};
+  border: 1px solid ${({ theme }) => theme.colors.surface.border};
+  border-radius: ${({ theme }) => theme.radii.lg};
+  padding: ${({ theme }) => theme.spacing.lg};
+  min-width: 400px;
+  max-width: 560px;
+  max-height: 80vh;
+  overflow-y: auto;
+`;
+
+const ModalHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: ${({ theme }) => theme.spacing.md};
+`;
+
+const ModalTitle = styled.h2`
+  font-size: 18px;
+  font-weight: 600;
+  color: ${({ theme }) => theme.colors.text.primary};
+`;
+
+const CloseButton = styled.button`
+  background: none;
+  border: none;
+  color: ${({ theme }) => theme.colors.text.muted};
+  font-size: 20px;
+  line-height: 1;
+  padding: ${({ theme }) => theme.spacing.xs};
+
+  &:hover {
+    color: ${({ theme }) => theme.colors.text.primary};
+  }
+`;
+
+export function Modal({
+  title,
+  onClose,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <Overlay onClick={onClose}>
+      <Panel onClick={(e) => e.stopPropagation()}>
+        <ModalHeader>
+          <ModalTitle>{title}</ModalTitle>
+          <CloseButton onClick={onClose}>&times;</CloseButton>
+        </ModalHeader>
+        {children}
+      </Panel>
+    </Overlay>
+  );
+}
