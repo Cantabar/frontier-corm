@@ -1,5 +1,7 @@
 import { NavLink } from "react-router-dom";
 import styled from "styled-components";
+import { useActiveTribe } from "../../hooks/useActiveTribe";
+import { useTribe } from "../../hooks/useTribe";
 
 const Nav = styled.nav`
   width: 200px;
@@ -47,11 +49,23 @@ const SectionLabel = styled.div`
 `;
 
 export function Sidebar() {
+  const { activeTribeId } = useActiveTribe();
+  const { tribe } = useTribe(activeTribeId ?? undefined);
+
   return (
     <Nav>
       <StyledLink to="/" end>
         Dashboard
       </StyledLink>
+      <SectionLabel>Tribe</SectionLabel>
+      {activeTribeId ? (
+        <StyledLink to={`/tribe/${activeTribeId}`}>
+          {tribe?.name ?? "Loading…"}
+        </StyledLink>
+      ) : (
+        <StyledLink to="/tribes">Select a Tribe</StyledLink>
+      )}
+      <StyledLink to="/tribes">Manage Tribes</StyledLink>
       <SectionLabel>Modules</SectionLabel>
       <StyledLink to="/jobs">Contract Board</StyledLink>
       <StyledLink to="/forge">Forge Planner</StyledLink>

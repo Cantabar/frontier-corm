@@ -1,5 +1,6 @@
 import styled from "styled-components";
 import { ConnectButton } from "@mysten/dapp-kit";
+import { TribeSelector } from "../tribe/TribeSelector";
 
 const HeaderBar = styled.header`
   display: flex;
@@ -44,6 +45,7 @@ export function Header() {
         </Logo>
       </Brand>
       <Controls>
+        <TribeSelector />
         <ConnectButton />
       </Controls>
     </HeaderBar>

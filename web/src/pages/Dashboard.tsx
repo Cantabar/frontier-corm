@@ -3,6 +3,7 @@ import { useCurrentAccount } from "@mysten/dapp-kit";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { useIdentity } from "../hooks/useIdentity";
+import { useActiveTribe } from "../hooks/useActiveTribe";
 import { useTribe } from "../hooks/useTribe";
 import { getStats, getEvents } from "../lib/indexer";
 import { truncateAddress, timeAgo, formatAmount } from "../lib/format";
@@ -117,8 +118,8 @@ const Meta = styled.span`
 export function Dashboard() {
   const account = useCurrentAccount();
   const { tribeCaps, characterId } = useIdentity();
-  const tribeId = tribeCaps[0]?.tribeId;
-  const { tribe } = useTribe(tribeId);
+  const { activeTribeId } = useActiveTribe();
+  const { tribe } = useTribe(activeTribeId ?? undefined);
 
   const { data: stats } = useQuery({
     queryKey: ["stats"],
@@ -176,7 +177,8 @@ export function Dashboard() {
 
       <SectionLabel>Quick Actions</SectionLabel>
       <QuickActions>
-        {tribeId && <ActionLink to={`/tribe/${tribeId}`}>→ Tribe</ActionLink>}
+        {activeTribeId && <ActionLink to={`/tribe/${activeTribeId}`}>→ Tribe</ActionLink>}
+        <ActionLink to="/tribes">→ Manage Tribes</ActionLink>
         <ActionLink to="/contracts">→ Contract Board</ActionLink>
         <ActionLink to="/forge">→ Forge Planner</ActionLink>
         <ActionLink to="/events">→ Events</ActionLink>
