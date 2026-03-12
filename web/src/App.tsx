@@ -1,6 +1,7 @@
 import { Routes, Route } from "react-router-dom";
 import styled from "styled-components";
 
+import { IdentityContext, useIdentityResolver } from "./hooks/useIdentity";
 import { Header } from "./components/layout/Header";
 import { Sidebar } from "./components/layout/Sidebar";
 import { Dashboard } from "./pages/Dashboard";
@@ -28,21 +29,25 @@ const Content = styled.main`
 `;
 
 export default function App() {
+  const identity = useIdentityResolver();
+
   return (
-    <Shell>
-      <Header />
-      <Main>
-        <Sidebar />
-        <Content>
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/tribe/:tribeId" element={<TribePage />} />
-            <Route path="/jobs" element={<ContractBoard />} />
-            <Route path="/forge" element={<ForgePlanner />} />
-            <Route path="/events" element={<EventExplorer />} />
-          </Routes>
-        </Content>
-      </Main>
-    </Shell>
+    <IdentityContext.Provider value={identity}>
+      <Shell>
+        <Header />
+        <Main>
+          <Sidebar />
+          <Content>
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/tribe/:tribeId" element={<TribePage />} />
+              <Route path="/jobs" element={<ContractBoard />} />
+              <Route path="/forge" element={<ForgePlanner />} />
+              <Route path="/events" element={<EventExplorer />} />
+            </Routes>
+          </Content>
+        </Main>
+      </Shell>
+    </IdentityContext.Provider>
   );
 }
