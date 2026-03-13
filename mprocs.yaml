@@ -48,7 +48,10 @@ procs:
         sleep 2
       done
       echo "Waiting for contracts to be published..."
-      until grep -q '^PACKAGE_TRIBE=0x' .env 2>/dev/null; do
+      until grep -q '^PACKAGE_TRIBE=0x' .env 2>/dev/null \
+        && grep -q '^PACKAGE_CONTRACT_BOARD=0x' .env 2>/dev/null \
+        && grep -q '^PACKAGE_FORGE_PLANNER=0x' .env 2>/dev/null \
+        && grep -q '^PACKAGE_TRUSTLESS_CONTRACTS=0x' .env 2>/dev/null; do
         sleep 2
       done
       echo "Loading package IDs from .env"

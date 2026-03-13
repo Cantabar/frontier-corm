@@ -10,8 +10,8 @@ ENV_FILE="$PROJECT_ROOT/.env"
 PUB_FILE="$PROJECT_ROOT/Pub.local.toml"
 GAS_BUDGET=2000000000  # 2 SUI — publishing with deps needs more than 0.5
 
-PACKAGES=("tribe" "contract_board" "forge_planner")
-ENV_VARS=("PACKAGE_TRIBE" "PACKAGE_CONTRACT_BOARD" "PACKAGE_FORGE_PLANNER")
+PACKAGES=("tribe" "contract_board" "forge_planner" "trustless_contracts")
+ENV_VARS=("PACKAGE_TRIBE" "PACKAGE_CONTRACT_BOARD" "PACKAGE_FORGE_PLANNER" "PACKAGE_TRUSTLESS_CONTRACTS")
 
 write_env_var() {
   local var="$1" val="$2" file="$3"
