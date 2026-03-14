@@ -106,8 +106,18 @@ export function CreateTribeModal({ onClose }: Props) {
   const [threshold, setThreshold] = useState("50");
   const [error, setError] = useState<string | null>(null);
 
+  const misconfigured =
+    config.tribeRegistryId === "0x0" || config.packages.tribe === "0x0";
+
   async function handleCreate() {
     if (!characterId || !name) return;
+    if (misconfigured) {
+      const msg =
+        "Tribe contracts are not configured. Publish the Move packages and set VITE_TRIBE_PACKAGE_ID / VITE_TRIBE_REGISTRY_ID in your .env file.";
+      setError(msg);
+      push({ level: "error", title: "Create Tribe Failed", message: msg, source: "CreateTribeModal" });
+      return;
+    }
     setError(null);
     const tx = buildCreateTribe({
       registryId: config.tribeRegistryId,
@@ -178,8 +188,8 @@ export function CreateTribeModal({ onClose }: Props) {
         </div>
       )}
 
-      <Button onClick={handleCreate} disabled={!name || !characterId || !hasTribe || isPending}>
-        {isPending ? "Creating…" : "Create Tribe"}
+      <Button onClick={handleCreate} disabled={!name || !characterId || !hasTribe || isPending || misconfigured}>
+        {isPending ? "Creating…" : misconfigured ? "Tribe contracts not configured" : "Create Tribe"}
       </Button>
     </Modal>
   );
