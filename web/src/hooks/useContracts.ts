@@ -82,7 +82,8 @@ function parseContractType(raw: Record<string, unknown>): TrustlessContractType 
 
 function parseStatus(raw: unknown): TrustlessContractStatus {
   if (typeof raw === "object" && raw !== null) {
-    if ("InProgress" in raw) return "InProgress";
+    const variant = (raw as Record<string, unknown>).variant as string | undefined;
+    if (variant === "InProgress" || "InProgress" in raw) return "InProgress";
   }
   if (raw === "InProgress") return "InProgress";
   return "Open";
