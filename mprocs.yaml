@@ -22,17 +22,6 @@ procs:
       docker compose up postgres
     stop: "SIGTERM"
 
-  # ── DB migration (one-shot, waits for postgres) ──────────────────
-  db-migrate:
-    shell: |
-      echo "Waiting for postgres..."
-      until docker exec frontier-lattice-postgres-1 pg_isready -U lattice -d frontier_lattice -q 2>/dev/null; do
-        sleep 1
-      done
-      echo "Postgres ready — running migration"
-      npm --prefix indexer run migrate
-    autostart: true
-
   # ── World contracts (deploy + configure + seed — one-shot) ─────────
   world-contracts:
     shell: "bash scripts/deploy-world-contracts.sh"
