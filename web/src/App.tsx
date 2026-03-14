@@ -7,6 +7,7 @@ import { useNotifications } from "./hooks/useNotifications";
 import { onIndexerError } from "./lib/indexer";
 import { Header } from "./components/layout/Header";
 import { Sidebar } from "./components/layout/Sidebar";
+import { AutoJoinBanner } from "./components/tribe/AutoJoinBanner";
 import { Dashboard } from "./pages/Dashboard";
 import { TribePage } from "./pages/TribePage";
 import { ContractBoard } from "./pages/ContractBoard";
@@ -57,6 +58,7 @@ export default function App() {
     <IdentityContext.Provider value={identity}>
       <Shell>
         <Header />
+        <AutoJoinBanner />
         <Main>
           <Sidebar />
           <Content>

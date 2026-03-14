@@ -46,6 +46,25 @@ export function buildCreateTribe(params: {
   return tx;
 }
 
+export function buildSelfJoinTribe(params: {
+  tribeId: string;
+  characterId: string;
+  sender: string;
+  coinType?: string;
+}): Transaction {
+  const tx = new Transaction();
+  const [memberCap] = tx.moveCall({
+    target: `${packages.tribe}::tribe::self_join`,
+    typeArguments: [ct(params.coinType)],
+    arguments: [
+      tx.object(params.tribeId),
+      tx.object(params.characterId),
+    ],
+  });
+  tx.transferObjects([memberCap], tx.pure.address(params.sender));
+  return tx;
+}
+
 export function buildAddMember(params: {
   tribeId: string;
   capId: string;
