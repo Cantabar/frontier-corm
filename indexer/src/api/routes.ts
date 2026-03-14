@@ -52,12 +52,12 @@ export function createRouter(pool: pg.Pool): Router {
         return;
       }
       const events = await getEventsByType(pool, eventName as EventTypeName, params);
-      res.json({ events, ...params });
+      res.json({ events: hydrateEvents(events), ...params });
       return;
     }
 
     const events = await getEvents(pool, params);
-    res.json({ events, ...params });
+    res.json({ events: hydrateEvents(events), ...params });
   });
 
   /**
@@ -78,7 +78,7 @@ export function createRouter(pool: pg.Pool): Router {
       ...params,
       eventName: eventName as EventTypeName | undefined,
     });
-    res.json({ events, tribe_id: tribeId, ...params });
+    res.json({ events: hydrateEvents(events), tribe_id: tribeId, ...params });
   });
 
   /**
@@ -89,7 +89,7 @@ export function createRouter(pool: pg.Pool): Router {
     const characterId = req.params.characterId as string;
     const params = parsePagination(req);
     const events = await getEventsByCharacter(pool, characterId, params);
-    res.json({ events, character_id: characterId, ...params });
+    res.json({ events: hydrateEvents(events), character_id: characterId, ...params });
   });
 
   /**
@@ -100,7 +100,7 @@ export function createRouter(pool: pg.Pool): Router {
     const objectId = req.params.objectId as string;
     const params = parsePagination(req);
     const events = await getEventsByPrimaryId(pool, objectId, params);
-    res.json({ events, object_id: objectId, ...params });
+    res.json({ events: hydrateEvents(events), object_id: objectId, ...params });
   });
 
   // ---- Reputation ----
@@ -117,7 +117,7 @@ export function createRouter(pool: pg.Pool): Router {
 
     res.json({
       snapshot: snapshot ?? null,
-      audit_trail: auditTrail,
+      audit_trail: hydrateEvents(auditTrail),
       tribe_id: tribeId,
       character_id: characterId,
     });
@@ -153,7 +153,7 @@ export function createRouter(pool: pg.Pool): Router {
     const jobEvents = events.filter((e) =>
       jobEventTypes.includes(e.event_name as EventTypeName),
     );
-    res.json({ events: jobEvents, tribe_id: tribeId, ...params });
+    res.json({ events: hydrateEvents(jobEvents), tribe_id: tribeId, ...params });
   });
 
   // ---- Manufacturing (convenience: filtered Forge Planner events) ----
@@ -174,7 +174,7 @@ export function createRouter(pool: pg.Pool): Router {
     const mfgEvents = events.filter((e) =>
       mfgEventTypes.includes(e.event_name as EventTypeName),
     );
-    res.json({ events: mfgEvents, tribe_id: tribeId, ...params });
+    res.json({ events: hydrateEvents(mfgEvents), tribe_id: tribeId, ...params });
   });
 
   // ---- Proof Verification ----
@@ -247,4 +247,21 @@ function parsePagination(req: Request) {
 
 function isValidEventType(name: string): boolean {
   return (EVENT_TYPES as readonly string[]).includes(name);
+}
+
+/**
+ * Parse the event_data TEXT column from a JSON string into an object.
+ * The DB stores event_data as TEXT; the web frontend expects an object.
+ */
+function hydrateEventData<T extends { event_data: string }>(event: T): T & { event_data: Record<string, unknown> } {
+  return {
+    ...event,
+    event_data: typeof event.event_data === "string"
+      ? JSON.parse(event.event_data)
+      : event.event_data,
+  };
+}
+
+function hydrateEvents<T extends { event_data: string }>(events: T[]) {
+  return events.map(hydrateEventData);
 }
