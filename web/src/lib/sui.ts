@@ -369,3 +369,280 @@ export function buildCancelOrder(params: {
   });
   return tx;
 }
+
+// ============================================================
+// Trustless Contracts
+// ============================================================
+
+const { fillCoinType } = config;
+const tcPkg = () => packages.trustlessContracts;
+const tcTarget = (fn: string) => `${tcPkg()}::trustless_contracts::${fn}`;
+const tcTypes = () => [coinType, fillCoinType];
+
+// --- Creation ---
+
+export function buildCreateCoinForCoin(params: {
+  characterId: string;
+  escrowAmount: number;
+  wantedAmount: number;
+  allowPartial: boolean;
+  deadlineMs: number;
+  allowedCharacters: string[];
+  allowedTribes: number[];
+}): Transaction {
+  const tx = new Transaction();
+  const [escrow] = tx.splitCoins(tx.gas, [params.escrowAmount]);
+  tx.moveCall({
+    target: tcTarget("create_coin_for_coin"),
+    typeArguments: tcTypes(),
+    arguments: [
+      tx.object(params.characterId),
+      escrow,
+      tx.pure.u64(params.wantedAmount),
+      tx.pure.bool(params.allowPartial),
+      tx.pure.u64(params.deadlineMs),
+      tx.pure("vector<address>", params.allowedCharacters),
+      tx.pure("vector<u32>", params.allowedTribes),
+      tx.object(SUI_CLOCK),
+    ],
+  });
+  return tx;
+}
+
+export function buildCreateCoinForItem(params: {
+  characterId: string;
+  escrowAmount: number;
+  wantedTypeId: number;
+  wantedQuantity: number;
+  destinationSsuId: string;
+  allowPartial: boolean;
+  deadlineMs: number;
+  allowedCharacters: string[];
+  allowedTribes: number[];
+}): Transaction {
+  const tx = new Transaction();
+  const [escrow] = tx.splitCoins(tx.gas, [params.escrowAmount]);
+  tx.moveCall({
+    target: tcTarget("create_coin_for_item"),
+    typeArguments: tcTypes(),
+    arguments: [
+      tx.object(params.characterId),
+      escrow,
+      tx.pure.u64(params.wantedTypeId),
+      tx.pure.u32(params.wantedQuantity),
+      tx.pure.id(params.destinationSsuId),
+      tx.pure.bool(params.allowPartial),
+      tx.pure.u64(params.deadlineMs),
+      tx.pure("vector<address>", params.allowedCharacters),
+      tx.pure("vector<u32>", params.allowedTribes),
+      tx.object(SUI_CLOCK),
+    ],
+  });
+  return tx;
+}
+
+export function buildCreateItemForCoin(params: {
+  characterId: string;
+  sourceSsuId: string;
+  itemId: string;
+  wantedAmount: number;
+  allowPartial: boolean;
+  deadlineMs: number;
+  allowedCharacters: string[];
+  allowedTribes: number[];
+}): Transaction {
+  const tx = new Transaction();
+  tx.moveCall({
+    target: tcTarget("create_item_for_coin"),
+    typeArguments: tcTypes(),
+    arguments: [
+      tx.object(params.characterId),
+      tx.object(params.sourceSsuId),
+      tx.object(params.itemId),
+      tx.pure.u64(params.wantedAmount),
+      tx.pure.bool(params.allowPartial),
+      tx.pure.u64(params.deadlineMs),
+      tx.pure("vector<address>", params.allowedCharacters),
+      tx.pure("vector<u32>", params.allowedTribes),
+      tx.object(SUI_CLOCK),
+    ],
+  });
+  return tx;
+}
+
+export function buildCreateTransport(params: {
+  characterId: string;
+  escrowAmount: number;
+  itemTypeId: number;
+  itemQuantity: number;
+  destinationSsuId: string;
+  requiredStake: number;
+  deadlineMs: number;
+  allowedCharacters: string[];
+  allowedTribes: number[];
+}): Transaction {
+  const tx = new Transaction();
+  const [escrow] = tx.splitCoins(tx.gas, [params.escrowAmount]);
+  tx.moveCall({
+    target: tcTarget("create_transport"),
+    typeArguments: tcTypes(),
+    arguments: [
+      tx.object(params.characterId),
+      escrow,
+      tx.pure.u64(params.itemTypeId),
+      tx.pure.u32(params.itemQuantity),
+      tx.pure.id(params.destinationSsuId),
+      tx.pure.u64(params.requiredStake),
+      tx.pure.u64(params.deadlineMs),
+      tx.pure("vector<address>", params.allowedCharacters),
+      tx.pure("vector<u32>", params.allowedTribes),
+      tx.object(SUI_CLOCK),
+    ],
+  });
+  return tx;
+}
+
+// --- Filling ---
+
+export function buildFillWithCoins(params: {
+  contractId: string;
+  fillAmount: number;
+  characterId: string;
+}): Transaction {
+  const tx = new Transaction();
+  const [fill] = tx.splitCoins(tx.gas, [params.fillAmount]);
+  tx.moveCall({
+    target: tcTarget("fill_with_coins"),
+    typeArguments: tcTypes(),
+    arguments: [
+      tx.object(params.contractId),
+      fill,
+      tx.object(params.characterId),
+      tx.object(SUI_CLOCK),
+    ],
+  });
+  return tx;
+}
+
+export function buildFillWithItems(params: {
+  contractId: string;
+  destinationSsuId: string;
+  posterCharacterId: string;
+  fillerCharacterId: string;
+  itemId: string;
+}): Transaction {
+  const tx = new Transaction();
+  tx.moveCall({
+    target: tcTarget("fill_with_items"),
+    typeArguments: tcTypes(),
+    arguments: [
+      tx.object(params.contractId),
+      tx.object(params.destinationSsuId),
+      tx.object(params.posterCharacterId),
+      tx.object(params.fillerCharacterId),
+      tx.object(params.itemId),
+      tx.object(SUI_CLOCK),
+    ],
+  });
+  return tx;
+}
+
+export function buildFillItemForCoin(params: {
+  contractId: string;
+  sourceSsuId: string;
+  characterId: string;
+  fillAmount: number;
+}): Transaction {
+  const tx = new Transaction();
+  const [fill] = tx.splitCoins(tx.gas, [params.fillAmount]);
+  tx.moveCall({
+    target: tcTarget("fill_item_for_coin"),
+    typeArguments: tcTypes(),
+    arguments: [
+      tx.object(params.contractId),
+      tx.object(params.sourceSsuId),
+      tx.object(params.characterId),
+      fill,
+      tx.object(SUI_CLOCK),
+    ],
+  });
+  return tx;
+}
+
+// --- Transport ---
+
+export function buildAcceptTransport(params: {
+  contractId: string;
+  stakeAmount: number;
+  characterId: string;
+}): Transaction {
+  const tx = new Transaction();
+  const [stake] = tx.splitCoins(tx.gas, [params.stakeAmount]);
+  tx.moveCall({
+    target: tcTarget("accept_transport"),
+    typeArguments: tcTypes(),
+    arguments: [
+      tx.object(params.contractId),
+      stake,
+      tx.object(params.characterId),
+      tx.object(SUI_CLOCK),
+    ],
+  });
+  return tx;
+}
+
+export function buildDeliverTransport(params: {
+  contractId: string;
+  destinationSsuId: string;
+  courierCharacterId: string;
+  posterCharacterId: string;
+  itemId: string;
+}): Transaction {
+  const tx = new Transaction();
+  tx.moveCall({
+    target: tcTarget("deliver_transport"),
+    typeArguments: tcTypes(),
+    arguments: [
+      tx.object(params.contractId),
+      tx.object(params.destinationSsuId),
+      tx.object(params.courierCharacterId),
+      tx.object(params.posterCharacterId),
+      tx.object(params.itemId),
+      tx.object(SUI_CLOCK),
+    ],
+  });
+  return tx;
+}
+
+// --- Lifecycle ---
+
+export function buildCancelTrustlessContract(params: {
+  contractId: string;
+  characterId: string;
+}): Transaction {
+  const tx = new Transaction();
+  tx.moveCall({
+    target: tcTarget("cancel_contract"),
+    typeArguments: tcTypes(),
+    arguments: [
+      tx.object(params.contractId),
+      tx.object(params.characterId),
+    ],
+  });
+  return tx;
+}
+
+export function buildExpireTrustlessContract(params: {
+  contractId: string;
+}): Transaction {
+  const tx = new Transaction();
+  tx.moveCall({
+    target: tcTarget("expire_contract"),
+    typeArguments: tcTypes(),
+    arguments: [
+      tx.object(params.contractId),
+      tx.object(SUI_CLOCK),
+    ],
+  });
+  return tx;
+}
