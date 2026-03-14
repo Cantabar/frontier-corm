@@ -8,11 +8,27 @@
 </head>
 <body>
   <div id="app">
-    <h1>Give Item Helper</h1>
-    <p class="subtitle">Click an item to copy <code>/giveitem &lt;id&gt; 100</code> to clipboard</p>
-    <input type="text" id="search" placeholder="Search items..." autocomplete="off" />
+    <header class="app-header">
+      <h1>Give Item Helper</h1>
+      <p class="subtitle">Click an item to copy <code>/giveitem &lt;id&gt; 100</code> to clipboard</p>
+    </header>
+    <div class="layout">
+      <nav id="sidebar" class="sidebar"></nav>
+      <div class="main-content">
+        <div class="toolbar">
+          <input type="text" id="search" placeholder="Search items..." autocomplete="off" />
+          <select id="sort">
+            <option value="name-asc">Name A–Z</option>
+            <option value="name-desc">Name Z–A</option>
+            <option value="tier-asc">Tier ↑</option>
+            <option value="tier-desc">Tier ↓</option>
+          </select>
+        </div>
+        <div id="filters" class="filter-bar"></div>
+        <div id="grid" class="grid"></div>
+      </div>
+    </div>
     <div id="toast" class="toast hidden"></div>
-    <div id="grid" class="grid"></div>
   </div>
   <script type="module" src="/main.js"></script>
 </body>

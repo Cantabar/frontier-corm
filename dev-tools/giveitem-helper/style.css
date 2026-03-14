@@ -12,9 +12,17 @@ body {
 }
 
 #app {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 2rem 1rem;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* ── Header ──────────────────────────────────────────────────── */
+
+.app-header {
+  padding: 1rem 1.5rem 0.75rem;
+  border-bottom: 1px solid #1e2d3d;
+  flex-shrink: 0;
 }
 
 h1 {
@@ -27,7 +35,7 @@ h1 {
 .subtitle {
   text-align: center;
   color: #888;
-  margin-bottom: 1.5rem;
+  margin-bottom: 0;
   font-size: 0.9rem;
 }
 
@@ -38,17 +46,120 @@ h1 {
   color: #4fc3f7;
 }
 
-#search {
+/* ── Layout ──────────────────────────────────────────────────── */
+
+.layout {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ── Sidebar ─────────────────────────────────────────────────── */
+
+.sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  background: #111927;
+  border-right: 1px solid #1e2d3d;
+  overflow-y: auto;
+  padding: 0.5rem 0;
+}
+
+.sidebar-item {
   display: block;
   width: 100%;
+  text-align: left;
+  padding: 0.4rem 0.75rem;
+  border: none;
+  background: none;
+  color: #b0bec5;
+  font-size: 0.8rem;
+  cursor: pointer;
+  border-left: 3px solid transparent;
+  transition: all 0.1s;
+}
+
+.sidebar-item:hover {
+  color: #e0e0e0;
+  background: #1c2330;
+}
+
+.sidebar-item.active {
+  color: #4fc3f7;
+  border-left-color: #4fc3f7;
+  background: #1c2330;
+}
+
+.sidebar-all {
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.sidebar-category {
+  font-weight: 600;
+  color: #ccc;
+  margin-top: 0.25rem;
+}
+
+.sidebar-arrow {
+  display: inline-block;
+  font-size: 0.65rem;
+  transition: transform 0.15s;
+}
+
+.sidebar-section.expanded .sidebar-arrow {
+  transform: rotate(90deg);
+}
+
+.sidebar-count {
+  float: right;
+  font-size: 0.7rem;
+  color: #666;
+  font-weight: 400;
+}
+
+.sidebar-groups {
+  display: none;
+}
+
+.sidebar-section.expanded .sidebar-groups {
+  display: block;
+}
+
+.sidebar-group {
+  padding-left: 1.5rem;
+  font-weight: 400;
+  font-size: 0.75rem;
+}
+
+/* ── Main content ────────────────────────────────────────────── */
+
+.main-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* ── Toolbar (search + sort) ─────────────────────────────────── */
+
+.toolbar {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+#search {
+  flex: 1;
   max-width: 400px;
-  margin: 0 auto 1.5rem;
-  padding: 0.6rem 1rem;
+  padding: 0.5rem 0.75rem;
   border: 1px solid #2a3a4a;
   border-radius: 6px;
-  background: #111927;
+  background: #0f1318;
   color: #e0e0e0;
-  font-size: 1rem;
+  font-size: 0.9rem;
   outline: none;
   transition: border-color 0.2s;
 }
@@ -57,9 +168,67 @@ h1 {
   border-color: #4fc3f7;
 }
 
+#sort {
+  padding: 0.5rem 0.6rem;
+  border: 1px solid #2a3a4a;
+  border-radius: 6px;
+  background: #0f1318;
+  color: #e0e0e0;
+  font-size: 0.8rem;
+  cursor: pointer;
+  outline: none;
+}
+
+/* ── Filter chips ────────────────────────────────────────────── */
+
+.filter-bar {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.chip-family {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.chip-label {
+  font-size: 0.7rem;
+  color: #78909c;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.chip {
+  padding: 0.2rem 0.55rem;
+  border: 1px solid #2a3a4a;
+  border-radius: 12px;
+  background: transparent;
+  color: #b0bec5;
+  font-size: 0.7rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.chip:hover {
+  border-color: #4fc3f7;
+  color: #e0e0e0;
+}
+
+.chip.active {
+  background: #4fc3f7;
+  color: #0a0e17;
+  border-color: #4fc3f7;
+  font-weight: 600;
+}
+
+/* ── Grid ────────────────────────────────────────────────────── */
+
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
   gap: 0.75rem;
 }
 
@@ -69,6 +238,7 @@ h1 {
   align-items: center;
   background: #111927;
   border: 1px solid #1e2d3d;
+  border-left: 3px solid #1e2d3d;
   border-radius: 8px;
   padding: 0.75rem;
   cursor: pointer;
@@ -78,7 +248,9 @@ h1 {
 
 .item-card:hover {
   transform: translateY(-2px);
-  border-color: #4fc3f7;
+  border-right-color: #4fc3f7;
+  border-top-color: #4fc3f7;
+  border-bottom-color: #4fc3f7;
   box-shadow: 0 4px 12px rgba(79, 195, 247, 0.15);
 }
 
@@ -102,11 +274,20 @@ h1 {
   word-break: break-word;
 }
 
+.item-card .group-name {
+  font-size: 0.6rem;
+  color: #78909c;
+  text-align: center;
+  margin-top: 0.15rem;
+}
+
 .item-card .type-id {
   font-size: 0.65rem;
   color: #666;
   margin-top: 0.25rem;
 }
+
+/* ── Toast ────────────────────────────────────────────────────── */
 
 .toast {
   position: fixed;
