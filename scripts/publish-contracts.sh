@@ -12,6 +12,7 @@ GAS_BUDGET=2000000000  # 2 SUI — publishing with deps needs more than 0.5
 
 PACKAGES=("tribe" "contract_board" "forge_planner" "trustless_contracts")
 ENV_VARS=("PACKAGE_TRIBE" "PACKAGE_CONTRACT_BOARD" "PACKAGE_FORGE_PLANNER" "PACKAGE_TRUSTLESS_CONTRACTS")
+VITE_VARS=("VITE_TRIBE_PACKAGE_ID" "VITE_CONTRACT_BOARD_PACKAGE_ID" "VITE_FORGE_PLANNER_PACKAGE_ID" "VITE_TRUSTLESS_CONTRACTS_PACKAGE_ID")
 
 write_env_var() {
   local var="$1" val="$2" file="$3"
@@ -75,8 +76,10 @@ for i in "${!PACKAGES[@]}"; do
 
   # test-publish records the package ID in Pub.local.toml — read it from there
   PACKAGE_ID=$(grep -A1 "$pkg_path" "$PUB_FILE" | grep 'published-at' | sed 's/.*"\(0x[^"]*\)".*/\1/')
+  vite_var="${VITE_VARS[$i]}"
   echo "  $var=$PACKAGE_ID"
   write_env_var "$var" "$PACKAGE_ID" "$ENV_FILE"
+  write_env_var "$vite_var" "$PACKAGE_ID" "$ENV_FILE"
 done
 
 echo ""
