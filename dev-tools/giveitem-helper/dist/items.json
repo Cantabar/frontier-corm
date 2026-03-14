@@ -140,9 +140,29 @@
     "icon": "icons/type-78516.png"
   },
   {
+    "typeId": 81609,
+    "name": "USV",
+    "icon": "icons/type-81609.png"
+  },
+  {
+    "typeId": 81611,
+    "name": "Chumaq",
+    "icon": "icons/type-81611.png"
+  },
+  {
     "typeId": 81658,
     "name": "EM Disintegrator Charge (S)",
     "icon": "icons/type-81658.png"
+  },
+  {
+    "typeId": 81808,
+    "name": "TADES",
+    "icon": "icons/type-81808.png"
+  },
+  {
+    "typeId": 81904,
+    "name": "MCF",
+    "icon": "icons/type-81904.png"
   },
   {
     "typeId": 82085,
@@ -203,6 +223,26 @@
     "typeId": 82413,
     "name": "Kinetic Nanite Sequencer",
     "icon": "icons/type-82413.png"
+  },
+  {
+    "typeId": 82424,
+    "name": "HAF",
+    "icon": "icons/type-82424.png"
+  },
+  {
+    "typeId": 82425,
+    "name": "LAI",
+    "icon": "icons/type-82425.png"
+  },
+  {
+    "typeId": 82426,
+    "name": "LORHA",
+    "icon": "icons/type-82426.png"
+  },
+  {
+    "typeId": 82430,
+    "name": "MAUL",
+    "icon": "icons/type-82430.png"
   },
   {
     "typeId": 82667,
@@ -345,9 +385,34 @@
     "icon": "icons/type-84868.png"
   },
   {
+    "typeId": 85156,
+    "name": "Forager",
+    "icon": "icons/type-85156.png"
+  },
+  {
     "typeId": 87599,
     "name": "Cryogenic Ejector S",
     "icon": "icons/type-87599.png"
+  },
+  {
+    "typeId": 87698,
+    "name": "Wend",
+    "icon": "icons/type-87698.png"
+  },
+  {
+    "typeId": 87846,
+    "name": "Recurve",
+    "icon": "icons/type-87846.png"
+  },
+  {
+    "typeId": 87847,
+    "name": "Reflex",
+    "icon": "icons/type-87847.png"
+  },
+  {
+    "typeId": 87848,
+    "name": "Reiver",
+    "icon": "icons/type-87848.png"
   },
   {
     "typeId": 88234,
@@ -473,6 +538,16 @@
     "typeId": 89989,
     "name": "Stack Slice 31F",
     "icon": "icons/type-89989.png"
+  },
+  {
+    "typeId": 91106,
+    "name": "Stride",
+    "icon": "icons/type-91106.png"
+  },
+  {
+    "typeId": 91107,
+    "name": "Carom",
+    "icon": "icons/type-91107.png"
   },
   {
     "typeId": 91749,
