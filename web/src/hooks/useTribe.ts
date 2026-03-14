@@ -21,6 +21,7 @@ export function useTribe(tribeId: string | undefined) {
     return {
       id: data!.data!.objectId,
       name: fields.name as string,
+      inGameTribeId: Number(fields.in_game_tribe_id ?? 0),
       leaderCharacterId: fields.leader_character_id as string,
       memberCount: Number(fields.member_count),
       treasuryBalance: String(

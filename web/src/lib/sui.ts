@@ -17,6 +17,7 @@ const SUI_CLOCK = "0x6";
 // ============================================================
 
 export function buildCreateTribe(params: {
+  registryId: string;
   characterId: string;
   name: string;
   voteThreshold: number;
@@ -26,6 +27,7 @@ export function buildCreateTribe(params: {
     target: `${packages.tribe}::tribe::create_tribe`,
     typeArguments: [coinType],
     arguments: [
+      tx.object(params.registryId),
       tx.object(params.characterId),
       tx.pure.string(params.name),
       tx.pure.u64(params.voteThreshold),

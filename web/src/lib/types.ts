@@ -19,6 +19,7 @@ export interface TribeMember {
 export interface TribeData {
   id: string;
   name: string;
+  inGameTribeId: number;
   leaderCharacterId: string;
   memberCount: number;
   treasuryBalance: string; // u64 as string
@@ -152,6 +153,7 @@ export interface TrustlessContractData {
 
 export type EventTypeName =
   // Tribe
+  | "TribeRegistryCreatedEvent"
   | "TribeCreatedEvent"
   | "MemberJoinedEvent"
   | "MemberRemovedEvent"
