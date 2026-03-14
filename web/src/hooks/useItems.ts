@@ -4,6 +4,13 @@ export interface ItemEntry {
   typeId: number;
   name: string;
   icon: string;
+  categoryId: number | null;
+  categoryName: string | null;
+  groupId: number | null;
+  groupName: string | null;
+  metaGroupId: number | null;
+  metaGroupName: string | null;
+  tags: string[];
 }
 
 let cache: ItemEntry[] | null = null;

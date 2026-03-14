@@ -41,6 +41,15 @@ export const theme = {
       forgePlanner: "#69F0AE",
       trustlessContracts: "#FFD740",
     },
+    /** Item tier / meta-group badge colors */
+    tier: {
+      basic: "#666666",
+      standard: "#b0b0b0",
+      enhanced: "#4caf50",
+      prototype: "#42a5f5",
+      experimental: "#ab47bc",
+      exotic: "#ffd740",
+    },
   },
   fonts: {
     body: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
