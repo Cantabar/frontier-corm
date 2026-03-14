@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useCallback, useEffect } from "react";
 import styled from "styled-components";
 import { useSignAndExecuteTransaction } from "@mysten/dapp-kit";
 import { Modal } from "../shared/Modal";
 import { useIdentity } from "../../hooks/useIdentity";
+import { useMyStructures } from "../../hooks/useStructures";
 import type { TrustlessContractVariant } from "../../lib/types";
 import {
   buildCreateCoinForCoin,
@@ -13,6 +14,7 @@ import {
 } from "../../lib/sui";
 import { ItemPickerField } from "../shared/ItemPickerField";
 import { SsuPickerField } from "../shared/SsuPickerField";
+import { SsuItemPickerField } from "../shared/SsuItemPickerField";
 
 const Label = styled.label`
   display: block;
@@ -140,6 +142,12 @@ interface Props {
 export function CreateContractModal({ onClose, onCreated }: Props) {
   const { characterId } = useIdentity();
   const { mutateAsync: signAndExecute, isPending } = useSignAndExecuteTransaction();
+  const { structures } = useMyStructures();
+
+  const getOwnerCapId = useCallback(
+    (ssuId: string) => structures.find((s) => s.id === ssuId)?.ownerCapId ?? "",
+    [structures],
+  );
 
   // Contract type selection
   const [variant, setVariant] = useState<TrustlessContractVariant>("CoinForCoin");
@@ -177,6 +185,10 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
   // UI state
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
+
+  // Reset item selections when the associated SSU changes
+  useEffect(() => { setItemId(""); }, [sourceSsuId]);
+  useEffect(() => { setTransportItemTypeId(""); setTransportItemQuantity(""); }, [destinationSsuId]);
 
   function parseIdList(s: string): string[] {
     return s.split(",").map((x) => x.trim()).filter(Boolean);
@@ -338,8 +350,13 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
           <Label>Source SSU</Label>
           <SsuPickerField value={sourceSsuId} onChange={setSourceSsuId} />
           {submitted && !sourceSsuId && <FieldError>Required</FieldError>}
-          <Label>Item Object ID</Label>
-          <Input placeholder="0x..." value={itemId} onChange={(e) => setItemId(e.target.value)} />
+          <Label>Item</Label>
+          <SsuItemPickerField
+            ssuId={sourceSsuId}
+            ownerCapId={getOwnerCapId(sourceSsuId)}
+            value={itemId}
+            onChange={(entry) => setItemId(String(entry.typeId))}
+          />
           {submitted && !itemId && <FieldError>Required</FieldError>}
           <Label>Wanted Amount (SUI)</Label>
           <Input type="number" placeholder="0.0" value={itemWantedAmount} onChange={(e) => setItemWantedAmount(e.target.value)} />
@@ -352,8 +369,13 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
           <Label>Source SSU</Label>
           <SsuPickerField value={sourceSsuId} onChange={setSourceSsuId} />
           {submitted && !sourceSsuId && <FieldError>Required</FieldError>}
-          <Label>Offered Item Object ID</Label>
-          <Input placeholder="0x..." value={itemId} onChange={(e) => setItemId(e.target.value)} />
+          <Label>Offered Item</Label>
+          <SsuItemPickerField
+            ssuId={sourceSsuId}
+            ownerCapId={getOwnerCapId(sourceSsuId)}
+            value={itemId}
+            onChange={(entry) => setItemId(String(entry.typeId))}
+          />
           {submitted && !itemId && <FieldError>Required</FieldError>}
           <Separator />
           <Hint>What you want in return:</Hint>
@@ -376,18 +398,26 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
 
       {variant === "Transport" && (
         <>
+          <Label>Destination SSU</Label>
+          <SsuPickerField value={destinationSsuId} onChange={setDestinationSsuId} />
           <Row>
             <div>
-              <Label>Item Type ID</Label>
-              <ItemPickerField value={transportItemTypeId} onChange={setTransportItemTypeId} />
+              <Label>Item</Label>
+              <SsuItemPickerField
+                ssuId={destinationSsuId}
+                ownerCapId={getOwnerCapId(destinationSsuId)}
+                value={transportItemTypeId}
+                onChange={(entry) => {
+                  setTransportItemTypeId(String(entry.typeId));
+                  setTransportItemQuantity(String(entry.quantity));
+                }}
+              />
             </div>
             <div>
               <Label>Item Quantity</Label>
               <Input type="number" value={transportItemQuantity} onChange={(e) => setTransportItemQuantity(e.target.value)} />
             </div>
           </Row>
-          <Label>Destination SSU</Label>
-          <SsuPickerField value={destinationSsuId} onChange={setDestinationSsuId} />
           <Label>Required Stake (SUI)</Label>
           <Input type="number" placeholder="0.0" value={requiredStake} onChange={(e) => setRequiredStake(e.target.value)} />
         </>
