@@ -1,8 +1,9 @@
 import styled from "styled-components";
 import { useLeaderboard } from "../../hooks/useReputation";
-import { truncateAddress } from "../../lib/format";
 import { LoadingSpinner } from "../shared/LoadingSpinner";
 import { EmptyState } from "../shared/EmptyState";
+import { useCharacterProfiles } from "../../hooks/useCharacterProfile";
+import { ResolvedCharacterDisplay } from "../shared/CharacterDisplay";
 
 const List = styled.ol`
   list-style: none;
@@ -43,6 +44,9 @@ const Score = styled.span`
 
 export function ReputationLeaderboard({ tribeId }: { tribeId: string }) {
   const { data, isLoading } = useLeaderboard(tribeId);
+  const { profiles } = useCharacterProfiles(
+    data?.leaderboard?.map((e) => e.character_id) ?? [],
+  );
 
   if (isLoading) return <LoadingSpinner />;
   if (!data?.leaderboard?.length) {
@@ -54,7 +58,12 @@ export function ReputationLeaderboard({ tribeId }: { tribeId: string }) {
       {data.leaderboard.map((entry, i) => (
         <Entry key={entry.character_id}>
           <Rank>{i + 1}</Rank>
-          <Character>{truncateAddress(entry.character_id)}</Character>
+          <Character>
+            <ResolvedCharacterDisplay
+              characterId={entry.character_id}
+              profile={profiles.get(entry.character_id) ?? null}
+            />
+          </Character>
           <Score>{entry.score}</Score>
         </Entry>
       ))}

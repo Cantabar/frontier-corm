@@ -1,7 +1,8 @@
 import styled from "styled-components";
 import type { JobPostingData } from "../../lib/types";
-import { truncateAddress, formatAmount, formatDeadline } from "../../lib/format";
+import { formatAmount, formatDeadline } from "../../lib/format";
 import { StatusBadge } from "../shared/StatusBadge";
+import { CharacterDisplay } from "../shared/CharacterDisplay";
 
 const Card = styled.div`
   background: ${({ theme }) => theme.colors.surface.raised};
@@ -74,7 +75,7 @@ export function JobCard({ job, onClick }: Props) {
       <Description>{job.description}</Description>
       <Meta>
         <Reward>{formatAmount(job.rewardAmount)} SUI</Reward>
-        <span>Poster: {truncateAddress(job.posterId)}</span>
+        <span>Poster: <CharacterDisplay characterId={job.posterId} showPortrait={false} /></span>
         <span>{formatDeadline(job.deadlineMs)}</span>
         {job.minReputation > 0 && <span>Min rep: {job.minReputation}</span>}
       </Meta>

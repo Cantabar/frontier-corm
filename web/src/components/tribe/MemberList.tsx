@@ -1,7 +1,8 @@
 import styled from "styled-components";
 import type { TribeMember, TribeCapData } from "../../lib/types";
-import { truncateAddress } from "../../lib/format";
 import { RemoveMemberButton } from "./RemoveMemberButton";
+import { useCharacterProfiles } from "../../hooks/useCharacterProfile";
+import { ResolvedCharacterDisplay } from "../shared/CharacterDisplay";
 
 const Table = styled.table`
   width: 100%;
@@ -80,6 +81,7 @@ interface Props {
 export function MemberList({ members, tribeId, leaderCharacterId, cap, onUpdateReputation }: Props) {
   const isLeader = cap?.role === "Leader";
   const isLeaderOrOfficer = cap && (cap.role === "Leader" || cap.role === "Officer");
+  const { profiles } = useCharacterProfiles(members.map((m) => m.characterId));
 
   return (
     <Table>
@@ -95,7 +97,10 @@ export function MemberList({ members, tribeId, leaderCharacterId, cap, onUpdateR
         {members.map((m) => (
           <tr key={m.characterId}>
             <Td>
-              <code>{truncateAddress(m.characterId)}</code>
+              <ResolvedCharacterDisplay
+                characterId={m.characterId}
+                profile={profiles.get(m.characterId) ?? null}
+              />
             </Td>
             <Td>
               <RoleBadge $role={m.role}>{m.role}</RoleBadge>

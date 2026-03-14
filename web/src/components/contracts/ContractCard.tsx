@@ -1,7 +1,8 @@
 import styled from "styled-components";
 import type { TrustlessContractData } from "../../lib/types";
-import { truncateAddress, formatAmount, formatDeadline } from "../../lib/format";
+import { formatAmount, formatDeadline } from "../../lib/format";
 import { StatusBadge } from "../shared/StatusBadge";
+import { CharacterDisplay } from "../shared/CharacterDisplay";
 
 const Card = styled.div`
   background: ${({ theme }) => theme.colors.surface.raised};
@@ -135,7 +136,7 @@ export function ContractCard({ contract, onClick }: Props) {
         {contract.escrowAmount !== "0" && (
           <Amount>{formatAmount(contract.escrowAmount)} SUI escrow</Amount>
         )}
-        <span>Poster: {truncateAddress(contract.posterId)}</span>
+        <span>Poster: <CharacterDisplay characterId={contract.posterId} showPortrait={false} /></span>
         <span>{formatDeadline(contract.deadlineMs)}</span>
         {contract.allowPartial && <span>Partial OK</span>}
       </Meta>

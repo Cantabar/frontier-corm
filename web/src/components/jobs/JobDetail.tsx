@@ -1,7 +1,8 @@
 import styled from "styled-components";
 import { useSignAndExecuteTransaction } from "@mysten/dapp-kit";
 import type { JobPostingData, TribeCapData } from "../../lib/types";
-import { truncateAddress, formatAmount, formatDeadline } from "../../lib/format";
+import { formatAmount, formatDeadline } from "../../lib/format";
+import { CharacterDisplay } from "../shared/CharacterDisplay";
 import { StatusBadge } from "../shared/StatusBadge";
 import { useIdentity } from "../../hooks/useIdentity";
 import { buildAcceptJob, buildConfirmCompletion, buildCancelJob, buildExpireJob } from "../../lib/sui";
@@ -156,11 +157,11 @@ export function JobDetail({ job, cap }: Props) {
         </div>
         <div>
           <Label>Poster</Label>
-          <Value>{truncateAddress(job.posterId)}</Value>
+          <Value><CharacterDisplay characterId={job.posterId} /></Value>
         </div>
         <div>
           <Label>Assignee</Label>
-          <Value>{job.assigneeId ? truncateAddress(job.assigneeId) : "—"}</Value>
+          <Value>{job.assigneeId ? <CharacterDisplay characterId={job.assigneeId} /> : "—"}</Value>
         </div>
         <div>
           <Label>Completion</Label>

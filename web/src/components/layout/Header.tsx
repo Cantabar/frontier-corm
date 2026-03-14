@@ -1,5 +1,7 @@
 import styled from "styled-components";
 import { ConnectButton } from "@mysten/dapp-kit";
+import { useIdentity } from "../../hooks/useIdentity";
+import { truncateAddress, generateAvatarColor } from "../../lib/format";
 
 const HeaderBar = styled.header`
   display: flex;
@@ -35,7 +37,41 @@ const Controls = styled.div`
   gap: ${({ theme }) => theme.spacing.md};
 `;
 
+const CharacterBadge = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.sm};
+  font-size: 13px;
+  color: ${({ theme }) => theme.colors.text.secondary};
+`;
+
+const PortraitImg = styled.img`
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+`;
+
+const PortraitPlaceholder = styled.span<{ $color: string }>`
+  display: inline-block;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: ${({ $color }) => $color};
+`;
+
+const CharacterName = styled.span`
+  font-weight: 600;
+  color: ${({ theme }) => theme.colors.text.primary};
+`;
+
 export function Header() {
+  const { address, characterId, characterName, characterPortraitUrl } = useIdentity();
+
+  const showCharacter = !!address && !!characterId;
+  const displayName = characterName || (characterId ? truncateAddress(characterId) : null);
+  const avatarColor = characterId ? generateAvatarColor(characterId) : "transparent";
+
   return (
     <HeaderBar>
       <Brand>
@@ -44,6 +80,16 @@ export function Header() {
         </Logo>
       </Brand>
       <Controls>
+        {showCharacter && (
+          <CharacterBadge title={characterId ?? undefined}>
+            {characterPortraitUrl ? (
+              <PortraitImg src={characterPortraitUrl} alt={displayName ?? ""} />
+            ) : (
+              <PortraitPlaceholder $color={avatarColor} />
+            )}
+            <CharacterName>{displayName}</CharacterName>
+          </CharacterBadge>
+        )}
         <ConnectButton />
       </Controls>
     </HeaderBar>

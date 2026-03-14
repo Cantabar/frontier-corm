@@ -4,6 +4,7 @@ import { truncateAddress, timeAgo } from "../../lib/format";
 import { StatusBadge } from "../shared/StatusBadge";
 import { EmptyState } from "../shared/EmptyState";
 import { LoadingSpinner } from "../shared/LoadingSpinner";
+import { CharacterDisplay } from "../shared/CharacterDisplay";
 
 const Table = styled.div`
   display: flex;
@@ -68,7 +69,7 @@ export function ContractHistory() {
           <Cell>
             <StatusBadge status={eventStatusVariant(ev.event_name)} />
           </Cell>
-          <Cell>{ev.character_id ? truncateAddress(ev.character_id) : "—"}</Cell>
+          <Cell>{ev.character_id ? <CharacterDisplay characterId={ev.character_id} showPortrait={false} /> : "—"}</Cell>
           <Cell>{timeAgo(ev.timestamp_ms)}</Cell>
         </Row>
       ))}

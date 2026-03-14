@@ -3,6 +3,7 @@ import styled from "styled-components";
 import { useSignAndExecuteTransaction } from "@mysten/dapp-kit";
 import type { TrustlessContractData } from "../../lib/types";
 import { truncateAddress, formatAmount, formatDeadline } from "../../lib/format";
+import { CharacterDisplay } from "../shared/CharacterDisplay";
 import { StatusBadge } from "../shared/StatusBadge";
 import { useIdentity } from "../../hooks/useIdentity";
 import { useContractObject } from "../../hooks/useContracts";
@@ -256,7 +257,7 @@ export function ContractDetail({ contract: initial }: Props) {
           </div>
           <div>
             <Label>Poster</Label>
-            <Value>{truncateAddress(c.posterId)}</Value>
+            <Value><CharacterDisplay characterId={c.posterId} /></Value>
           </div>
           <div>
             <Label>Partial Fill</Label>
@@ -266,7 +267,7 @@ export function ContractDetail({ contract: initial }: Props) {
             <>
               <div>
                 <Label>Courier</Label>
-                <Value>{c.courierId ? truncateAddress(c.courierId) : "—"}</Value>
+                <Value>{c.courierId ? <CharacterDisplay characterId={c.courierId} /> : "—"}</Value>
               </div>
               <div>
                 <Label>Required Stake</Label>

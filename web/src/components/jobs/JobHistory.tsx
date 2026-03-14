@@ -1,8 +1,9 @@
 import styled from "styled-components";
 import { useJobHistory } from "../../hooks/useJobs";
-import { timeAgo, truncateAddress } from "../../lib/format";
+import { timeAgo } from "../../lib/format";
 import { LoadingSpinner } from "../shared/LoadingSpinner";
 import { EmptyState } from "../shared/EmptyState";
+import { CharacterDisplay } from "../shared/CharacterDisplay";
 
 const List = styled.div`
   display: flex;
@@ -46,7 +47,7 @@ export function JobHistory({ tribeId }: { tribeId: string }) {
           <div>
             <EventName>{ev.event_name.replace("Event", "")}</EventName>
             {ev.character_id && (
-              <Meta> · {truncateAddress(ev.character_id)}</Meta>
+              <Meta> · <CharacterDisplay characterId={ev.character_id} showPortrait={false} /></Meta>
             )}
           </div>
           <Meta>{timeAgo(ev.timestamp_ms)}</Meta>
