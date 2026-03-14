@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import styled from "styled-components";
 import type { BlueprintEntry } from "../../hooks/useBlueprints";
 import { useItems } from "../../hooks/useItems";
@@ -80,7 +80,19 @@ const TabBar = styled.div`
   display: flex;
   gap: 2px;
   flex-wrap: wrap;
+  align-items: center;
   margin-bottom: ${({ theme }) => theme.spacing.sm};
+`;
+
+const TabLabel = styled.span`
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: ${({ theme }) => theme.colors.text.muted};
+  padding: 4px 6px 4px 2px;
+  white-space: nowrap;
+  user-select: none;
 `;
 
 const Tab = styled.button<{ $active: boolean }>`
@@ -308,6 +320,27 @@ export function BlueprintBrowser({ blueprints, onResolve }: Props) {
     [blueprints],
   );
 
+  // Facilities grouped by family: Map<family, sorted facilityName[]>
+  const facilityByFamily = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const bp of blueprints) {
+      for (const f of bp.facilities) {
+        if (!map.has(f.facilityFamily)) map.set(f.facilityFamily, []);
+        const arr = map.get(f.facilityFamily)!;
+        if (!arr.includes(f.facilityName)) arr.push(f.facilityName);
+      }
+    }
+    // Sort names within each family
+    for (const arr of map.values()) arr.sort();
+    return map;
+  }, [blueprints]);
+
+  // Sorted family names for stable rendering order
+  const familyOrder = useMemo(
+    () => [...facilityByFamily.keys()].sort(),
+    [facilityByFamily],
+  );
+
   // Tab labels depend on groupBy mode
   const tabs = groupBy === "category" ? categories : facilityNames;
 
@@ -420,18 +453,36 @@ export function BlueprintBrowser({ blueprints, onResolve }: Props) {
             >
               All
             </Tab>
-            {tabs.sort().map((t) => (
-              <Tab
-                key={t}
-                $active={activeTab === t}
-                onClick={() => {
-                  setActiveTab(t);
-                  setActiveGroup(null);
-                }}
-              >
-                {t}
-              </Tab>
-            ))}
+            {groupBy === "category"
+              ? tabs.sort().map((t) => (
+                  <Tab
+                    key={t}
+                    $active={activeTab === t}
+                    onClick={() => {
+                      setActiveTab(t);
+                      setActiveGroup(null);
+                    }}
+                  >
+                    {t}
+                  </Tab>
+                ))
+              : familyOrder.map((family) => (
+                  <React.Fragment key={family}>
+                    <TabLabel>{family}</TabLabel>
+                    {facilityByFamily.get(family)!.map((name) => (
+                      <Tab
+                        key={name}
+                        $active={activeTab === name}
+                        onClick={() => {
+                          setActiveTab(name);
+                          setActiveGroup(null);
+                        }}
+                      >
+                        {name}
+                      </Tab>
+                    ))}
+                  </React.Fragment>
+                ))}
           </TabBar>
 
           {/* Filters */}
@@ -443,10 +494,14 @@ export function BlueprintBrowser({ blueprints, onResolve }: Props) {
                 onChange={(e) => setActiveFacility(e.target.value || null)}
               >
                 <option value="">All Facilities</option>
-                {facilityNames.map((f) => (
-                  <option key={f} value={f}>
-                    {f}
-                  </option>
+                {familyOrder.map((family) => (
+                  <optgroup key={family} label={family}>
+                    {facilityByFamily.get(family)!.map((name) => (
+                      <option key={name} value={name}>
+                        {name}
+                      </option>
+                    ))}
+                  </optgroup>
                 ))}
               </GroupSelect>
             )}

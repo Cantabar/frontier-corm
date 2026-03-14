@@ -34,17 +34,34 @@ for (const item of items) {
   itemMap.set(item.typeId, item);
 }
 
-// Build inverted map: blueprintID → [{ facilityTypeId, facilityName }]
+// Facility family keyword map — order matters (first match wins)
+const FACILITY_FAMILY_KEYWORDS = [
+  ["Printer", "Printers"],
+  ["Refinery", "Refineries"],
+  ["Berth", "Berths"],
+  ["Assembler", "Assemblers"],
+  ["Nursery", "Nurseries"],
+];
+
+function deriveFacilityFamily(name) {
+  for (const [keyword, family] of FACILITY_FAMILY_KEYWORDS) {
+    if (name.includes(keyword)) return family;
+  }
+  return "Other";
+}
+
+// Build inverted map: blueprintID → [{ facilityTypeId, facilityName, facilityFamily }]
 const blueprintFacilities = new Map();
 for (const [facilityTypeId, facility] of Object.entries(facilitiesRaw)) {
   const typeId = Number(facilityTypeId);
   const facilityName = typesRaw[facilityTypeId]?.typeName ?? `Facility ${facilityTypeId}`;
+  const facilityFamily = deriveFacilityFamily(facilityName);
   for (const entry of facility.blueprints) {
     const bpId = entry.blueprintID;
     if (!blueprintFacilities.has(bpId)) {
       blueprintFacilities.set(bpId, []);
     }
-    blueprintFacilities.get(bpId).push({ facilityTypeId: typeId, facilityName });
+    blueprintFacilities.get(bpId).push({ facilityTypeId: typeId, facilityName, facilityFamily });
   }
 }
 

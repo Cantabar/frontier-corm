@@ -14,6 +14,7 @@ export interface BlueprintInput {
 export interface BlueprintFacility {
   facilityTypeId: number;
   facilityName: string;
+  facilityFamily: string;
 }
 
 export interface BlueprintEntry {
