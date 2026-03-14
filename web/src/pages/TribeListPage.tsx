@@ -197,6 +197,17 @@ const SmallButton = styled.button`
   &:hover {
     background: ${({ theme }) => theme.colors.surface.borderHover};
   }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+`;
+
+const DisabledHint = styled.span`
+  font-size: 11px;
+  color: ${({ theme }) => theme.colors.text.muted};
+  margin-left: ${({ theme }) => theme.spacing.sm};
 `;
 
 /** How long (ms) to poll the indexer after creating a tribe. */
@@ -207,6 +218,7 @@ export function TribeListPage() {
   const navigate = useNavigate();
   const client = useSuiClient();
   const { tribeCaps, inGameTribeId } = useIdentity();
+  const hasTribeCap = tribeCaps.length > 0;
 
   // Optimistic tribe entry + polling
   const [optimistic, setOptimistic] = useState<TribeListItem | null>(null);
@@ -297,7 +309,17 @@ export function TribeListPage() {
     <Page>
       <Header>
         <Title>Tribes</Title>
-        <Button onClick={() => setShowCreate(true)}>+ Create Tribe</Button>
+        <div>
+          <Button
+            onClick={() => setShowCreate(true)}
+            disabled={hasTribeCap || optimistic !== null}
+          >
+            + Create Tribe
+          </Button>
+          {(hasTribeCap || optimistic !== null) && (
+            <DisabledHint>A character can only belong to 1 tribe</DisabledHint>
+          )}
+        </div>
       </Header>
 
       {/* Your Tribe */}
@@ -417,7 +439,13 @@ export function TribeListPage() {
                     {oc ? (
                       <code>{truncateAddress(oc.id)}</code>
                     ) : inGameTribeId === t.inGameTribeId ? (
-                      <SmallButton onClick={() => setShowCreate(true)}>Create Tribe</SmallButton>
+                      <SmallButton
+                        onClick={() => setShowCreate(true)}
+                        disabled={hasTribeCap || optimistic !== null}
+                        title={hasTribeCap || optimistic !== null ? "A character can only belong to 1 tribe" : undefined}
+                      >
+                        Create Tribe
+                      </SmallButton>
                     ) : (
                       "—"
                     )}

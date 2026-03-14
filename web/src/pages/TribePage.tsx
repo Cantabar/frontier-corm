@@ -53,6 +53,17 @@ const Button = styled.button`
   &:hover {
     background: ${({ theme }) => theme.colors.primary.hover};
   }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+`;
+
+const DisabledHint = styled.span`
+  font-size: 11px;
+  color: ${({ theme }) => theme.colors.text.muted};
+  margin-left: ${({ theme }) => theme.spacing.sm};
 `;
 
 const SecondaryButton = styled(Button)`
@@ -86,6 +97,7 @@ export function TribePage() {
   const { tribeId } = useParams<{ tribeId: string }>();
   const { tribeCaps } = useIdentity();
   const { tribe, isLoading } = useTribe(tribeId);
+  const hasTribeCap = tribeCaps.length > 0;
 
   const [showCreate, setShowCreate] = useState(false);
   const [showAddMember, setShowAddMember] = useState(false);
@@ -100,7 +112,17 @@ export function TribePage() {
       <Page>
         <Header>
           <Title>Tribe</Title>
-          <Button onClick={() => setShowCreate(true)}>+ Create Tribe</Button>
+          <div>
+            <Button
+              onClick={() => setShowCreate(true)}
+              disabled={hasTribeCap}
+            >
+              + Create Tribe
+            </Button>
+            {hasTribeCap && (
+              <DisabledHint>A character can only belong to 1 tribe</DisabledHint>
+            )}
+          </div>
         </Header>
         <EmptyState title="No tribe selected" description="Create a new tribe or select one from the sidebar." />
         {showCreate && <CreateTribeModal onClose={() => setShowCreate(false)} />}
@@ -132,7 +154,13 @@ export function TribePage() {
           {isLeaderOrOfficer && (
             <Button onClick={() => setShowAddMember(true)}>+ Add Member</Button>
           )}
-          <SecondaryButton onClick={() => setShowCreate(true)}>+ New Tribe</SecondaryButton>
+          <SecondaryButton
+            onClick={() => setShowCreate(true)}
+            disabled={hasTribeCap}
+            title={hasTribeCap ? "A character can only belong to 1 tribe" : undefined}
+          >
+            + New Tribe
+          </SecondaryButton>
         </ActionRow>
       </Header>
 
