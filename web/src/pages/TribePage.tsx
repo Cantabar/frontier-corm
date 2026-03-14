@@ -29,6 +29,13 @@ const Title = styled.h1`
   color: ${({ theme }) => theme.colors.text.primary};
 `;
 
+const Subtitle = styled.span`
+  font-size: 14px;
+  font-weight: 400;
+  color: ${({ theme }) => theme.colors.text.muted};
+  margin-left: ${({ theme }) => theme.spacing.sm};
+`;
+
 const ActionRow = styled.div`
   display: flex;
   gap: ${({ theme }) => theme.spacing.sm};
@@ -115,7 +122,12 @@ export function TribePage() {
   return (
     <Page>
       <Header>
-        <Title>{tribe.name}</Title>
+        <Title>
+          {tribe.name}
+          {tribe.inGameTribeId > 0 && (
+            <Subtitle>Game Tribe #{tribe.inGameTribeId}</Subtitle>
+          )}
+        </Title>
         <ActionRow>
           {isLeaderOrOfficer && (
             <Button onClick={() => setShowAddMember(true)}>+ Add Member</Button>

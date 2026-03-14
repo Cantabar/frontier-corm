@@ -158,7 +158,9 @@ export function Dashboard() {
         </OverviewCard>
         <OverviewCard>
           <CardLabel>Tribe</CardLabel>
-          <CardValue style={{ fontSize: 14 }}>{tribe?.name ?? "—"}</CardValue>
+          <CardValue style={{ fontSize: 14 }}>
+            {tribe ? `${tribe.name} (#${tribe.inGameTribeId})` : "—"}
+          </CardValue>
         </OverviewCard>
         <OverviewCard>
           <CardLabel>Treasury</CardLabel>

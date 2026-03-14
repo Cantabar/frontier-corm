@@ -34,6 +34,10 @@ export function TribeOverview({ tribe }: { tribe: TribeData }) {
   return (
     <Grid>
       <Card>
+        <CardLabel>In-Game Tribe</CardLabel>
+        <CardValue>#{tribe.inGameTribeId}</CardValue>
+      </Card>
+      <Card>
         <CardLabel>Members</CardLabel>
         <CardValue>{tribe.memberCount}</CardValue>
       </Card>

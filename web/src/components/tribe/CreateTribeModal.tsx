@@ -4,6 +4,7 @@ import { useSignAndExecuteTransaction } from "@mysten/dapp-kit";
 import { Modal } from "../shared/Modal";
 import { buildCreateTribe } from "../../lib/sui";
 import { useIdentity } from "../../hooks/useIdentity";
+import { config } from "../../config";
 
 const Label = styled.label`
   display: block;
@@ -73,6 +74,7 @@ export function CreateTribeModal({ onClose }: Props) {
   async function handleCreate() {
     if (!characterId || !name) return;
     const tx = buildCreateTribe({
+      registryId: config.tribeRegistryId,
       characterId,
       name,
       voteThreshold: Number(threshold),
@@ -91,6 +93,7 @@ export function CreateTribeModal({ onClose }: Props) {
         onChange={(e) => setName(e.target.value)}
         autoFocus
       />
+      <HelpText>Your in-game tribe ID is read from your Character automatically.</HelpText>
 
       <Label>Vote Threshold (%)</Label>
       <Input
