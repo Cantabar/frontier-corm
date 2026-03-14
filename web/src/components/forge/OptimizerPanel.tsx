@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import styled from "styled-components";
 import { useOptimizer, type ResolvedNode, type GapAnalysis } from "../../hooks/useOptimizer";
 import type { RecipeData } from "../../lib/types";
@@ -146,11 +146,26 @@ function renderGaps(gaps: GapAnalysis, getItemName: (id: number) => string) {
   );
 }
 
-export function OptimizerPanel({ recipes }: { recipes: RecipeData[] }) {
+export function OptimizerPanel({
+  recipes,
+  initialTarget,
+}: {
+  recipes: RecipeData[];
+  initialTarget?: number | null;
+}) {
   const { result, optimize, clear } = useOptimizer(recipes);
   const { getItem } = useItems();
   const [targetType, setTargetType] = useState("");
   const [quantity, setQuantity] = useState("1");
+
+  // Auto-fill and resolve when a blueprint's "Resolve in Optimizer" is clicked
+  useEffect(() => {
+    if (initialTarget != null && recipes.length > 0) {
+      setTargetType(String(initialTarget));
+      setQuantity("1");
+      optimize(initialTarget, 1);
+    }
+  }, [initialTarget, recipes.length, optimize]);
 
   function getItemName(typeId: number): string {
     return getItem(typeId)?.name ?? `Type ${typeId}`;

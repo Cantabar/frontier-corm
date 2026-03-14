@@ -1,13 +1,14 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import styled from "styled-components";
 import { useIdentity } from "../hooks/useIdentity";
 import { useManufacturingHistory } from "../hooks/useOrders";
+import { useBlueprints } from "../hooks/useBlueprints";
+import { BlueprintBrowser } from "../components/forge/BlueprintBrowser";
 import { OptimizerPanel } from "../components/forge/OptimizerPanel";
 import { CreateOrderModal } from "../components/forge/CreateOrderModal";
 import { LoadingSpinner } from "../components/shared/LoadingSpinner";
 import { EmptyState } from "../components/shared/EmptyState";
 import { timeAgo, truncateAddress } from "../lib/format";
-import type { RecipeData } from "../lib/types";
 
 const Page = styled.div``;
 
@@ -79,16 +80,21 @@ const Meta = styled.span`
   font-size: 12px;
 `;
 
-// Placeholder recipes — in production these would come from on-chain registry queries
-const SAMPLE_RECIPES: RecipeData[] = [];
-
 export function ForgePlanner() {
   const { tribeCaps } = useIdentity();
   const cap = tribeCaps[0] ?? null;
   const tribeId = cap?.tribeId;
 
+  const { blueprints, recipesForOptimizer } = useBlueprints();
   const { data: historyData, isLoading: historyLoading } = useManufacturingHistory(tribeId);
   const [showCreateOrder, setShowCreateOrder] = useState(false);
+
+  // Optimizer auto-fill: set from BlueprintDetailModal's "Resolve in Optimizer"
+  const [optimizerTarget, setOptimizerTarget] = useState<number | null>(null);
+
+  const handleResolve = useCallback((outputTypeId: number) => {
+    setOptimizerTarget(outputTypeId);
+  }, []);
 
   // TODO: fetch registry ID from on-chain once deployed
   const registryId = "";
@@ -102,38 +108,42 @@ export function ForgePlanner() {
         )}
       </Header>
 
-      {!tribeId ? (
-        <EmptyState
-          title="No recipes loaded"
-          description="Connect your wallet and select a tribe to view the recipe registry."
-        />
-      ) : (
-        <Grid>
-          <div>
-            <OptimizerPanel recipes={SAMPLE_RECIPES} />
-          </div>
-          <div>
-            <SectionLabel>Manufacturing History</SectionLabel>
-            {historyLoading ? (
-              <LoadingSpinner />
-            ) : !historyData?.events?.length ? (
-              <EmptyState title="No manufacturing events" />
-            ) : (
-              historyData.events.map((ev) => (
-                <EventRow key={ev.id}>
-                  <div>
-                    <EventName>{ev.event_name.replace("Event", "")}</EventName>
-                    {ev.character_id && (
-                      <Meta> · {truncateAddress(ev.character_id)}</Meta>
-                    )}
-                  </div>
-                  <Meta>{timeAgo(ev.timestamp_ms)}</Meta>
-                </EventRow>
-              ))
-            )}
-          </div>
-        </Grid>
-      )}
+      {/* Blueprint browser — always visible (static data, no wallet needed) */}
+      <BlueprintBrowser blueprints={blueprints} onResolve={handleResolve} />
+
+      <Grid>
+        <div>
+          <OptimizerPanel
+            recipes={recipesForOptimizer}
+            initialTarget={optimizerTarget}
+          />
+        </div>
+        <div>
+          <SectionLabel>Manufacturing History</SectionLabel>
+          {!tribeId ? (
+            <EmptyState
+              title="No tribe selected"
+              description="Connect your wallet and join a tribe to see manufacturing history."
+            />
+          ) : historyLoading ? (
+            <LoadingSpinner />
+          ) : !historyData?.events?.length ? (
+            <EmptyState title="No manufacturing events" />
+          ) : (
+            historyData.events.map((ev) => (
+              <EventRow key={ev.id}>
+                <div>
+                  <EventName>{ev.event_name.replace("Event", "")}</EventName>
+                  {ev.character_id && (
+                    <Meta> · {truncateAddress(ev.character_id)}</Meta>
+                  )}
+                </div>
+                <Meta>{timeAgo(ev.timestamp_ms)}</Meta>
+              </EventRow>
+            ))
+          )}
+        </div>
+      </Grid>
 
       {showCreateOrder && cap && tribeId && (
         <CreateOrderModal
