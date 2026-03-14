@@ -15,6 +15,8 @@ export interface Identity {
   address: string;
   /** Character Sui object ID (from world contracts) */
   characterId: string | null;
+  /** In-game tribe ID read from the Character object (0 = unassigned) */
+  inGameTribeId: number | null;
   /** All TribeCaps owned by this wallet */
   tribeCaps: TribeCapData[];
   /** Loading state */
@@ -24,6 +26,7 @@ export interface Identity {
 export const IdentityContext = createContext<Identity>({
   address: "",
   characterId: null,
+  inGameTribeId: null,
   tribeCaps: [],
   isLoading: true,
 });
@@ -66,8 +69,10 @@ export function useIdentityResolver(): Identity {
     { enabled: !!address && config.packages.tribe !== "0x0" },
   );
 
-  const characterId =
-    characterData?.data?.[0]?.data?.objectId ?? null;
+  const charObj = characterData?.data?.[0]?.data;
+  const characterId = charObj?.objectId ?? null;
+  const charFields = (charObj?.content as { fields?: Record<string, unknown> })?.fields;
+  const inGameTribeId = charFields ? Number(charFields.tribe_id ?? 0) : null;
 
   const tribeCaps: TribeCapData[] = (capData?.data ?? [])
     .map((obj) => {
@@ -85,6 +90,7 @@ export function useIdentityResolver(): Identity {
   return {
     address,
     characterId,
+    inGameTribeId,
     tribeCaps,
     isLoading: charLoading || capLoading,
   };

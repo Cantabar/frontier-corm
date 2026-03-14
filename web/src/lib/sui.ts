@@ -112,6 +112,44 @@ export function buildDepositToTreasury(params: {
   return tx;
 }
 
+export function buildWithdrawFromTreasury(params: {
+  tribeId: string;
+  capId: string;
+  amount: number;
+}): Transaction {
+  const tx = new Transaction();
+  tx.moveCall({
+    target: `${packages.tribe}::tribe::withdraw_from_treasury`,
+    typeArguments: [coinType],
+    arguments: [
+      tx.object(params.tribeId),
+      tx.object(params.capId),
+      tx.pure.u64(params.amount),
+    ],
+  });
+  return tx;
+}
+
+/**
+ * Build a transaction that calls tribe_for_game_id (read-only).
+ * Execute via devInspectTransactionBlock to resolve an in-game tribe ID
+ * to an on-chain Tribe object ID without signing.
+ */
+export function buildLookupTribeByGameId(params: {
+  registryId: string;
+  gameId: number;
+}): Transaction {
+  const tx = new Transaction();
+  tx.moveCall({
+    target: `${packages.tribe}::tribe::tribe_for_game_id`,
+    arguments: [
+      tx.object(params.registryId),
+      tx.pure.u32(params.gameId),
+    ],
+  });
+  return tx;
+}
+
 export function buildProposeTreasurySpend(params: {
   tribeId: string;
   capId: string;
