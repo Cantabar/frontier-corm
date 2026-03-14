@@ -58,8 +58,8 @@ export function Modal({
   children: ReactNode;
 }) {
   return (
-    <Overlay onClick={onClose}>
-      <Panel onClick={(e) => e.stopPropagation()}>
+    <Overlay onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <Panel>
         <ModalHeader>
           <ModalTitle>{title}</ModalTitle>
           <CloseButton onClick={onClose}>&times;</CloseButton>
