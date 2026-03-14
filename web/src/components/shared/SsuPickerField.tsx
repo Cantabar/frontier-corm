@@ -42,11 +42,7 @@ export function SsuPickerField({ value, onChange, placeholder = "Select an SSUâ€
   const { structures, isLoading } = useMyStructures();
 
   const ssus = useMemo(
-    () =>
-      structures.filter((s) => {
-        const entry = ASSEMBLY_TYPES[s.typeId];
-        return entry?.short === "SSU";
-      }),
+    () => structures.filter((s) => s.moveType === "StorageUnit"),
     [structures],
   );
 
