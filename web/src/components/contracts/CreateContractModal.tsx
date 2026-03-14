@@ -12,6 +12,7 @@ import {
   buildCreateTransport,
 } from "../../lib/sui";
 import { ItemPickerField } from "../shared/ItemPickerField";
+import { SsuPickerField } from "../shared/SsuPickerField";
 
 const Label = styled.label`
   display: block;
@@ -327,15 +328,15 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
               <Input type="number" value={wantedQuantity} onChange={(e) => setWantedQuantity(e.target.value)} />
             </div>
           </Row>
-          <Label>Destination SSU ID</Label>
-          <Input placeholder="0x..." value={destinationSsuId} onChange={(e) => setDestinationSsuId(e.target.value)} />
+          <Label>Destination SSU</Label>
+          <SsuPickerField value={destinationSsuId} onChange={setDestinationSsuId} />
         </>
       )}
 
       {variant === "ItemForCoin" && (
         <>
-          <Label>Source SSU ID</Label>
-          <Input placeholder="0x..." value={sourceSsuId} onChange={(e) => setSourceSsuId(e.target.value)} />
+          <Label>Source SSU</Label>
+          <SsuPickerField value={sourceSsuId} onChange={setSourceSsuId} />
           {submitted && !sourceSsuId && <FieldError>Required</FieldError>}
           <Label>Item Object ID</Label>
           <Input placeholder="0x..." value={itemId} onChange={(e) => setItemId(e.target.value)} />
@@ -348,8 +349,8 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
 
       {variant === "ItemForItem" && (
         <>
-          <Label>Source SSU ID</Label>
-          <Input placeholder="0x..." value={sourceSsuId} onChange={(e) => setSourceSsuId(e.target.value)} />
+          <Label>Source SSU</Label>
+          <SsuPickerField value={sourceSsuId} onChange={setSourceSsuId} />
           {submitted && !sourceSsuId && <FieldError>Required</FieldError>}
           <Label>Offered Item Object ID</Label>
           <Input placeholder="0x..." value={itemId} onChange={(e) => setItemId(e.target.value)} />
@@ -367,8 +368,8 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
               {submitted && !(Number(i4iWantedQuantity) > 0) && <FieldError>Must be greater than 0</FieldError>}
             </div>
           </Row>
-          <Label>Destination SSU ID</Label>
-          <Input placeholder="0x..." value={i4iDestinationSsuId} onChange={(e) => setI4iDestinationSsuId(e.target.value)} />
+          <Label>Destination SSU</Label>
+          <SsuPickerField value={i4iDestinationSsuId} onChange={setI4iDestinationSsuId} />
           {submitted && !i4iDestinationSsuId && <FieldError>Required</FieldError>}
         </>
       )}
@@ -385,8 +386,8 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
               <Input type="number" value={transportItemQuantity} onChange={(e) => setTransportItemQuantity(e.target.value)} />
             </div>
           </Row>
-          <Label>Destination SSU ID</Label>
-          <Input placeholder="0x..." value={destinationSsuId} onChange={(e) => setDestinationSsuId(e.target.value)} />
+          <Label>Destination SSU</Label>
+          <SsuPickerField value={destinationSsuId} onChange={setDestinationSsuId} />
           <Label>Required Stake (SUI)</Label>
           <Input type="number" placeholder="0.0" value={requiredStake} onChange={(e) => setRequiredStake(e.target.value)} />
         </>
