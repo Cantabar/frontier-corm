@@ -2,8 +2,10 @@ import { useState } from "react";
 import styled from "styled-components";
 import { useSignAndExecuteTransaction } from "@mysten/dapp-kit";
 import { Modal } from "../shared/Modal";
-import { buildAddMember } from "../../lib/sui";
-import type { Role, TribeCapData } from "../../lib/types";
+import { buildTransferLeadership } from "../../lib/sui";
+import { useIdentity } from "../../hooks/useIdentity";
+import { truncateAddress } from "../../lib/format";
+import type { TribeMember } from "../../lib/types";
 
 const Label = styled.label`
   display: block;
@@ -13,22 +15,6 @@ const Label = styled.label`
   text-transform: uppercase;
   letter-spacing: 0.04em;
   margin-bottom: ${({ theme }) => theme.spacing.xs};
-`;
-
-const Input = styled.input`
-  width: 100%;
-  background: ${({ theme }) => theme.colors.surface.bg};
-  border: 1px solid ${({ theme }) => theme.colors.surface.border};
-  border-radius: ${({ theme }) => theme.radii.sm};
-  padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.md};
-  color: ${({ theme }) => theme.colors.text.primary};
-  font-size: 14px;
-  margin-bottom: ${({ theme }) => theme.spacing.md};
-
-  &:focus {
-    outline: none;
-    border-color: ${({ theme }) => theme.colors.primary.main};
-  }
 `;
 
 const Select = styled.select`
@@ -47,9 +33,25 @@ const Select = styled.select`
   }
 `;
 
+const Input = styled.input`
+  width: 100%;
+  background: ${({ theme }) => theme.colors.surface.bg};
+  border: 1px solid ${({ theme }) => theme.colors.surface.border};
+  border-radius: ${({ theme }) => theme.radii.sm};
+  padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.md};
+  color: ${({ theme }) => theme.colors.text.primary};
+  font-size: 14px;
+  margin-bottom: ${({ theme }) => theme.spacing.md};
+
+  &:focus {
+    outline: none;
+    border-color: ${({ theme }) => theme.colors.primary.main};
+  }
+`;
+
 const Button = styled.button`
   width: 100%;
-  background: ${({ theme }) => theme.colors.primary.main};
+  background: #e53935;
   color: #fff;
   border: none;
   border-radius: ${({ theme }) => theme.radii.sm};
@@ -59,7 +61,7 @@ const Button = styled.button`
   cursor: pointer;
 
   &:hover {
-    background: ${({ theme }) => theme.colors.primary.hover};
+    background: #c62828;
   }
 
   &:disabled {
@@ -68,27 +70,52 @@ const Button = styled.button`
   }
 `;
 
+const Warning = styled.div`
+  font-size: 13px;
+  color: #e53935;
+  background: rgba(229, 57, 53, 0.1);
+  border: 1px solid rgba(229, 57, 53, 0.3);
+  border-radius: ${({ theme }) => theme.radii.sm};
+  padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.md};
+  margin-bottom: ${({ theme }) => theme.spacing.md};
+  line-height: 1.5;
+`;
+
 interface Props {
   tribeId: string;
-  cap: TribeCapData;
+  capId: string;
+  members: TribeMember[];
+  leaderCharacterId: string;
+  /** Pre-selected character ID when triggered from the member list. */
+  preselectedCharacterId?: string;
   onClose: () => void;
 }
 
-export function AddMemberModal({ tribeId, cap, onClose }: Props) {
+export function TransferLeadershipModal({
+  tribeId,
+  capId,
+  members,
+  leaderCharacterId,
+  preselectedCharacterId,
+  onClose,
+}: Props) {
+  const { address } = useIdentity();
   const { mutateAsync: signAndExecute, isPending } = useSignAndExecuteTransaction();
 
-  const [characterId, setCharacterId] = useState("");
+  const candidates = members.filter((m) => m.characterId !== leaderCharacterId);
+  const [selectedCharId, setSelectedCharId] = useState(
+    preselectedCharacterId ?? candidates[0]?.characterId ?? "",
+  );
   const [walletAddress, setWalletAddress] = useState("");
-  const [role, setRole] = useState<Role>("Member");
 
-  async function handleAdd() {
-    if (!characterId || !walletAddress) return;
-    const tx = buildAddMember({
+  async function handleTransfer() {
+    if (!selectedCharId || !walletAddress || !address) return;
+    const tx = buildTransferLeadership({
       tribeId,
-      capId: cap.id,
-      newMemberCharacterId: characterId,
-      role,
-      newMemberAddress: walletAddress,
+      capId,
+      newLeaderCharacterId: selectedCharId,
+      newLeaderWalletAddress: walletAddress,
+      callerAddress: address,
     });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- duplicate @mysten/sui in dep tree
     await signAndExecute({ transaction: tx as any });
@@ -96,30 +123,32 @@ export function AddMemberModal({ tribeId, cap, onClose }: Props) {
   }
 
   return (
-    <Modal title="Add Member" onClose={onClose}>
-      <Label>Character Object ID</Label>
-      <Input
-        placeholder="0x..."
-        value={characterId}
-        onChange={(e) => setCharacterId(e.target.value)}
-        autoFocus
-      />
+    <Modal title="Transfer Leadership" onClose={onClose}>
+      <Warning>
+        This action is irreversible. You will become an Officer and the selected member
+        will become the new Leader. Both parties will receive new TribeCaps and your
+        current cap will be invalidated.
+      </Warning>
 
-      <Label>Member Wallet Address</Label>
+      <Label>New Leader</Label>
+      <Select value={selectedCharId} onChange={(e) => setSelectedCharId(e.target.value)}>
+        {candidates.map((m) => (
+          <option key={m.characterId} value={m.characterId}>
+            {truncateAddress(m.characterId)} ({m.role})
+          </option>
+        ))}
+      </Select>
+
+      <Label>New Leader&apos;s Wallet Address</Label>
       <Input
         placeholder="0x..."
         value={walletAddress}
         onChange={(e) => setWalletAddress(e.target.value)}
+        autoFocus
       />
 
-      <Label>Role</Label>
-      <Select value={role} onChange={(e) => setRole(e.target.value as Role)}>
-        <option value="Member">Member</option>
-        <option value="Officer">Officer</option>
-      </Select>
-
-      <Button onClick={handleAdd} disabled={!characterId || !walletAddress || isPending}>
-        {isPending ? "Adding…" : "Add Member"}
+      <Button onClick={handleTransfer} disabled={!selectedCharId || !walletAddress || isPending}>
+        {isPending ? "Transferring…" : "Transfer Leadership"}
       </Button>
     </Modal>
   );

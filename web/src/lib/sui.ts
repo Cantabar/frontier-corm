@@ -202,6 +202,35 @@ export function buildIssueRepUpdateCap(params: {
 }
 
 /**
+ * Transfer leadership to another tribe member. Leader-only.
+ * Calls transfer_leadership<C> which returns two caps:
+ * - new_leader_cap → transferred to newLeaderWalletAddress
+ * - old_leader_cap → transferred to the caller (current leader)
+ */
+export function buildTransferLeadership(params: {
+  tribeId: string;
+  capId: string;
+  newLeaderCharacterId: string;
+  newLeaderWalletAddress: string;
+  callerAddress: string;
+  coinType?: string;
+}): Transaction {
+  const tx = new Transaction();
+  const [newLeaderCap, oldLeaderCap] = tx.moveCall({
+    target: `${packages.tribe}::tribe::transfer_leadership`,
+    typeArguments: [ct(params.coinType)],
+    arguments: [
+      tx.object(params.tribeId),
+      tx.object(params.capId),
+      tx.pure.id(params.newLeaderCharacterId),
+    ],
+  });
+  tx.transferObjects([newLeaderCap], tx.pure.address(params.newLeaderWalletAddress));
+  tx.transferObjects([oldLeaderCap], tx.pure.address(params.callerAddress));
+  return tx;
+}
+
+/**
  * Deposit coins into a tribe treasury.
  *
  * For native SUI, splits from gas. For custom coins, the caller must provide

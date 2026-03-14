@@ -85,7 +85,7 @@ const Warning = styled.div`
   margin-bottom: ${({ theme }) => theme.spacing.md};
 `;
 
-const ALL_ROLES: Role[] = ["Leader", "Officer", "Member"];
+const ALL_ROLES: Role[] = ["Officer", "Member"];
 
 interface Props {
   tribeId: string;

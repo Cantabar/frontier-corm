@@ -12,6 +12,7 @@ import { AddMemberModal } from "../components/tribe/AddMemberModal";
 import { UpdateReputationModal } from "../components/tribe/UpdateReputationModal";
 import { ChangeRoleModal } from "../components/tribe/ChangeRoleModal";
 import { IssueRepCapModal } from "../components/tribe/IssueRepCapModal";
+import { TransferLeadershipModal } from "../components/tribe/TransferLeadershipModal";
 import { LoadingSpinner } from "../components/shared/LoadingSpinner";
 import { EmptyState } from "../components/shared/EmptyState";
 import type { Role } from "../lib/types";
@@ -107,6 +108,7 @@ export function TribePage() {
   const [repTarget, setRepTarget] = useState<{ characterId: string; reputation: number } | null>(null);
   const [roleTarget, setRoleTarget] = useState<{ characterId: string; currentRole: Role } | null>(null);
   const [showIssueRepCap, setShowIssueRepCap] = useState(false);
+  const [transferTarget, setTransferTarget] = useState<string | null>(null);
 
   // Find TribeCap for this tribe (enables write actions)
   const cap = tribeCaps.find((c) => c.tribeId === tribeId) ?? null;
@@ -186,6 +188,9 @@ export function TribePage() {
             onChangeRole={(characterId, currentRole) =>
               setRoleTarget({ characterId, currentRole })
             }
+            onTransferLeadership={(characterId) =>
+              setTransferTarget(characterId)
+            }
           />
 
           <SectionLabel>Reputation</SectionLabel>
@@ -236,6 +241,16 @@ export function TribePage() {
           tribeId={tribe.id}
           capId={cap.id}
           onClose={() => setShowIssueRepCap(false)}
+        />
+      )}
+      {transferTarget && cap && (
+        <TransferLeadershipModal
+          tribeId={tribe.id}
+          capId={cap.id}
+          members={tribe.members}
+          leaderCharacterId={tribe.leaderCharacterId}
+          preselectedCharacterId={transferTarget}
+          onClose={() => setTransferTarget(null)}
         />
       )}
     </Page>

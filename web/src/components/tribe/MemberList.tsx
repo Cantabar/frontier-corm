@@ -77,9 +77,10 @@ interface Props {
   cap: TribeCapData | null;
   onUpdateReputation?: (characterId: string, currentReputation: number) => void;
   onChangeRole?: (characterId: string, currentRole: Role) => void;
+  onTransferLeadership?: (characterId: string) => void;
 }
 
-export function MemberList({ members, tribeId, leaderCharacterId, cap, onUpdateReputation, onChangeRole }: Props) {
+export function MemberList({ members, tribeId, leaderCharacterId, cap, onUpdateReputation, onChangeRole, onTransferLeadership }: Props) {
   const isLeader = cap?.role === "Leader";
   const isLeaderOrOfficer = cap && (cap.role === "Leader" || cap.role === "Officer");
   const { profiles } = useCharacterProfiles(members.map((m) => m.characterId));
@@ -110,6 +111,11 @@ export function MemberList({ members, tribeId, leaderCharacterId, cap, onUpdateR
             {(isLeader || isLeaderOrOfficer) && (
               <Td>
                 <ActionCell>
+                  {isLeader && m.characterId !== leaderCharacterId && onTransferLeadership && (
+                    <RepButton onClick={() => onTransferLeadership(m.characterId)}>
+                      Lead
+                    </RepButton>
+                  )}
                   {isLeader && m.characterId !== leaderCharacterId && onChangeRole && (
                     <RepButton onClick={() => onChangeRole(m.characterId, m.role)}>
                       Role
