@@ -80,6 +80,11 @@ if ! grep -q '^PLAYER_A_PRIVATE_KEY=suiprivkey' "$WORLD_ENV" 2>/dev/null; then
   PLAYER_B_ADDR=$(sui client new-address ed25519 --json 2>/dev/null | jq -r '.address')
   PLAYER_A_KEY=$(sui keytool export --key-identity "$PLAYER_A_ADDR" --json 2>/dev/null | jq -r '.exportedPrivateKey')
   PLAYER_B_KEY=$(sui keytool export --key-identity "$PLAYER_B_ADDR" --json 2>/dev/null | jq -r '.exportedPrivateKey')
+  # Validate player keys differ from admin key
+  if [ "$PLAYER_A_KEY" = "$ADMIN_PRIVATE_KEY" ] || [ "$PLAYER_B_KEY" = "$ADMIN_PRIVATE_KEY" ]; then
+    echo "ERROR: Generated player key is identical to admin key. Aborting." >&2
+    exit 1
+  fi
   write_env_var PLAYER_A_PRIVATE_KEY "$PLAYER_A_KEY"
   write_env_var PLAYER_B_PRIVATE_KEY "$PLAYER_B_KEY"
   sui client switch --address "$ADMIN_ADDRESS" 2>/dev/null
