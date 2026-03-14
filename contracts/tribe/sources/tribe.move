@@ -50,6 +50,7 @@ const EProposalNotExpired: u64 = 13;
 const EInGameTribeAlreadyClaimed: u64 = 14;
 const EInGameTribeIdInvalid: u64 = 15;
 const ECharacterTribeMismatch: u64 = 16;
+const ECannotTransferToSelf: u64 = 17;
 
 // === Enums ===
 public enum Role has copy, drop, store {
@@ -184,6 +185,12 @@ public struct TreasuryWithdrawEvent has copy, drop {
     tribe_id: ID,
     amount: u64,
     withdrawn_by: ID,
+}
+
+public struct LeadershipTransferredEvent has copy, drop {
+    tribe_id: ID,
+    old_leader_id: ID,
+    new_leader_id: ID,
 }
 
 // === Init ===
@@ -373,6 +380,66 @@ public fun update_reputation<C>(
     };
 
     event::emit(ReputationUpdatedEvent { tribe_id, character_id, new_score });
+}
+
+/// Transfers leadership to another tribe member. Only the current leader
+/// (verified by both `TribeCap` role and `leader_character_id` match) can call this.
+///
+/// Atomically:
+/// 1. Removes both old and new leader from the members table (invalidates old TribeCaps).
+/// 2. Updates `leader_character_id` to the new leader.
+/// 3. Re-adds both with swapped roles (new leader → Leader, old leader → Officer).
+/// 4. Returns `(new_leader_cap, old_leader_cap)` — caller must transfer both.
+///
+/// Reputation is preserved (only the members table is cycled).
+/// `member_count` is unchanged.
+public fun transfer_leadership<C>(
+    tribe: &mut Tribe<C>,
+    cap: &TribeCap,
+    new_leader_character_id: ID,
+    ctx: &mut TxContext,
+): (TribeCap, TribeCap) {
+    verify_tribe_cap(tribe, cap);
+    assert!(cap.role == Role::Leader, ENotAuthorized);
+    assert!(cap.character_id == tribe.leader_character_id, ENotAuthorized);
+    assert!(tribe.members.contains(new_leader_character_id), ENotMember);
+    assert!(new_leader_character_id != cap.character_id, ECannotTransferToSelf);
+
+    let old_leader_id = cap.character_id;
+    let tribe_id = object::id(tribe);
+
+    // Remove both from the members table (invalidates their existing TribeCaps)
+    // Reputation entries are intentionally kept.
+    tribe.members.remove(old_leader_id);
+    tribe.members.remove(new_leader_character_id);
+
+    // Update the canonical leader
+    tribe.leader_character_id = new_leader_character_id;
+
+    // Re-add with swapped roles
+    tribe.members.add(new_leader_character_id, Role::Leader);
+    tribe.members.add(old_leader_id, Role::Officer);
+
+    event::emit(LeadershipTransferredEvent {
+        tribe_id,
+        old_leader_id,
+        new_leader_id: new_leader_character_id,
+    });
+
+    let new_leader_cap = TribeCap {
+        id: object::new(ctx),
+        tribe_id,
+        character_id: new_leader_character_id,
+        role: Role::Leader,
+    };
+    let old_leader_cap = TribeCap {
+        id: object::new(ctx),
+        tribe_id,
+        character_id: old_leader_id,
+        role: Role::Officer,
+    };
+
+    (new_leader_cap, old_leader_cap)
 }
 
 /// Issues a `RepUpdateCap`

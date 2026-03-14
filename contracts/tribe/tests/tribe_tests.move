@@ -827,6 +827,111 @@ fun self_join_already_member_fails() {
 }
 
 #[test]
+fun transfer_leadership_success() {
+    let mut ts = ts::begin(@0x0);
+    let (leader_id, member_id) = setup_characters(&mut ts);
+
+    // Create tribe
+    ts::next_tx(&mut ts, user_a());
+    {
+        let leader = ts::take_shared_by_id<Character>(&ts, leader_id);
+        let mut tribe_registry = ts::take_shared<TribeRegistry>(&ts);
+        let cap = tribe::create_tribe<TESTCOIN>(&mut tribe_registry, &leader, utf8(TRIBE_NAME), VOTE_THRESHOLD_51, ts::ctx(&mut ts));
+        transfer::public_transfer(cap, user_a());
+        ts::return_shared(tribe_registry);
+        ts::return_shared(leader);
+    };
+
+    // Add member as Officer
+    ts::next_tx(&mut ts, user_a());
+    {
+        let leader_cap = ts::take_from_sender<TribeCap>(&ts);
+        let mut tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
+        let member = ts::take_shared_by_id<Character>(&ts, member_id);
+        let member_cap = tribe::add_member(&mut tribe, &leader_cap, &member, tribe::role_officer(), ts::ctx(&mut ts));
+
+        // Give the member some reputation to verify it's preserved
+        tribe::update_reputation(&mut tribe, &leader_cap, object::id(&member), 42, true);
+
+        transfer::public_transfer(member_cap, user_b());
+        ts::return_to_sender(&ts, leader_cap);
+        ts::return_shared(tribe);
+        ts::return_shared(member);
+    };
+
+    // Transfer leadership from user_a to user_b
+    ts::next_tx(&mut ts, user_a());
+    {
+        let leader_cap = ts::take_from_sender<TribeCap>(&ts);
+        let mut tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
+
+        let (new_leader_cap, old_leader_cap) = tribe::transfer_leadership(
+            &mut tribe, &leader_cap, member_id, ts::ctx(&mut ts),
+        );
+
+        // Verify the tribe state
+        assert!(tribe::leader_character_id(&tribe) == member_id);
+        assert!(tribe::member_count(&tribe) == 2);
+        assert!(tribe::is_member(&tribe, leader_id));
+        assert!(tribe::is_member(&tribe, member_id));
+        assert!(tribe::member_role(&tribe, member_id) == tribe::role_leader());
+        assert!(tribe::member_role(&tribe, leader_id) == tribe::role_officer());
+
+        // Verify reputation was preserved
+        assert!(tribe::reputation_of(&tribe, member_id) == 42);
+        assert!(tribe::reputation_of(&tribe, leader_id) == 0);
+
+        // Verify new caps
+        assert!(tribe::cap_role(&new_leader_cap) == tribe::role_leader());
+        assert!(tribe::cap_character_id(&new_leader_cap) == member_id);
+        assert!(tribe::cap_role(&old_leader_cap) == tribe::role_officer());
+        assert!(tribe::cap_character_id(&old_leader_cap) == leader_id);
+
+        // Clean up: destroy old leader cap (now stale), transfer new caps
+        tribe::destroy_tribe_cap_for_testing(leader_cap);
+        transfer::public_transfer(new_leader_cap, user_b());
+        transfer::public_transfer(old_leader_cap, user_a());
+        ts::return_shared(tribe);
+    };
+
+    ts::end(ts);
+}
+
+#[test]
+#[expected_failure(abort_code = 17)] // ECannotTransferToSelf
+fun transfer_leadership_to_self_fails() {
+    let mut ts = ts::begin(@0x0);
+    let (leader_id, _) = setup_characters(&mut ts);
+
+    ts::next_tx(&mut ts, user_a());
+    {
+        let leader = ts::take_shared_by_id<Character>(&ts, leader_id);
+        let mut tribe_registry = ts::take_shared<TribeRegistry>(&ts);
+        let cap = tribe::create_tribe<TESTCOIN>(&mut tribe_registry, &leader, utf8(TRIBE_NAME), VOTE_THRESHOLD_51, ts::ctx(&mut ts));
+        transfer::public_transfer(cap, user_a());
+        ts::return_shared(tribe_registry);
+        ts::return_shared(leader);
+    };
+
+    ts::next_tx(&mut ts, user_a());
+    {
+        let leader_cap = ts::take_from_sender<TribeCap>(&ts);
+        let mut tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
+
+        let (new_cap, old_cap) = tribe::transfer_leadership(
+            &mut tribe, &leader_cap, leader_id, ts::ctx(&mut ts),
+        );
+
+        tribe::destroy_tribe_cap_for_testing(new_cap);
+        tribe::destroy_tribe_cap_for_testing(old_cap);
+        tribe::destroy_tribe_cap_for_testing(leader_cap);
+        ts::return_shared(tribe);
+    };
+
+    ts::end(ts);
+}
+
+#[test]
 #[expected_failure(abort_code = 14)] // EInGameTribeAlreadyClaimed
 fun create_duplicate_in_game_tribe_fails() {
     let mut ts = ts::begin(@0x0);
