@@ -20,6 +20,7 @@ export const config = {
 
   /** Shared object IDs */
   tribeRegistryId: import.meta.env.VITE_TRIBE_REGISTRY_ID ?? "0x0",
+  energyConfigId: import.meta.env.VITE_ENERGY_CONFIG_ID ?? "0x0",
 
   /** Coin type for escrow/treasury (EVE token on testnet, or test coin on localnet) */
   coinType: import.meta.env.VITE_COIN_TYPE ?? "0x2::sui::SUI",

@@ -6,10 +6,10 @@
  * per-call to support tribes with custom coin types.
  */
 
-import { Transaction } from "@mysten/sui/transactions";
+import { Transaction, Inputs } from "@mysten/sui/transactions";
 import { config } from "../config";
 import { isNativeSui } from "./coinUtils";
-import type { Role } from "./types";
+import type { Role, StructureMoveType } from "./types";
 
 const { packages, coinType: defaultCoinType } = config;
 const SUI_CLOCK = "0x6";
@@ -762,5 +762,102 @@ export function buildExpireTrustlessContract(params: {
       tx.object(SUI_CLOCK),
     ],
   });
+  return tx;
+}
+
+// ============================================================
+// Smart Assembly Actions (Online / Offline)
+// ============================================================
+
+const worldPkg = () => packages.world;
+
+/** Maps StructureMoveType → { module name, full type argument }. */
+function structureMoveInfo(moveType: StructureMoveType) {
+  const pkg = worldPkg();
+  const map: Record<StructureMoveType, { module: string; typeArg: string }> = {
+    Assembly:    { module: "assembly",     typeArg: `${pkg}::assembly::Assembly` },
+    StorageUnit: { module: "storage_unit", typeArg: `${pkg}::storage_unit::StorageUnit` },
+    Gate:        { module: "gate",         typeArg: `${pkg}::gate::Gate` },
+    Turret:      { module: "turret",       typeArg: `${pkg}::turret::Turret` },
+  };
+  return map[moveType];
+}
+
+export interface StructureActionParams {
+  characterId: string;
+  structureId: string;
+  ownerCapId: string;
+  ownerCapVersion: string;
+  ownerCapDigest: string;
+  networkNodeId: string;
+  energyConfigId: string;
+  moveType: StructureMoveType;
+}
+
+/**
+ * Build a PTB that brings a structure online.
+ *
+ * Steps:
+ * 1. Borrow OwnerCap<T> from Character via character::borrow_owner_cap
+ * 2. Call [module]::online(structure, network_node, energy_config, owner_cap)
+ * 3. Return OwnerCap<T> to Character via character::return_owner_cap
+ */
+export function buildOnlineStructure(params: StructureActionParams): Transaction {
+  return buildStructureToggle(params, "online");
+}
+
+/**
+ * Build a PTB that takes a structure offline. Same borrow/return pattern.
+ */
+export function buildOfflineStructure(params: StructureActionParams): Transaction {
+  return buildStructureToggle(params, "offline");
+}
+
+function buildStructureToggle(
+  params: StructureActionParams,
+  action: "online" | "offline",
+): Transaction {
+  const tx = new Transaction();
+  const pkg = worldPkg();
+  const { module: mod, typeArg } = structureMoveInfo(params.moveType);
+
+  // 1. Borrow OwnerCap from Character (Receiving<OwnerCap<T>>)
+  const [ownerCap, receipt] = tx.moveCall({
+    target: `${pkg}::character::borrow_owner_cap`,
+    typeArguments: [typeArg],
+    arguments: [
+      tx.object(params.characterId),
+      tx.object(
+        Inputs.ReceivingRef({
+          objectId: params.ownerCapId,
+          version: params.ownerCapVersion,
+          digest: params.ownerCapDigest,
+        }),
+      ),
+    ],
+  });
+
+  // 2. Call online/offline on the appropriate module
+  tx.moveCall({
+    target: `${pkg}::${mod}::${action}`,
+    arguments: [
+      tx.object(params.structureId),
+      tx.object(params.networkNodeId),
+      tx.object(params.energyConfigId),
+      ownerCap,
+    ],
+  });
+
+  // 3. Return OwnerCap to Character
+  tx.moveCall({
+    target: `${pkg}::character::return_owner_cap`,
+    typeArguments: [typeArg],
+    arguments: [
+      tx.object(params.characterId),
+      ownerCap,
+      receipt,
+    ],
+  });
+
   return tx;
 }

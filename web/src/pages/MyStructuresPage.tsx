@@ -1,10 +1,13 @@
 import { useState, useMemo } from "react";
 import styled from "styled-components";
-import { useCurrentAccount } from "@mysten/dapp-kit";
+import { useCurrentAccount, useSignAndExecuteTransaction } from "@mysten/dapp-kit";
 import { useMyStructures } from "../hooks/useStructures";
+import { useIdentity } from "../hooks/useIdentity";
 import { LoadingSpinner } from "../components/shared/LoadingSpinner";
 import { EmptyState } from "../components/shared/EmptyState";
 import { SsuInventoryModal } from "../components/structures/SsuInventoryModal";
+import { buildOnlineStructure, buildOfflineStructure } from "../lib/sui";
+import { config } from "../config";
 import { truncateAddress } from "../lib/format";
 import { ASSEMBLY_TYPES } from "../lib/types";
 import type { AssemblyData, AssemblyTypeFilter, AssemblyStatus } from "../lib/types";
@@ -207,6 +210,33 @@ const EnergyIndicator = styled.span<{ $connected: boolean }>`
     $connected ? theme.colors.success : theme.colors.text.muted};
 `;
 
+const ActionButton = styled.button<{ $variant: "online" | "offline" }>`
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: ${({ theme }) => theme.radii.sm};
+  border: 1px solid
+    ${({ $variant, theme }) =>
+      $variant === "online" ? theme.colors.success : theme.colors.text.muted};
+  background: transparent;
+  color: ${({ $variant, theme }) =>
+    $variant === "online" ? theme.colors.success : theme.colors.text.secondary};
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+
+  &:hover:not(:disabled) {
+    background: ${({ $variant, theme }) =>
+      $variant === "online" ? theme.colors.success : theme.colors.text.muted};
+    color: ${({ theme }) => theme.colors.surface.raised};
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+`;
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -226,7 +256,8 @@ function getTypeLabel(typeId: number): string {
 
 export function MyStructuresPage() {
   const account = useCurrentAccount();
-  const { structures, isLoading } = useMyStructures();
+  const { characterId } = useIdentity();
+  const { structures, isLoading, refetch } = useMyStructures();
 
   const [typeFilter, setTypeFilter] = useState<AssemblyTypeFilter>("all");
   const [statusFilter, setStatusFilter] = useState<AssemblyStatus | "all">("all");
@@ -310,7 +341,13 @@ export function MyStructuresPage() {
       ) : (
         <Grid>
           {filtered.map((s) => (
-            <StructureRow key={s.id} structure={s} onSelect={setSelectedSsu} />
+            <StructureRow
+              key={s.id}
+              structure={s}
+              characterId={characterId}
+              onRefresh={refetch}
+              onSelect={setSelectedSsu}
+            />
           ))}
         </Grid>
       )}
@@ -328,14 +365,49 @@ export function MyStructuresPage() {
 
 function StructureRow({
   structure,
+  characterId,
+  onRefresh,
   onSelect,
 }: {
   structure: AssemblyData;
+  characterId: string | null;
+  onRefresh: () => void;
   onSelect: (ssu: AssemblyData) => void;
 }) {
+  const { mutateAsync: signAndExecute } = useSignAndExecuteTransaction();
+  const [pending, setPending] = useState(false);
   const displayName = structure.name || truncateAddress(structure.id, 10, 6);
   const [iconError, setIconError] = useState(false);
   const isSsu = getTypeCategory(structure.typeId) === "Storage";
+
+  const canOnline =
+    structure.status === "Offline" && !!structure.energySourceId && !!characterId;
+  const canOffline = structure.status === "Online" && !!characterId;
+
+  async function handleToggle(action: "online" | "offline") {
+    if (!characterId || !structure.energySourceId) return;
+    setPending(true);
+    try {
+      const builder = action === "online" ? buildOnlineStructure : buildOfflineStructure;
+      const tx = builder({
+        characterId,
+        structureId: structure.id,
+        ownerCapId: structure.ownerCapId,
+        ownerCapVersion: structure.ownerCapVersion,
+        ownerCapDigest: structure.ownerCapDigest,
+        networkNodeId: structure.energySourceId,
+        energyConfigId: config.energyConfigId,
+        moveType: structure.moveType,
+      });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- duplicate @mysten/sui in dep tree
+      await signAndExecute({ transaction: tx as any });
+      onRefresh();
+    } catch (err) {
+      console.error(`Failed to ${action} structure:`, err);
+    } finally {
+      setPending(false);
+    }
+  }
 
   return (
     <StructureCard
@@ -370,6 +442,33 @@ function StructureRow({
       <EnergyIndicator $connected={!!structure.energySourceId}>
         {structure.energySourceId ? "⚡ Connected" : "— No energy"}
       </EnergyIndicator>
+
+      {canOnline && (
+        <ActionButton
+          $variant="online"
+          disabled={pending}
+          title="Bring this structure online"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleToggle("online");
+          }}
+        >
+          {pending ? "…" : "Online"}
+        </ActionButton>
+      )}
+      {canOffline && (
+        <ActionButton
+          $variant="offline"
+          disabled={pending}
+          title="Take this structure offline"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleToggle("offline");
+          }}
+        >
+          {pending ? "…" : "Offline"}
+        </ActionButton>
+      )}
     </StructureCard>
   );
 }

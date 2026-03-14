@@ -11,7 +11,7 @@ import { useMemo } from "react";
 import { useSuiClientQueries } from "@mysten/dapp-kit";
 import { useIdentity } from "./useIdentity";
 import { config } from "../config";
-import type { AssemblyData, AssemblyStatus } from "../lib/types";
+import type { AssemblyData, AssemblyStatus, StructureMoveType } from "../lib/types";
 
 const worldPkg = () => config.packages.world;
 
@@ -22,6 +22,14 @@ const STRUCTURE_TYPES = [
   "gate::Gate",
   "turret::Turret",
 ] as const;
+
+/** Maps STRUCTURE_TYPES index → StructureMoveType. */
+const MOVE_TYPE_BY_INDEX: StructureMoveType[] = [
+  "Assembly",
+  "StorageUnit",
+  "Gate",
+  "Turret",
+];
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -48,6 +56,9 @@ interface MetadataFields {
 function parseAssemblyFields(
   objectId: string,
   ownerCapId: string,
+  ownerCapVersion: string,
+  ownerCapDigest: string,
+  moveType: StructureMoveType,
   fields: Record<string, unknown>,
 ): AssemblyData {
   const metaOuter = fields.metadata as { fields?: MetadataFields } | null;
@@ -56,8 +67,11 @@ function parseAssemblyFields(
   return {
     id: objectId,
     ownerCapId,
+    ownerCapVersion,
+    ownerCapDigest,
     typeId: Number(fields.type_id ?? 0),
     status: parseAssemblyStatus(fields.status),
+    moveType,
     name: meta?.name || "",
     description: meta?.description || "",
     imageUrl: meta?.url || "",
@@ -84,31 +98,46 @@ export function useMyStructures() {
           params: {
             owner: characterId,
             filter: { StructType: `${pkg}::access::OwnerCap<${pkg}::${t}>` },
-            options: { showContent: true },
+            options: { showContent: true, showOwner: true },
           },
         }))
       : [],
     combine: (results) => ({
-      data: results.flatMap((r) => r.data?.data ?? []),
+      // Tag each object with its STRUCTURE_TYPES index so we know the Move type.
+      data: results.flatMap((r, idx) =>
+        (r.data?.data ?? []).map((obj) => ({ obj, moveTypeIdx: idx })),
+      ),
       isLoading: results.some((r) => r.isLoading),
       error: results.find((r) => r.error)?.error ?? null,
       refetch: () => results.forEach((r) => r.refetch()),
     }),
   });
 
-  // Extract cap ID → assembly ID mappings
+  // Extract cap ID → assembly ID mappings (with Move type + version/digest for Receiving<T>)
   const capMappings = useMemo(() => {
     if (!capResults.data) return [];
     return capResults.data
-      .map((obj) => {
-        const fields = (obj.data?.content as { fields?: Record<string, unknown> })?.fields;
-        if (!fields) return null;
+      .map(({ obj, moveTypeIdx }) => {
+        const data = obj.data;
+        const fields = (data?.content as { fields?: Record<string, unknown> })?.fields;
+        if (!fields || !data) return null;
         return {
-          capId: obj.data!.objectId,
+          capId: data.objectId,
+          capVersion: data.version ?? "",
+          capDigest: data.digest ?? "",
           assemblyId: String(fields.authorized_object_id ?? ""),
+          moveType: MOVE_TYPE_BY_INDEX[moveTypeIdx],
         };
       })
-      .filter((m): m is { capId: string; assemblyId: string } => m !== null && !!m.assemblyId);
+      .filter(
+        (m): m is {
+          capId: string;
+          capVersion: string;
+          capDigest: string;
+          assemblyId: string;
+          moveType: StructureMoveType;
+        } => m !== null && !!m.assemblyId,
+      );
   }, [capResults.data]);
 
   // Step 2: Batch-fetch each shared structure object
@@ -134,9 +163,13 @@ export function useMyStructures() {
         if (!obj?.data) return null;
         const fields = (obj.data.content as { fields?: Record<string, unknown> })?.fields;
         if (!fields) return null;
+        const cap = capMappings[i];
         return parseAssemblyFields(
           obj.data.objectId,
-          capMappings[i].capId,
+          cap.capId,
+          cap.capVersion,
+          cap.capDigest,
+          cap.moveType,
           fields,
         );
       })

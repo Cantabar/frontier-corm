@@ -194,11 +194,20 @@ export interface TrustlessContractData {
 
 export type AssemblyStatus = "Anchored" | "Online" | "Offline" | "Unanchoring";
 
+/** Which Move module the structure belongs to — needed to target the correct on-chain entry function. */
+export type StructureMoveType = "Assembly" | "StorageUnit" | "Gate" | "Turret";
+
 export interface AssemblyData {
   id: string;
   ownerCapId: string;
+  /** OwnerCap object version (needed for Receiving<T> in PTBs). */
+  ownerCapVersion: string;
+  /** OwnerCap object digest (needed for Receiving<T> in PTBs). */
+  ownerCapDigest: string;
   typeId: number;
   status: AssemblyStatus;
+  /** Move module type (Assembly, StorageUnit, Gate, Turret). */
+  moveType: StructureMoveType;
   name: string;
   description: string;
   imageUrl: string;
