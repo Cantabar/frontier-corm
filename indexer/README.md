@@ -1,6 +1,6 @@
 # Event Indexer — Phase 4: Verifiable History
 
-Off-chain TypeScript service that subscribes to Sui on-chain events from all Frontier Lattice modules and archives them with checkpoint inclusion proofs for long-term verifiability.
+Off-chain TypeScript service that subscribes to Sui on-chain events from all Frontier Corm modules and archives them with checkpoint inclusion proofs for long-term verifiability.
 
 ## Architecture
 
@@ -39,7 +39,7 @@ npm run dev
 | `PACKAGE_TRIBE` | — | Deployed tribe package ID |
 | `PACKAGE_CONTRACT_BOARD` | — | Deployed contract_board package ID |
 | `PACKAGE_FORGE_PLANNER` | — | Deployed forge_planner package ID |
-| `DB_PATH` | `./data/frontier-lattice.db` | SQLite database path |
+| `DB_PATH` | `./data/frontier-corm.db` | SQLite database path |
 | `API_PORT` | `3100` | API server port |
 | `POLL_INTERVAL_MS` | `2000` | Event poll interval (ms) |
 

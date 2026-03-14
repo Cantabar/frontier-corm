@@ -1,5 +1,5 @@
 /**
- * Postgres schema for the Frontier Lattice event indexer.
+ * Postgres schema for the Frontier Corm event indexer.
  *
  * Tables:
  *   - events: all archived on-chain events with checkpoint proof metadata
@@ -104,7 +104,7 @@ if (isMain) {
   const databaseUrl =
     process.argv[2] ??
     process.env.DATABASE_URL ??
-    "postgresql://lattice:lattice@localhost:5432/frontier_lattice";
+    "postgresql://corm:corm@localhost:5432/frontier_corm";
   console.log(`Migrating database at ${databaseUrl}...`);
   initDatabase(databaseUrl).then((pool) => {
     console.log("Schema applied successfully.");

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Frontier Lattice — First-Time Bootstrap
+# Frontier Corm — First-Time Bootstrap
 #
 # Installs dependencies and prepares the environment for local dev or AWS deploy.
 # Safe to run multiple times (idempotent).
@@ -11,7 +11,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 
-echo "=== Frontier Lattice Bootstrap ==="
+echo "=== Frontier Corm Bootstrap ==="
 
 # ── .env file ──────────────────────────────────────────────────────
 if [ ! -f "$ROOT_DIR/.env" ]; then

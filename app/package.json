@@ -1,7 +1,7 @@
 {
-  "name": "@frontier-lattice/app",
+  "name": "@frontier-corm/app",
   "version": "0.1.0",
-  "description": "Off-chain tools for Frontier Lattice: forge optimizer, job generator",
+  "description": "Off-chain tools for Frontier Corm: forge optimizer, job generator",
   "type": "module",
   "scripts": {
     "optimize": "tsx src/optimizer/index.ts",

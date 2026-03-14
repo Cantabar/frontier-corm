@@ -1,6 +1,6 @@
 # Frontend App — Phase 4/5 (Days 23–31)
 
-React + Sui dApp Kit frontend for the Frontier Lattice platform.
+React + Sui dApp Kit frontend for the Frontier Corm platform.
 
 ## Planned views
 

@@ -1,4 +1,4 @@
-# Multi-stage build for Frontier Lattice Web UI
+# Multi-stage build for Frontier Corm Web UI
 # Serves static assets via nginx
 
 # --- Build stage ---

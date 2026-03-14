@@ -1,5 +1,5 @@
 /**
- * Frontier Lattice — Event Type Definitions
+ * Frontier Corm — Event Type Definitions
  *
  * Mirrors the on-chain Move event structs from:
  *   - tribe::tribe (Phase 1)
@@ -283,7 +283,7 @@ export const DEFAULT_CONFIG: IndexerConfig = {
     contractBoard: process.env.PACKAGE_CONTRACT_BOARD ?? "",
     forgePlanner: process.env.PACKAGE_FORGE_PLANNER ?? "",
   },
-  databaseUrl: process.env.DATABASE_URL ?? "postgresql://lattice:lattice@localhost:5432/frontier_lattice",
+  databaseUrl: process.env.DATABASE_URL ?? "postgresql://corm:corm@localhost:5432/frontier_corm",
   apiPort: Number(process.env.API_PORT) || 3100,
   pollIntervalMs: Number(process.env.POLL_INTERVAL_MS) || 2000,
 };

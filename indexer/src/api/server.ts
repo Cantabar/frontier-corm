@@ -1,5 +1,5 @@
 /**
- * Express HTTP server for the Frontier Lattice indexer query API.
+ * Express HTTP server for the Frontier Corm indexer query API.
  */
 
 import express from "express";
@@ -23,7 +23,7 @@ export function createServer(pool: pg.Pool, port: number) {
 
   app.get("/", (_req, res) => {
     res.json({
-      service: "frontier-lattice-indexer",
+      service: "frontier-corm-indexer",
       version: "0.1.0",
       api: "/api/v1",
     });

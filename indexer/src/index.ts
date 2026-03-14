@@ -1,5 +1,5 @@
 /**
- * Frontier Lattice Event Indexer — Entry Point
+ * Frontier Corm Event Indexer — Entry Point
  *
  * Initialises:
  *   1. SQLite database (schema migration)
@@ -12,7 +12,7 @@
  *   PACKAGE_TRIBE        — Deployed tribe package ID
  *   PACKAGE_CONTRACT_BOARD — Deployed contract_board package ID
  *   PACKAGE_FORGE_PLANNER — Deployed forge_planner package ID
- *   DATABASE_URL         — Postgres connection string (default: postgresql://lattice:lattice@localhost:5432/frontier_lattice)
+ *   DATABASE_URL         — Postgres connection string (default: postgresql://corm:corm@localhost:5432/frontier_corm)
  *   API_PORT             — API server port (default: 3100)
  *   POLL_INTERVAL_MS     — Event poll interval in ms (default: 2000)
  */
@@ -26,7 +26,7 @@ import { DEFAULT_CONFIG } from "./types.js";
 async function main() {
   const config = DEFAULT_CONFIG;
 
-  console.log("=== Frontier Lattice Event Indexer ===");
+  console.log("=== Frontier Corm Event Indexer ===");
   console.log(`  Sui RPC:   ${config.suiRpcUrl}`);
   console.log(`  DB:        ${config.databaseUrl.replace(/\/\/.*@/, "//***@")}`);
   console.log(`  API port:  ${config.apiPort}`);

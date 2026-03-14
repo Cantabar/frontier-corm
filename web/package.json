@@ -1,5 +1,5 @@
 {
-  "name": "@frontier-lattice/web",
+  "name": "@frontier-corm/web",
   "version": "0.1.0",
   "private": true,
   "type": "module",

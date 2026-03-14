@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 
 /**
- * Hexagonal lattice node mark.
+ * Corm growth mark.
  *
  * Six lines converge from a center point to hexagon vertices,
  * with small circles at each vertex and the center.
@@ -28,7 +28,7 @@ interface LogoMarkProps {
   className?: string;
 }
 
-/** Standalone lattice hexagon mark */
+/** Standalone corm mark */
 export function LogoMark({
   size = 32,
   color = CYAN,

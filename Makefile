@@ -1,4 +1,4 @@
-# Frontier Lattice — Makefile
+# Frontier Corm — Makefile
 #
 # Usage:
 #   make local            Start local dev environment (docker compose)
@@ -22,7 +22,7 @@
 
 SHELL := /bin/bash
 AWS_REGION ?= us-east-1
-STACK_NAME := FrontierLattice
+STACK_NAME := FrontierCorm
 
 # Resolve values from CDK outputs (cached after first deploy)
 define get_output
@@ -75,9 +75,9 @@ deploy-images: ## Build and push Docker images to ECR
 	docker build -t $(API_ECR):latest ./app
 	docker push $(API_ECR):latest
 	@echo "Forcing ECS redeployment..."
-	aws ecs update-service --cluster fl-cluster --service $(STACK_NAME)-IndexerServiceE6A6AFC3-* \
+	aws ecs update-service --cluster fc-cluster --service $(STACK_NAME)-IndexerServiceE6A6AFC3-* \
 		--force-new-deployment --region $(AWS_REGION) > /dev/null
-	aws ecs update-service --cluster fl-cluster --service $(STACK_NAME)-ApiServiceD4217802-* \
+	aws ecs update-service --cluster fc-cluster --service $(STACK_NAME)-ApiServiceD4217802-* \
 		--force-new-deployment --region $(AWS_REGION) > /dev/null
 	@echo "Done. ECS services are redeploying."
 
@@ -104,7 +104,7 @@ deploy: deploy-infra deploy-images deploy-frontend ## Deploy everything
 	@echo ""
 
 teardown: ## Destroy all AWS resources
-	@echo "This will destroy ALL Frontier Lattice AWS resources."
+	@echo "This will destroy ALL Frontier Corm AWS resources."
 	@read -p "Type 'yes' to confirm: " confirm && [ "$$confirm" = "yes" ] || exit 1
 	npx --prefix infra cdk destroy --all --force
 	@echo "All resources destroyed."

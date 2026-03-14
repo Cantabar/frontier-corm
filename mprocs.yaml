@@ -1,4 +1,4 @@
-# Frontier Lattice — Local Dev (mprocs)
+# Frontier Corm — Local Dev (mprocs)
 #
 # Install:  cargo install mprocs   (or: brew install mprocs)
 # Run:      mprocs
@@ -27,7 +27,7 @@ procs:
     shell: "bash scripts/deploy-world-contracts.sh"
     autostart: true
 
-  # ── Contract publish (one-shot, waits for world, then publishes frontier-lattice) ──
+  # ── Contract publish (one-shot, waits for world, then publishes frontier-corm) ──
   contracts-publish:
     shell: "bash scripts/publish-contracts.sh"
 
@@ -35,7 +35,7 @@ procs:
   indexer:
     shell: |
       echo "Waiting for postgres and SUI localnet..."
-      until docker exec frontier-lattice-postgres-1 pg_isready -U lattice -d frontier_lattice -q 2>/dev/null; do
+      until docker exec frontier-corm-postgres-1 pg_isready -U corm -d frontier_corm -q 2>/dev/null; do
         sleep 1
       done
       until curl -so /dev/null -w '%{http_code}' http://127.0.0.1:9000 >/dev/null 2>&1; do
@@ -54,7 +54,7 @@ procs:
       npm --prefix indexer run dev
     env:
       SUI_RPC_URL: "http://127.0.0.1:9000"
-      DATABASE_URL: "postgresql://lattice:lattice@localhost:5432/frontier_lattice"
+      DATABASE_URL: "postgresql://corm:corm@localhost:5432/frontier_corm"
       API_PORT: "3100"
       POLL_INTERVAL_MS: "2000"
     stop: "SIGTERM"

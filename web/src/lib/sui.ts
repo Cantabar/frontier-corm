@@ -1,5 +1,5 @@
 /**
- * Programmable Transaction Block (PTB) builders for Frontier Lattice contracts.
+ * Programmable Transaction Block (PTB) builders for Frontier Corm contracts.
  *
  * Each function returns a Transaction object ready for useSignAndExecuteTransaction.
  * Type argument C (coin type) is taken from config.coinType.

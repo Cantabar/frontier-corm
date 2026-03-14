@@ -1,6 +1,6 @@
 /**
  * Checkpoint Subscriber — polls Sui RPC for on-chain events from
- * Frontier Lattice packages and feeds them to the archiver.
+ * Frontier Corm packages and feeds them to the archiver.
  *
  * Uses `queryEvents` with cursor-based pagination for reliability.
  * Each event is enriched with checkpoint metadata (digest, sequence,

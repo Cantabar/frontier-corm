@@ -1,4 +1,4 @@
-# Frontier Lattice — A Toolkit for Civilization
+# Frontier Corm — A Toolkit for Civilization
 
 ## EVE Frontier × Sui Hackathon 2026
 
@@ -10,7 +10,7 @@
 
 ## Thesis
 
-Civilization requires **division of labor**, and division of labor requires **trust infrastructure**. Frontier Lattice provides that trust layer on Sui
+Civilization requires **division of labor**, and division of labor requires **trust infrastructure**. Frontier Corm provides that trust layer on Sui
 
 ---
 
@@ -195,7 +195,7 @@ All completed contracts, reputation changes, and manufacturing orders are record
 #### Indexer Service
 
 - Subscribes to Sui checkpoints via RPC / WebSocket
-- Listens for Frontier Lattice events:
+- Listens for Frontier Corm events:
   - `JobCompletedEvent`, `JobExpiredEvent`, `JobDisputedEvent`
   - `ReputationUpdatedEvent` (emitted when tribe rep table changes)
   - `ManufacturingCompleteEvent`, `ManufacturingCancelledEvent`

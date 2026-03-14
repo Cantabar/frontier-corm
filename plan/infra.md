@@ -1,4 +1,4 @@
-# Frontier Lattice — Infrastructure
+# Frontier Corm — Infrastructure
 
 ## Quick Reference
 
@@ -137,7 +137,7 @@ infra/
 ├── bin/
 │   └── app.ts                      # CDK app entry point
 └── lib/
-    └── frontier-lattice-stack.ts   # All AWS resources in one stack
+    └── frontier-corm-stack.ts   # All AWS resources in one stack
 
 app/
 └── Dockerfile                      # API service container

@@ -1,7 +1,7 @@
 {
-  "name": "@frontier-lattice/indexer",
+  "name": "@frontier-corm/indexer",
   "version": "0.1.0",
-  "description": "Event indexer with verifiable history for Frontier Lattice on Sui",
+  "description": "Event indexer with verifiable history for Frontier Corm on Sui",
   "type": "module",
   "scripts": {
     "build": "tsc",

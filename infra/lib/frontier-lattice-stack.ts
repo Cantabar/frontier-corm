@@ -12,11 +12,11 @@ import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import * as logs from "aws-cdk-lib/aws-logs";
 import * as iam from "aws-cdk-lib/aws-iam";
 
-export class FrontierLatticeStack extends cdk.Stack {
+export class FrontierCormStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-    const prefix = "fl"; // short prefix for resource names
+    const prefix = "fc"; // short prefix for resource names
 
     // ================================================================
     // VPC
@@ -99,7 +99,7 @@ export class FrontierLatticeStack extends cdk.Stack {
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       securityGroups: [dbSg],
       credentials: rds.Credentials.fromSecret(dbCredentials),
-      databaseName: "frontier_lattice",
+      databaseName: "frontier_corm",
       allocatedStorage: 20,
       storageType: rds.StorageType.GP3,
       multiAz: false,
@@ -210,7 +210,7 @@ export class FrontierLatticeStack extends cdk.Stack {
       .secretValueFromJson("username")
       .unsafeUnwrap()}:${dbCredentials
       .secretValueFromJson("password")
-      .unsafeUnwrap()}@${db.dbInstanceEndpointAddress}:${db.dbInstanceEndpointPort}/frontier_lattice`;
+      .unsafeUnwrap()}@${db.dbInstanceEndpointAddress}:${db.dbInstanceEndpointPort}/frontier_corm`;
 
     // ================================================================
     // ECS — Indexer Service (subscriber + API on port 3100)

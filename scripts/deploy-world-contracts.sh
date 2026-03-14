@@ -114,22 +114,22 @@ request_gas 5
 echo "=== Seeding world ==="
 bash "$WORLD_DIR/scripts/seed-world.sh" localnet
 
-# ── Write world package ID to frontier-lattice .env for the web UI ────
-LATTICE_ENV="$PROJECT_ROOT/.env"
+# ── Write world package ID to frontier-corm .env for the web UI ────
+CORM_ENV="$PROJECT_ROOT/.env"
 WORLD_IDS_FILE="$WORLD_DIR/deployments/localnet/extracted-object-ids.json"
 if [ -f "$WORLD_IDS_FILE" ]; then
   WORLD_PKG_ID=$(jq -r '.world.packageId' "$WORLD_IDS_FILE")
   if [ -n "$WORLD_PKG_ID" ] && [ "$WORLD_PKG_ID" != "null" ]; then
-    write_lattice_env_var() {
+    write_corm_env_var() {
       local var="$1" val="$2"
-      if grep -q "^${var}=" "$LATTICE_ENV" 2>/dev/null; then
-        sed -i "s|^${var}=.*|${var}=${val}|" "$LATTICE_ENV"
+      if grep -q "^${var}=" "$CORM_ENV" 2>/dev/null; then
+        sed -i "s|^${var}=.*|${var}=${val}|" "$CORM_ENV"
       else
-        echo "${var}=${val}" >> "$LATTICE_ENV"
+        echo "${var}=${val}" >> "$CORM_ENV"
       fi
     }
-    write_lattice_env_var VITE_WORLD_PACKAGE_ID "$WORLD_PKG_ID"
-    echo "Wrote VITE_WORLD_PACKAGE_ID=$WORLD_PKG_ID to $LATTICE_ENV"
+    write_corm_env_var VITE_WORLD_PACKAGE_ID "$WORLD_PKG_ID"
+    echo "Wrote VITE_WORLD_PACKAGE_ID=$WORLD_PKG_ID to $CORM_ENV"
   else
     echo "WARNING: Could not extract world packageId from $WORLD_IDS_FILE" >&2
   fi

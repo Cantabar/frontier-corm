@@ -1,5 +1,5 @@
 /**
- * Frontier Lattice configuration.
+ * Frontier Corm configuration.
  *
  * Package IDs are populated after deployment to a Sui network.
  * For local development, update these after `sui client publish`.

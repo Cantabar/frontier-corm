@@ -1,5 +1,5 @@
 /**
- * Typed fetch wrappers for the Frontier Lattice event indexer REST API.
+ * Typed fetch wrappers for the Frontier Corm event indexer REST API.
  *
  * All endpoints are under /api/v1 (proxied through Vite in dev, or direct in prod).
  */

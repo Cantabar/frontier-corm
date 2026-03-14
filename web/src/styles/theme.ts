@@ -1,7 +1,7 @@
 /**
- * Frontier Lattice design tokens.
+ * Frontier Corm design tokens.
  *
- * "Cold Trust" palette — cyan primary, violet accents, cold-gray surfaces.
+ * "Rooted Trust" palette — cyan primary, violet accents, cold-gray surfaces.
  * Designed to stand apart from the default warm-orange Frontier theme.
  */
 

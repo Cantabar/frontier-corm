@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Frontier Dev Wallet",
-  "description": "Local dev wallet for Frontier Lattice — injects seeded ed25519 keys as a Sui wallet",
+  "description": "Local dev wallet for Frontier Corm — injects seeded ed25519 keys as a Sui wallet",
   "version": "0.1.0",
   "permissions": ["storage"],
   "action": {

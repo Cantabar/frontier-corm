@@ -1,4 +1,4 @@
-# Frontier Lattice — Local Development
+# Frontier Corm — Local Development
 #
 # Usage:  make local        (or: docker compose up -d)
 # Logs:   docker compose logs -f indexer
@@ -18,7 +18,7 @@ services:
       - "3100:3100"
     env_file: .env
     environment:
-      - DATABASE_URL=postgresql://lattice:lattice@postgres:5432/frontier_lattice
+      - DATABASE_URL=postgresql://corm:corm@postgres:5432/frontier_corm
       - API_PORT=3100
     depends_on:
       postgres:
@@ -41,7 +41,7 @@ services:
   #     - "3000:3000"
   #   env_file: .env
   #   environment:
-  #     - DATABASE_URL=postgresql://lattice:lattice@postgres:5432/frontier_lattice
+  #     - DATABASE_URL=postgresql://corm:corm@postgres:5432/frontier_corm
   #   depends_on:
   #     postgres:
   #       condition: service_healthy
@@ -53,13 +53,13 @@ services:
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_DB: frontier_lattice
-      POSTGRES_USER: lattice
-      POSTGRES_PASSWORD: lattice
+      POSTGRES_DB: frontier_corm
+      POSTGRES_USER: corm
+      POSTGRES_PASSWORD: corm
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U lattice -d frontier_lattice"]
+      test: ["CMD-SHELL", "pg_isready -U corm -d frontier_corm"]
       interval: 5s
       timeout: 3s
       retries: 5

@@ -1,17 +1,17 @@
 #!/usr/bin/env node
 import "source-map-support/register";
 import * as cdk from "aws-cdk-lib";
-import { FrontierLatticeStack } from "../lib/frontier-lattice-stack";
+import { FrontierCormStack } from "../lib/frontier-corm-stack";
 
 const app = new cdk.App();
 
-new FrontierLatticeStack(app, "FrontierLattice", {
+new FrontierCormStack(app, "FrontierCorm", {
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT,
     region: process.env.AWS_REGION ?? "us-east-1",
   },
   tags: {
-    Project: "frontier-lattice",
+    Project: "frontier-corm",
     Environment: "hackathon",
   },
 });

@@ -1,5 +1,5 @@
 /**
- * SQL queries for the Frontier Lattice event indexer (Postgres).
+ * SQL queries for the Frontier Corm event indexer (Postgres).
  *
  * All queries are async and use the pg Pool for connection management.
  */

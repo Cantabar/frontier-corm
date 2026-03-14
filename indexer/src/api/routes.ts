@@ -1,5 +1,5 @@
 /**
- * Query API routes for the Frontier Lattice event indexer.
+ * Query API routes for the Frontier Corm event indexer.
  *
  * All routes return JSON. Pagination via `limit` and `offset` query params.
  * Events include full checkpoint proof metadata for independent verification.

@@ -7,7 +7,7 @@
 
 ## What was built
 
-`indexer/` — an off-chain TypeScript service that subscribes to Sui on-chain events from all three Frontier Lattice contracts and archives them with checkpoint inclusion proofs.
+`indexer/` — an off-chain TypeScript service that subscribes to Sui on-chain events from all three Frontier Corm contracts and archives them with checkpoint inclusion proofs.
 
 ### Components
 
