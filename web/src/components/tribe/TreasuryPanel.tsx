@@ -3,7 +3,7 @@ import styled from "styled-components";
 import { useSignAndExecuteTransaction } from "@mysten/dapp-kit";
 import type { TribeData, TribeCapData, TreasuryProposalData } from "../../lib/types";
 import { formatAmount, truncateAddress, formatDeadline } from "../../lib/format";
-import { buildDepositToTreasury, buildProposeTreasurySpend, buildVoteOnProposal, buildExecuteProposal } from "../../lib/sui";
+import { buildDepositToTreasury, buildWithdrawFromTreasury, buildProposeTreasurySpend, buildVoteOnProposal, buildExecuteProposal } from "../../lib/sui";
 
 /* ------------------------------------------------------------------ */
 /* Styled                                                              */
@@ -133,6 +133,19 @@ export function TreasuryPanel({ tribe, cap, proposals }: Props) {
     setDepositAmount("");
   }
 
+  /* Withdraw */
+  const [withdrawAmount, setWithdrawAmount] = useState("");
+
+  async function handleWithdraw() {
+    if (!cap) return;
+    const amount = Math.round(Number(withdrawAmount) * 1e9);
+    if (!amount) return;
+    const tx = buildWithdrawFromTreasury({ tribeId: tribe.id, capId: cap.id, amount });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- duplicate @mysten/sui in dep tree
+    await signAndExecute({ transaction: tx as any });
+    setWithdrawAmount("");
+  }
+
   /* Propose */
   const [proposing, setProposing] = useState(false);
   const [propAmount, setPropAmount] = useState("");
@@ -188,6 +201,21 @@ export function TreasuryPanel({ tribe, cap, proposals }: Props) {
           Deposit
         </Button>
       </Row>
+
+      {/* Withdraw (Leader/Officer only) */}
+      {cap && (cap.role === "Leader" || cap.role === "Officer") && (
+        <Row>
+          <Input
+            type="number"
+            placeholder="Withdraw (SUI)"
+            value={withdrawAmount}
+            onChange={(e) => setWithdrawAmount(e.target.value)}
+          />
+          <SecondaryButton onClick={handleWithdraw} disabled={!withdrawAmount}>
+            Withdraw
+          </SecondaryButton>
+        </Row>
+      )}
 
       {cap && (
         <>

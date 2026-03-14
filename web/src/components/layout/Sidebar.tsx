@@ -1,5 +1,6 @@
 import { NavLink } from "react-router-dom";
 import styled from "styled-components";
+import { useIdentity } from "../../hooks/useIdentity";
 
 const Nav = styled.nav`
   width: 200px;
@@ -47,11 +48,19 @@ const SectionLabel = styled.div`
 `;
 
 export function Sidebar() {
+  const { tribeCaps } = useIdentity();
+  const userTribeId = tribeCaps[0]?.tribeId;
+
   return (
     <Nav>
       <StyledLink to="/" end>
         Dashboard
       </StyledLink>
+      <SectionLabel>Tribe</SectionLabel>
+      <StyledLink to="/tribes">All Tribes</StyledLink>
+      {userTribeId && (
+        <StyledLink to={`/tribe/${userTribeId}`}>My Tribe</StyledLink>
+      )}
       <SectionLabel>Modules</SectionLabel>
       <StyledLink to="/jobs">Contract Board</StyledLink>
       <StyledLink to="/contracts">Trustless Contracts</StyledLink>

@@ -10,6 +10,7 @@ import { ContractBoard } from "./pages/ContractBoard";
 import { ForgePlanner } from "./pages/ForgePlanner";
 import { EventExplorer } from "./pages/EventExplorer";
 import { TrustlessContracts } from "./pages/TrustlessContracts";
+import { TribeListPage } from "./pages/TribeListPage";
 
 const Shell = styled.div`
   display: flex;
@@ -41,6 +42,7 @@ export default function App() {
           <Content>
             <Routes>
               <Route path="/" element={<Dashboard />} />
+              <Route path="/tribes" element={<TribeListPage />} />
               <Route path="/tribe/:tribeId" element={<TribePage />} />
               <Route path="/jobs" element={<ContractBoard />} />
               <Route path="/contracts" element={<TrustlessContracts />} />

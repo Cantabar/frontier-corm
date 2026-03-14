@@ -187,8 +187,9 @@ export function TribeListPage() {
         registryId: config.tribeRegistryId,
         gameId,
       });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- duplicate @mysten/sui in dep tree
       const result = await client.devInspectTransactionBlock({
-        transactionBlock: tx,
+        transactionBlock: tx as any,
         sender: "0x0000000000000000000000000000000000000000000000000000000000000000",
       });
 
