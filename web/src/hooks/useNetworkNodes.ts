@@ -33,8 +33,22 @@ function parseNetworkNode(
   const metaOuter = fields.metadata as { fields?: { name?: string } } | null;
   const name = metaOuter?.fields?.name || "";
 
-  const fuelOuter = fields.fuel as { fields?: { quantity?: unknown } } | null;
+  const fuelOuter = fields.fuel as {
+    fields?: { quantity?: unknown; max_capacity?: unknown };
+  } | null;
   const fuelQuantity = Number(fuelOuter?.fields?.quantity ?? 0);
+  const fuelMaxCapacity = Number(fuelOuter?.fields?.max_capacity ?? 0);
+
+  const energyOuter = fields.energy_source as {
+    fields?: {
+      max_energy_production?: unknown;
+      current_energy_production?: unknown;
+      total_reserved_energy?: unknown;
+    };
+  } | null;
+  const maxEnergyProduction = Number(energyOuter?.fields?.max_energy_production ?? 0);
+  const currentEnergyProduction = Number(energyOuter?.fields?.current_energy_production ?? 0);
+  const totalReservedEnergy = Number(energyOuter?.fields?.total_reserved_energy ?? 0);
 
   const connectedIds = fields.connected_assembly_ids as unknown[] | null;
   const connectedAssemblyCount = Array.isArray(connectedIds) ? connectedIds.length : 0;
@@ -45,6 +59,10 @@ function parseNetworkNode(
     status: parseStatus(fields.status),
     name,
     fuelQuantity,
+    fuelMaxCapacity,
+    maxEnergyProduction,
+    currentEnergyProduction,
+    totalReservedEnergy,
     connectedAssemblyCount,
   };
 }

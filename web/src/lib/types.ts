@@ -201,6 +201,10 @@ export interface NetworkNodeData {
   status: AssemblyStatus;
   name: string;
   fuelQuantity: number;
+  fuelMaxCapacity: number;
+  maxEnergyProduction: number;
+  currentEnergyProduction: number;
+  totalReservedEnergy: number;
   connectedAssemblyCount: number;
 }
 
