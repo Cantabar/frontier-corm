@@ -3,6 +3,8 @@ import styled from "styled-components";
 import { useCurrentAccount, useSignAndExecuteTransaction } from "@mysten/dapp-kit";
 import type { TribeData, TribeCapData, TreasuryProposalData } from "../../lib/types";
 import { formatAmount, truncateAddress, formatDeadline } from "../../lib/format";
+import { parseCoinSymbol, isNativeSui } from "../../lib/coinUtils";
+import { useCoinObjectIds } from "../../hooks/useCoinTypes";
 import { buildDepositToTreasury, buildWithdrawFromTreasury, buildProposeTreasurySpend, buildVoteOnProposal, buildExecuteProposal } from "../../lib/sui";
 
 /* ------------------------------------------------------------------ */
@@ -121,6 +123,8 @@ interface Props {
 export function TreasuryPanel({ tribe, cap, proposals }: Props) {
   const account = useCurrentAccount();
   const { mutateAsync: signAndExecute } = useSignAndExecuteTransaction();
+  const coinSymbol = parseCoinSymbol(tribe.coinType);
+  const { objectIds: coinObjectIds } = useCoinObjectIds(tribe.coinType);
 
   /* Deposit */
   const [depositAmount, setDepositAmount] = useState("");
@@ -128,7 +132,12 @@ export function TreasuryPanel({ tribe, cap, proposals }: Props) {
   async function handleDeposit() {
     const amount = Math.round(Number(depositAmount) * 1e9);
     if (!amount) return;
-    const tx = buildDepositToTreasury({ tribeId: tribe.id, amount });
+    const tx = buildDepositToTreasury({
+      tribeId: tribe.id,
+      amount,
+      coinType: tribe.coinType,
+      coinObjectIds: isNativeSui(tribe.coinType) ? undefined : coinObjectIds,
+    });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- duplicate @mysten/sui in dep tree
     await signAndExecute({ transaction: tx as any });
     setDepositAmount("");
@@ -141,7 +150,7 @@ export function TreasuryPanel({ tribe, cap, proposals }: Props) {
     if (!cap) return;
     const amount = Math.round(Number(withdrawAmount) * 1e9);
     if (!amount) return;
-    const tx = buildWithdrawFromTreasury({ tribeId: tribe.id, capId: cap.id, amount, recipient: account!.address });
+    const tx = buildWithdrawFromTreasury({ tribeId: tribe.id, capId: cap.id, amount, recipient: account!.address, coinType: tribe.coinType });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- duplicate @mysten/sui in dep tree
     await signAndExecute({ transaction: tx as any });
     setWithdrawAmount("");
@@ -163,6 +172,7 @@ export function TreasuryPanel({ tribe, cap, proposals }: Props) {
       amount,
       recipient: propRecipient,
       deadlineMs,
+      coinType: tribe.coinType,
     });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- duplicate @mysten/sui in dep tree
     await signAndExecute({ transaction: tx as any });
@@ -174,13 +184,13 @@ export function TreasuryPanel({ tribe, cap, proposals }: Props) {
   /* Vote / Execute */
   async function handleVote(proposalId: string) {
     if (!cap) return;
-    const tx = buildVoteOnProposal({ tribeId: tribe.id, proposalId, capId: cap.id });
+    const tx = buildVoteOnProposal({ tribeId: tribe.id, proposalId, capId: cap.id, coinType: tribe.coinType });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await signAndExecute({ transaction: tx as any });
   }
 
   async function handleExecute(proposalId: string) {
-    const tx = buildExecuteProposal({ tribeId: tribe.id, proposalId });
+    const tx = buildExecuteProposal({ tribeId: tribe.id, proposalId, coinType: tribe.coinType });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await signAndExecute({ transaction: tx as any });
   }
@@ -188,13 +198,13 @@ export function TreasuryPanel({ tribe, cap, proposals }: Props) {
   return (
     <Panel>
       <SectionTitle>Treasury</SectionTitle>
-      <Balance>{formatAmount(tribe.treasuryBalance)} SUI</Balance>
+      <Balance>{formatAmount(tribe.treasuryBalance)} {coinSymbol}</Balance>
 
       {/* Deposit */}
       <Row>
         <Input
           type="number"
-          placeholder="Amount (SUI)"
+          placeholder={`Amount (${coinSymbol})`}
           value={depositAmount}
           onChange={(e) => setDepositAmount(e.target.value)}
         />
@@ -208,7 +218,7 @@ export function TreasuryPanel({ tribe, cap, proposals }: Props) {
         <Row>
           <Input
             type="number"
-            placeholder="Withdraw (SUI)"
+            placeholder={`Withdraw (${coinSymbol})`}
             value={withdrawAmount}
             onChange={(e) => setWithdrawAmount(e.target.value)}
           />
@@ -224,7 +234,7 @@ export function TreasuryPanel({ tribe, cap, proposals }: Props) {
             <>
               <Input
                 type="number"
-                placeholder="Amount (SUI)"
+                placeholder={`Amount (${coinSymbol})`}
                 value={propAmount}
                 onChange={(e) => setPropAmount(e.target.value)}
                 style={{ marginBottom: 8 }}
@@ -270,7 +280,7 @@ export function TreasuryPanel({ tribe, cap, proposals }: Props) {
                   To {truncateAddress(p.recipient)} · {formatDeadline(p.deadlineMs)} ·{" "}
                   {p.voteCount} vote{p.voteCount !== 1 && "s"}
                 </ProposalMeta>
-                <ProposalAmount>{formatAmount(p.amount)} SUI</ProposalAmount>
+                <ProposalAmount>{formatAmount(p.amount)} {coinSymbol}</ProposalAmount>
                 {cap && (
                   <Row style={{ marginTop: 8, marginBottom: 0 }}>
                     <SecondaryButton onClick={() => handleVote(p.id)}>Vote</SecondaryButton>

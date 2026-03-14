@@ -4,6 +4,7 @@ import styled, { keyframes } from "styled-components";
 import { useSignAndExecuteTransaction } from "@mysten/dapp-kit";
 import { useQueryClient } from "@tanstack/react-query";
 import { Modal } from "../shared/Modal";
+import { CoinTypeSelector } from "../shared/CoinTypeSelector";
 import { buildCreateTribe } from "../../lib/sui";
 import { useIdentity } from "../../hooks/useIdentity";
 import { useNotifications } from "../../hooks/useNotifications";
@@ -159,6 +160,7 @@ export function CreateTribeModal({ onClose, onCreated }: Props) {
 
   const [name, setName] = useState("");
   const [threshold, setThreshold] = useState("50");
+  const [selectedCoinType, setSelectedCoinType] = useState(config.coinType);
   const [error, setError] = useState<string | null>(null);
   const [createdTribeId, setCreatedTribeId] = useState<string | null>(null);
 
@@ -181,6 +183,7 @@ export function CreateTribeModal({ onClose, onCreated }: Props) {
       name,
       voteThreshold: Number(threshold),
       sender: address,
+      coinType: selectedCoinType,
     });
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- duplicate @mysten/sui in dep tree
@@ -208,6 +211,7 @@ export function CreateTribeModal({ onClose, onCreated }: Props) {
           name,
           inGameTribeId: inGameTribeId ?? 0,
           leaderCharacterId: characterId,
+          coinType: selectedCoinType,
         });
       }
 
@@ -296,6 +300,8 @@ export function CreateTribeModal({ onClose, onCreated }: Props) {
       />
       <HelpText>Percentage of members needed to pass a treasury proposal</HelpText>
 
+      <CoinTypeSelector value={selectedCoinType} onChange={setSelectedCoinType} />
+
       {error && (
         <div style={{
           background: "rgba(255,82,82,0.13)",
@@ -310,7 +316,7 @@ export function CreateTribeModal({ onClose, onCreated }: Props) {
         </div>
       )}
 
-      <Button onClick={handleCreate} disabled={!name || !characterId || !hasTribe || isPending || misconfigured}>
+      <Button onClick={handleCreate} disabled={!name || !characterId || !hasTribe || isPending || misconfigured || !selectedCoinType}>
         {isPending ? "Creating…" : misconfigured ? "Tribe contracts not configured" : "Create Tribe"}
       </Button>
     </Modal>
