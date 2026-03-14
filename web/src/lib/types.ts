@@ -206,30 +206,131 @@ export interface AssemblyData {
 }
 
 /**
+ * Structure group as defined by the game's group hierarchy.
+ * Used for categorising structures in the UI and filtering.
+ */
+export type AssemblyGroup =
+  | "Core"
+  | "Industry"
+  | "Storage"
+  | "Gate"
+  | "Defense"
+  | "Hangar"
+  | "Misc"
+  | "Beacon"
+  | "Construction";
+
+export interface AssemblyTypeInfo {
+  label: string;
+  /** Short category used by the filter tabs (backward-compat). */
+  short: string;
+  /** Structural group from the static data. */
+  group: AssemblyGroup;
+}
+
+/**
  * Well-known assembly type IDs from the world contracts.
  * These map `type_id` values to human-readable labels.
+ *
+ * Generated from static-data/data/phobos/fsd_built/types.json — category 22 (Deployable).
  */
-export const ASSEMBLY_TYPES: Record<number, { label: string; short: string }> = {
-  // From static-data/data/phobos/fsd_built/types.json — extend as new types are added.
-  88082: { label: "Mini Storage", short: "SSU" },
-  88083: { label: "Storage", short: "SSU" },
-  88084: { label: "Large Storage Unit", short: "SSU" },
-  87566: { label: "Field Storage", short: "SSU" },
-  91713: { label: "Mini Storage", short: "SSU" },
-  91714: { label: "Storage", short: "SSU" },
-  91715: { label: "Heavy Storage", short: "SSU" },
-  84955: { label: "Heavy Gate", short: "Gate" },
-  88086: { label: "Mini Gate", short: "Gate" },
-  87495: { label: "Deployable Stargate Small", short: "Gate" },
-  91711: { label: "Mini Gate", short: "Gate" },
-  91712: { label: "Heavy Gate", short: "Gate" },
-  92279: { label: "Mini Turret", short: "Turret" },
-  92280: { label: "Mini Turret", short: "Turret" },
-  92401: { label: "Turret", short: "Turret" },
+export const ASSEMBLY_TYPES: Record<number, AssemblyTypeInfo> = {
+  // ── Core (group 4885) ──────────────────────────────────────────
+  87160: { label: "Refuge", short: "Core", group: "Core" },
+  87161: { label: "Field Refinery", short: "Core", group: "Core" },
+  87162: { label: "Field Printer", short: "Core", group: "Core" },
+  87566: { label: "Field Storage", short: "Core", group: "Core" },
+  88092: { label: "Network Node", short: "Core", group: "Core" },
+
+  // ── Industry (group 4848) ──────────────────────────────────────
+  87119: { label: "Mini Printer", short: "Industry", group: "Industry" },
+  87120: { label: "Heavy Printer", short: "Industry", group: "Industry" },
+  88063: { label: "Refinery", short: "Industry", group: "Industry" },
+  88064: { label: "Heavy Refinery", short: "Industry", group: "Industry" },
+  88067: { label: "Printer", short: "Industry", group: "Industry" },
+  88068: { label: "Assembler", short: "Industry", group: "Industry" },
+  88069: { label: "Mini Berth", short: "Industry", group: "Industry" },
+  88070: { label: "Berth", short: "Industry", group: "Industry" },
+  88071: { label: "Heavy Berth", short: "Industry", group: "Industry" },
+  90184: { label: "Relay", short: "Industry", group: "Industry" },
+  91978: { label: "Nursery", short: "Industry", group: "Industry" },
+
+  // ── Storage (group 4849) ───────────────────────────────────────
+  77917: { label: "Heavy Storage", short: "Storage", group: "Storage" },
+  88082: { label: "Mini Storage", short: "Storage", group: "Storage" },
+  88083: { label: "Storage", short: "Storage", group: "Storage" },
+
+  // ── Gates (group 4850) ─────────────────────────────────────────
+  84955: { label: "Heavy Gate", short: "Gate", group: "Gate" },
+  88086: { label: "Mini Gate", short: "Gate", group: "Gate" },
+
+  // ── Defense (group 4851) ───────────────────────────────────────
+  92279: { label: "Mini Turret", short: "Defense", group: "Defense" },
+  92401: { label: "Turret", short: "Defense", group: "Defense" },
+  92404: { label: "Heavy Turret", short: "Defense", group: "Defense" },
+
+  // ── Hangars (group 4854) ───────────────────────────────────────
+  88093: { label: "Shelter", short: "Hangar", group: "Hangar" },
+  88094: { label: "Heavy Shelter", short: "Hangar", group: "Hangar" },
+  91871: { label: "Nest", short: "Hangar", group: "Hangar" },
+
+  // ── Miscellaneous / Decorative (group 4855) ────────────────────
+  88098: { label: "Monolith 1", short: "Misc", group: "Misc" },
+  88099: { label: "Monolith 2", short: "Misc", group: "Misc" },
+  88100: { label: "Wall 1", short: "Misc", group: "Misc" },
+  88101: { label: "Wall 2", short: "Misc", group: "Misc" },
+  89775: { label: "SEER I", short: "Misc", group: "Misc" },
+  89776: { label: "SEER II", short: "Misc", group: "Misc" },
+  89777: { label: "HARBINGER I", short: "Misc", group: "Misc" },
+  89778: { label: "HARBINGER II", short: "Misc", group: "Misc" },
+  89779: { label: "RAINMAKER II", short: "Misc", group: "Misc" },
+  89780: { label: "RAINMAKER I", short: "Misc", group: "Misc" },
+
+  // ── Beacon (group 4814) ────────────────────────────────────────
+  85291: { label: "Deployable Beacon", short: "Beacon", group: "Beacon" },
+
+  // ── Construction Sites (group 5021) ────────────────────────────
+  // Duplicates of the above with separate typeIDs; share the same icons.
+  91700: { label: "Mini Printer", short: "Industry", group: "Construction" },
+  91701: { label: "Printer", short: "Industry", group: "Construction" },
+  91702: { label: "Heavy Printer", short: "Industry", group: "Construction" },
+  91703: { label: "Refinery", short: "Industry", group: "Construction" },
+  91704: { label: "Heavy Refinery", short: "Industry", group: "Construction" },
+  91705: { label: "Mini Berth", short: "Industry", group: "Construction" },
+  91706: { label: "Berth", short: "Industry", group: "Construction" },
+  91707: { label: "Heavy Berth", short: "Industry", group: "Construction" },
+  91708: { label: "Assembler", short: "Industry", group: "Construction" },
+  91709: { label: "Shelter", short: "Hangar", group: "Construction" },
+  91710: { label: "Heavy Shelter", short: "Hangar", group: "Construction" },
+  91711: { label: "Mini Gate", short: "Gate", group: "Construction" },
+  91712: { label: "Heavy Gate", short: "Gate", group: "Construction" },
+  91713: { label: "Mini Storage", short: "Storage", group: "Construction" },
+  91714: { label: "Storage", short: "Storage", group: "Construction" },
+  91715: { label: "Heavy Storage", short: "Storage", group: "Construction" },
+  91717: { label: "Relay", short: "Industry", group: "Construction" },
+  91718: { label: "Monolith 1", short: "Misc", group: "Construction" },
+  91719: { label: "Monolith 2", short: "Misc", group: "Construction" },
+  91720: { label: "Wall 1", short: "Misc", group: "Construction" },
+  91721: { label: "Wall 2", short: "Misc", group: "Construction" },
+  91722: { label: "RAINMAKER I", short: "Misc", group: "Construction" },
+  91723: { label: "RAINMAKER II", short: "Misc", group: "Construction" },
+  91724: { label: "HARBINGER I", short: "Misc", group: "Construction" },
+  91725: { label: "HARBINGER II", short: "Misc", group: "Construction" },
+  91726: { label: "SEER I", short: "Misc", group: "Construction" },
+  91727: { label: "SEER II", short: "Misc", group: "Construction" },
+  91751: { label: "Refuge", short: "Core", group: "Construction" },
+  91752: { label: "Field Refinery", short: "Core", group: "Construction" },
+  91753: { label: "Field Printer", short: "Core", group: "Construction" },
+  91756: { label: "Field Storage", short: "Core", group: "Construction" },
+  92165: { label: "Nursery", short: "Industry", group: "Construction" },
+  92166: { label: "Nest", short: "Hangar", group: "Construction" },
+  92280: { label: "Mini Turret", short: "Defense", group: "Construction" },
+  92406: { label: "Turret", short: "Defense", group: "Construction" },
+  92407: { label: "Heavy Turret", short: "Defense", group: "Construction" },
 };
 
 /** All known assembly type categories for filtering. */
-export type AssemblyTypeFilter = "all" | "SSU" | "Gate" | "Turret";
+export type AssemblyTypeFilter = "all" | "Storage" | "Gate" | "Defense" | "Industry" | "Core" | "Hangar" | "Misc" | "Beacon";
 
 // ============================================================
 // Indexer event types (Phase 4)

@@ -124,6 +124,23 @@ const StructureCard = styled.div<{ $clickable?: boolean }>`
   }
 `;
 
+const StructureIcon = styled.img`
+  width: 40px;
+  height: 40px;
+  border-radius: ${({ theme }) => theme.radii.sm};
+  background: ${({ theme }) => theme.colors.surface.bg};
+  object-fit: contain;
+  flex-shrink: 0;
+`;
+
+const StructureIconPlaceholder = styled.div`
+  width: 40px;
+  height: 40px;
+  border-radius: ${({ theme }) => theme.radii.sm};
+  background: ${({ theme }) => theme.colors.surface.bg};
+  flex-shrink: 0;
+`;
+
 const StructureInfo = styled.div`
   flex: 1;
   min-width: 0;
@@ -194,10 +211,9 @@ const EnergyIndicator = styled.span<{ $connected: boolean }>`
 // Helpers
 // ---------------------------------------------------------------------------
 
-function getTypeCategory(typeId: number): "SSU" | "Gate" | "Turret" | "Unknown" {
+function getTypeCategory(typeId: number): string {
   const entry = ASSEMBLY_TYPES[typeId];
-  if (entry) return entry.short as "SSU" | "Gate" | "Turret";
-  return "Unknown";
+  return entry?.short ?? "Unknown";
 }
 
 function getTypeLabel(typeId: number): string {
@@ -262,7 +278,7 @@ export function MyStructuresPage() {
 
       {/* Filters */}
       <FilterRow>
-        {(["all", "SSU", "Gate", "Turret"] as AssemblyTypeFilter[]).map((t) => (
+        {(["all", "Storage", "Gate", "Defense", "Industry", "Core", "Hangar", "Misc", "Beacon"] as AssemblyTypeFilter[]).map((t) => (
           <Tab key={t} $active={typeFilter === t} onClick={() => setTypeFilter(t)}>
             {t === "all" ? "All Types" : t}
           </Tab>
@@ -318,13 +334,24 @@ function StructureRow({
   onSelect: (ssu: AssemblyData) => void;
 }) {
   const displayName = structure.name || truncateAddress(structure.id, 10, 6);
-  const isSsu = getTypeCategory(structure.typeId) === "SSU";
+  const [iconError, setIconError] = useState(false);
+  const isSsu = getTypeCategory(structure.typeId) === "Storage";
 
   return (
     <StructureCard
       $clickable={isSsu}
       onClick={isSsu ? () => onSelect(structure) : undefined}
     >
+      {!iconError ? (
+        <StructureIcon
+          src={`/icons/type-${structure.typeId}.png`}
+          alt={getTypeLabel(structure.typeId)}
+          loading="lazy"
+          onError={() => setIconError(true)}
+        />
+      ) : (
+        <StructureIconPlaceholder />
+      )}
       <StructureInfo>
         <StructureName>{displayName}</StructureName>
         <StructureMeta>
