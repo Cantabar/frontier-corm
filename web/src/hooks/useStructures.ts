@@ -1,9 +1,10 @@
 /**
- * Hook for querying Smart Assemblies (structures) owned by the current wallet.
+ * Hook for querying Smart Assemblies (structures) owned by the current player.
  *
  * On-chain, different structure kinds have separate Move types — Assembly,
- * StorageUnit, Gate and Turret — each with their own OwnerCap<T>.  We query
- * for ALL four cap types and merge them into a single list.
+ * StorageUnit, Gate and Turret — each with their own OwnerCap<T>.
+ * OwnerCaps are transferred to the player's Character object (not the wallet),
+ * so we query for objects owned by the Character ID.
  */
 
 import { useMemo } from "react";
@@ -71,17 +72,17 @@ function parseAssemblyFields(
 // ---------------------------------------------------------------------------
 
 export function useMyStructures() {
-  const { address } = useIdentity();
+  const { characterId } = useIdentity();
   const pkg = worldPkg();
-  const enabled = !!address && pkg !== "0x0";
+  const enabled = !!characterId && pkg !== "0x0";
 
-  // Step 1: Query wallet-owned OwnerCap<T> objects for every structure kind
+  // Step 1: Query OwnerCap<T> objects owned by the Character (not the wallet)
   const capResults = useSuiClientQueries({
     queries: enabled
       ? STRUCTURE_TYPES.map((t) => ({
           method: "getOwnedObjects" as const,
           params: {
-            owner: address,
+            owner: characterId,
             filter: { StructType: `${pkg}::access::OwnerCap<${pkg}::${t}>` },
             options: { showContent: true },
           },
