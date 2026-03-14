@@ -149,13 +149,15 @@ export class CheckpointSubscriber {
   private async pollOnce(): Promise<void> {
     const cursor = await getCursor(this.pool);
 
-    // Build the event cursor for Sui RPC
+    // Build the event cursor for Sui RPC — shared across all event type queries
+    // so that no event type's results advance the cursor past another type's events.
     const suiCursor = cursor.last_tx_digest
       ? { txDigest: cursor.last_tx_digest, eventSeq: String(cursor.last_event_seq ?? 0) }
       : undefined;
 
     // Query events for each filter (package-level query)
     let totalProcessed = 0;
+    let latestCursorUpdate: { txDigest: string; eventSeq: number; timestampMs: string } | null = null;
 
     for (const eventType of this.eventTypeFilters) {
       try {
@@ -173,20 +175,32 @@ export class CheckpointSubscriber {
           totalProcessed++;
         }
 
-        // Update cursor to last event in this batch
+        // Track the latest event across all types for cursor update
         const lastEvent = result.data[result.data.length - 1];
         if (lastEvent?.id) {
-          await updateCursor(
-            this.pool,
-            lastEvent.id.txDigest,
-            Number(lastEvent.id.eventSeq),
-            lastEvent.timestampMs ?? "0",
-          );
+          const ts = Number(lastEvent.timestampMs ?? "0");
+          if (!latestCursorUpdate || ts > Number(latestCursorUpdate.timestampMs)) {
+            latestCursorUpdate = {
+              txDigest: lastEvent.id.txDigest,
+              eventSeq: Number(lastEvent.id.eventSeq),
+              timestampMs: lastEvent.timestampMs ?? "0",
+            };
+          }
         }
       } catch (err) {
         // Log but continue with other event types
         console.error(`[subscriber] Error querying ${eventType}:`, err);
       }
+    }
+
+    // Update cursor once after all event types are processed
+    if (latestCursorUpdate) {
+      await updateCursor(
+        this.pool,
+        latestCursorUpdate.txDigest,
+        latestCursorUpdate.eventSeq,
+        latestCursorUpdate.timestampMs,
+      );
     }
 
     if (totalProcessed > 0) {
