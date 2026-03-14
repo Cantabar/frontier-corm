@@ -489,6 +489,91 @@ public fun create_item_for_coin<CE, CF>(
     transfer::share_object(contract);
 }
 
+/// Create an ItemForItem contract. Poster locks items at a source SSU, wants
+/// items deposited at a destination SSU. Like ItemForCoin, the caller must
+/// pass a transit `Item` withdrawn from the source SSU in the same PTB.
+public fun create_item_for_item<CE, CF>(
+    character: &Character,
+    source_ssu: &mut StorageUnit,
+    item: inventory::Item,
+    wanted_type_id: u64,
+    wanted_quantity: u32,
+    destination_ssu_id: ID,
+    allow_partial: bool,
+    deadline_ms: u64,
+    allowed_characters: vector<ID>,
+    allowed_tribes: vector<u32>,
+    clock: &Clock,
+    ctx: &mut TxContext,
+) {
+    assert!(deadline_ms > clock.timestamp_ms(), EDeadlineInPast);
+    assert!(inventory::quantity(&item) > 0, EZeroQuantity);
+    assert!(wanted_quantity > 0, EZeroQuantity);
+
+    let poster_id = character.id();
+    let poster_address = character.character_address();
+    let source_ssu_id = object::id(source_ssu);
+    let offered_type_id = inventory::type_id(&item);
+    let offered_quantity = inventory::quantity(&item);
+
+    // Deposit to open inventory (locked by our extension)
+    source_ssu.deposit_to_open_inventory<TrustlessAuth>(
+        character,
+        item,
+        trustless_auth(),
+        ctx,
+    );
+
+    let contract_type = ContractType::ItemForItem {
+        offered_type_id,
+        offered_quantity,
+        source_ssu_id,
+        wanted_type_id,
+        wanted_quantity,
+        destination_ssu_id,
+    };
+
+    let contract = Contract<CE, CF> {
+        id: object::new(ctx),
+        poster_id,
+        poster_address,
+        contract_type,
+        escrow: balance::zero<CE>(),
+        escrow_amount: 0,
+        fill_pool: balance::zero<CF>(),
+        courier_stake: balance::zero<CF>(),
+        courier_id: option::none(),
+        courier_address: option::none(),
+        target_quantity: (wanted_quantity as u64),
+        filled_quantity: 0,
+        allow_partial,
+        require_stake: false,
+        stake_amount: 0,
+        fills: table::new(ctx),
+        deadline_ms,
+        status: ContractStatus::Open,
+        allowed_characters,
+        allowed_tribes,
+    };
+
+    let contract_id = object::id(&contract);
+    event::emit(ContractCreatedEvent {
+        contract_id,
+        poster_id,
+        contract_type,
+        escrow_amount: 0,
+        target_quantity: (wanted_quantity as u64),
+        deadline_ms,
+        allow_partial,
+        require_stake: false,
+        stake_amount: 0,
+        allowed_characters: contract.allowed_characters,
+        allowed_tribes: contract.allowed_tribes,
+    });
+
+    transfer::share_object(contract);
+}
+
 /// Create a Transport contract. Poster locks coin payment, wants items delivered
 /// to a destination SSU. Courier must post a coin stake.
 public fun create_transport<CE, CF>(

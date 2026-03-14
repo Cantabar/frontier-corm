@@ -510,6 +510,39 @@ export function buildCreateItemForCoin(params: {
   return tx;
 }
 
+export function buildCreateItemForItem(params: {
+  characterId: string;
+  sourceSsuId: string;
+  itemId: string;
+  wantedTypeId: number;
+  wantedQuantity: number;
+  destinationSsuId: string;
+  allowPartial: boolean;
+  deadlineMs: number;
+  allowedCharacters: string[];
+  allowedTribes: number[];
+}): Transaction {
+  const tx = new Transaction();
+  tx.moveCall({
+    target: tcTarget("create_item_for_item"),
+    typeArguments: tcTypes(),
+    arguments: [
+      tx.object(params.characterId),
+      tx.object(params.sourceSsuId),
+      tx.object(params.itemId),
+      tx.pure.u64(params.wantedTypeId),
+      tx.pure.u32(params.wantedQuantity),
+      tx.pure.id(params.destinationSsuId),
+      tx.pure.bool(params.allowPartial),
+      tx.pure.u64(params.deadlineMs),
+      tx.pure("vector<address>", params.allowedCharacters),
+      tx.pure("vector<u32>", params.allowedTribes),
+      tx.object(SUI_CLOCK),
+    ],
+  });
+  return tx;
+}
+
 export function buildCreateTransport(params: {
   characterId: string;
   escrowAmount: number;
