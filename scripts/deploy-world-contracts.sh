@@ -15,6 +15,13 @@ if [ ! -d "$WORLD_DIR/scripts" ]; then
   exit 1
 fi
 
+# ── Clear stale VITE_WORLD_PACKAGE_ID so the web UI doesn't start with an old value ──
+CORM_ENV="$PROJECT_ROOT/.env"
+if grep -q '^VITE_WORLD_PACKAGE_ID=' "$CORM_ENV" 2>/dev/null; then
+  sed -i 's|^VITE_WORLD_PACKAGE_ID=.*|VITE_WORLD_PACKAGE_ID=|' "$CORM_ENV"
+  echo "Cleared stale VITE_WORLD_PACKAGE_ID from $CORM_ENV"
+fi
+
 # ── Wait for SUI localnet ───────────────────────────────────────────
 echo "Waiting for SUI localnet..."
 until curl -so /dev/null -w '%{http_code}' http://127.0.0.1:9000 >/dev/null 2>&1; do
@@ -120,7 +127,6 @@ echo "=== Seeding world ==="
 bash "$WORLD_DIR/scripts/seed-world.sh" localnet
 
 # ── Write world package ID to frontier-corm .env for the web UI ────
-CORM_ENV="$PROJECT_ROOT/.env"
 WORLD_IDS_FILE="$WORLD_DIR/deployments/localnet/extracted-object-ids.json"
 if [ -f "$WORLD_IDS_FILE" ]; then
   WORLD_PKG_ID=$(jq -r '.world.packageId' "$WORLD_IDS_FILE")
