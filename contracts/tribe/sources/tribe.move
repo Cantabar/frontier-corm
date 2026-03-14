@@ -47,6 +47,8 @@ const EThresholdOutOfRange: u64 = 11;
 const EDeadlineInPast: u64 = 12;
 #[allow(unused_const)]
 const EProposalNotExpired: u64 = 13;
+const EInGameTribeAlreadyClaimed: u64 = 14;
+const EInGameTribeIdInvalid: u64 = 15;
 
 // === Enums ===
 public enum Role has copy, drop, store {
@@ -57,12 +59,22 @@ public enum Role has copy, drop, store {
 
 // === Structs ===
 
+/// Shared singleton registry enforcing one on-chain Tribe per in-game tribe.
+/// Created once in the module `init` function.
+public struct TribeRegistry has key {
+    id: UID,
+    /// in_game_tribe_id (u32) -> on-chain Tribe object ID
+    registry: Table<u32, ID>,
+}
+
 /// The on-chain registry for a single tribe.
 /// Shared object — one per tribe.
 /// C is a phantom coin type (e.g. assets::EVE::EVE on EVE Frontier testnet).
 public struct Tribe<phantom C> has key {
     id: UID,
     name: String,
+    /// The in-game tribe ID from the world Character contract (1:1 with this Tribe)
+    in_game_tribe_id: u32,
     leader_character_id: ID,
     /// Character Sui object ID -> Role
     members: Table<ID, Role>,
@@ -112,9 +124,14 @@ public struct TreasuryProposal has key {
 
 // === Events ===
 
+public struct TribeRegistryCreatedEvent has copy, drop {
+    registry_id: ID,
+}
+
 public struct TribeCreatedEvent has copy, drop {
     tribe_id: ID,
     name: String,
+    in_game_tribe_id: u32,
     leader_character_id: ID,
 }
 
@@ -168,12 +185,26 @@ public struct TreasuryWithdrawEvent has copy, drop {
     withdrawn_by: ID,
 }
 
+// === Init ===
+
+/// Creates the singleton TribeRegistry on module publish.
+fun init(ctx: &mut TxContext) {
+    let registry = TribeRegistry {
+        id: object::new(ctx),
+        registry: table::new<u32, ID>(ctx),
+    };
+    event::emit(TribeRegistryCreatedEvent { registry_id: object::id(&registry) });
+    transfer::share_object(registry);
+}
+
 // === Public Functions ===
 
 /// Creates a new tribe. The caller provides their `Character` as proof of identity.
+/// The in-game tribe ID is read from the Character and must not already be claimed.
 /// The returned `TribeCap` (Leader role) must be transferred to the caller's wallet.
 /// C is the phantom coin type for the treasury (e.g. EVE on EVE Frontier testnet).
 public fun create_tribe<C>(
+    registry: &mut TribeRegistry,
     character: &Character,
     name: String,
     vote_threshold: u64,
@@ -181,6 +212,10 @@ public fun create_tribe<C>(
 ): TribeCap {
     assert!(name.length() > 0, ETribeNameEmpty);
     assert!(vote_threshold >= 1 && vote_threshold <= 100, EThresholdOutOfRange);
+
+    let in_game_tribe_id = character.tribe();
+    assert!(in_game_tribe_id != 0, EInGameTribeIdInvalid);
+    assert!(!registry.registry.contains(in_game_tribe_id), EInGameTribeAlreadyClaimed);
 
     let character_id = character.id();
 
@@ -192,6 +227,7 @@ public fun create_tribe<C>(
     let tribe = Tribe<C> {
         id: object::new(ctx),
         name,
+        in_game_tribe_id,
         leader_character_id: character_id,
         members,
         reputation,
@@ -204,6 +240,9 @@ public fun create_tribe<C>(
     // String has copy ability — safe to copy for the event before sharing
     let tribe_name = tribe.name;
 
+    // Register the 1:1 mapping
+    registry.registry.add(in_game_tribe_id, tribe_id);
+
     let leader_cap = TribeCap {
         id: object::new(ctx),
         tribe_id,
@@ -214,6 +253,7 @@ public fun create_tribe<C>(
     event::emit(TribeCreatedEvent {
         tribe_id,
         name: tribe_name,
+        in_game_tribe_id,
         leader_character_id: character_id,
     });
 
@@ -483,10 +523,20 @@ public fun cap_role(cap: &TribeCap): Role { cap.role }
 public fun rep_update_cap_tribe_id(cap: &RepUpdateCap): ID { cap.tribe_id }
 
 public fun tribe_name<C>(tribe: &Tribe<C>): String { tribe.name }
+public fun in_game_tribe_id<C>(tribe: &Tribe<C>): u32 { tribe.in_game_tribe_id }
 public fun leader_character_id<C>(tribe: &Tribe<C>): ID { tribe.leader_character_id }
 public fun member_count<C>(tribe: &Tribe<C>): u64 { tribe.member_count }
 public fun treasury_balance<C>(tribe: &Tribe<C>): u64 { tribe.treasury.value() }
 public fun vote_threshold<C>(tribe: &Tribe<C>): u64 { tribe.vote_threshold }
+
+/// Returns the on-chain Tribe object ID for a given in-game tribe, if one exists.
+public fun tribe_for_game_id(registry: &TribeRegistry, game_tribe_id: u32): Option<ID> {
+    if (registry.registry.contains(game_tribe_id)) {
+        std::option::some(*registry.registry.borrow(game_tribe_id))
+    } else {
+        std::option::none()
+    }
+}
 
 public fun reputation_of<C>(tribe: &Tribe<C>, character_id: ID): u64 {
     if (tribe.reputation.contains(character_id)) {
@@ -540,4 +590,9 @@ public fun destroy_tribe_cap_for_testing(cap: TribeCap) {
 public fun destroy_rep_update_cap_for_testing(cap: RepUpdateCap) {
     let RepUpdateCap { id, .. } = cap;
     id.delete();
+}
+
+#[test_only]
+public fun create_registry_for_testing(ctx: &mut TxContext) {
+    init(ctx);
 }
