@@ -105,6 +105,20 @@ export function getEventProof(eventId: number) {
   }>(`/proof/${eventId}`);
 }
 
+// ---- Trustless Contracts ----
+
+export function getTrustlessContractsFeed(params: PaginationParams = {}) {
+  return get<{ events: ArchivedEvent[] }>(
+    `/events${qs({ limit: params.limit, offset: params.offset, order: params.order, type: "ContractCreatedEvent" as EventTypeName })}`,
+  );
+}
+
+export function getTrustlessContractHistory(params: PaginationParams = {}) {
+  return get<{ events: ArchivedEvent[] }>(
+    `/events${qs({ limit: params.limit, offset: params.offset, order: params.order, type: "ContractCompletedEvent" as EventTypeName })}`,
+  );
+}
+
 // ---- Metadata ----
 
 export function getEventTypes() {
