@@ -97,7 +97,7 @@ interface Props {
 }
 
 export function CreateTribeModal({ onClose }: Props) {
-  const { characterId, inGameTribeId } = useIdentity();
+  const { characterId, inGameTribeId, address } = useIdentity();
   const { push } = useNotifications();
   const hasTribe = inGameTribeId != null && inGameTribeId > 0;
   const { mutateAsync: signAndExecute, isPending } = useSignAndExecuteTransaction();
@@ -124,6 +124,7 @@ export function CreateTribeModal({ onClose }: Props) {
       characterId,
       name,
       voteThreshold: Number(threshold),
+      sender: address,
     });
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- duplicate @mysten/sui in dep tree

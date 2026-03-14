@@ -1,6 +1,6 @@
 import { useState } from "react";
 import styled from "styled-components";
-import { useSignAndExecuteTransaction } from "@mysten/dapp-kit";
+import { useCurrentAccount, useSignAndExecuteTransaction } from "@mysten/dapp-kit";
 import type { TribeData, TribeCapData, TreasuryProposalData } from "../../lib/types";
 import { formatAmount, truncateAddress, formatDeadline } from "../../lib/format";
 import { buildDepositToTreasury, buildWithdrawFromTreasury, buildProposeTreasurySpend, buildVoteOnProposal, buildExecuteProposal } from "../../lib/sui";
@@ -119,6 +119,7 @@ interface Props {
 }
 
 export function TreasuryPanel({ tribe, cap, proposals }: Props) {
+  const account = useCurrentAccount();
   const { mutateAsync: signAndExecute } = useSignAndExecuteTransaction();
 
   /* Deposit */
@@ -140,7 +141,7 @@ export function TreasuryPanel({ tribe, cap, proposals }: Props) {
     if (!cap) return;
     const amount = Math.round(Number(withdrawAmount) * 1e9);
     if (!amount) return;
-    const tx = buildWithdrawFromTreasury({ tribeId: tribe.id, capId: cap.id, amount });
+    const tx = buildWithdrawFromTreasury({ tribeId: tribe.id, capId: cap.id, amount, recipient: account!.address });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- duplicate @mysten/sui in dep tree
     await signAndExecute({ transaction: tx as any });
     setWithdrawAmount("");

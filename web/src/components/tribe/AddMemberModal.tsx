@@ -78,15 +78,17 @@ export function AddMemberModal({ tribeId, cap, onClose }: Props) {
   const { mutateAsync: signAndExecute, isPending } = useSignAndExecuteTransaction();
 
   const [characterId, setCharacterId] = useState("");
+  const [walletAddress, setWalletAddress] = useState("");
   const [role, setRole] = useState<Role>("Member");
 
   async function handleAdd() {
-    if (!characterId) return;
+    if (!characterId || !walletAddress) return;
     const tx = buildAddMember({
       tribeId,
       capId: cap.id,
       newMemberCharacterId: characterId,
       role,
+      newMemberAddress: walletAddress,
     });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- duplicate @mysten/sui in dep tree
     await signAndExecute({ transaction: tx as any });
@@ -103,6 +105,13 @@ export function AddMemberModal({ tribeId, cap, onClose }: Props) {
         autoFocus
       />
 
+      <Label>Member Wallet Address</Label>
+      <Input
+        placeholder="0x..."
+        value={walletAddress}
+        onChange={(e) => setWalletAddress(e.target.value)}
+      />
+
       <Label>Role</Label>
       <Select value={role} onChange={(e) => setRole(e.target.value as Role)}>
         <option value="Member">Member</option>
@@ -110,7 +119,7 @@ export function AddMemberModal({ tribeId, cap, onClose }: Props) {
         <option value="Leader">Leader</option>
       </Select>
 
-      <Button onClick={handleAdd} disabled={!characterId || isPending}>
+      <Button onClick={handleAdd} disabled={!characterId || !walletAddress || isPending}>
         {isPending ? "Adding…" : "Add Member"}
       </Button>
     </Modal>

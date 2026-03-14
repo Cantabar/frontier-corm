@@ -21,9 +21,10 @@ export function buildCreateTribe(params: {
   characterId: string;
   name: string;
   voteThreshold: number;
+  sender: string;
 }): Transaction {
   const tx = new Transaction();
-  tx.moveCall({
+  const [leaderCap] = tx.moveCall({
     target: `${packages.tribe}::tribe::create_tribe`,
     typeArguments: [coinType],
     arguments: [
@@ -33,6 +34,7 @@ export function buildCreateTribe(params: {
       tx.pure.u64(params.voteThreshold),
     ],
   });
+  tx.transferObjects([leaderCap], tx.pure.address(params.sender));
   return tx;
 }
 
@@ -41,11 +43,12 @@ export function buildAddMember(params: {
   capId: string;
   newMemberCharacterId: string;
   role: Role;
+  newMemberAddress: string;
 }): Transaction {
   const tx = new Transaction();
   const roleTarget = `${packages.tribe}::tribe::role_${params.role.toLowerCase()}`;
   const [role] = tx.moveCall({ target: roleTarget });
-  tx.moveCall({
+  const [memberCap] = tx.moveCall({
     target: `${packages.tribe}::tribe::add_member`,
     typeArguments: [coinType],
     arguments: [
@@ -55,6 +58,7 @@ export function buildAddMember(params: {
       role,
     ],
   });
+  tx.transferObjects([memberCap], tx.pure.address(params.newMemberAddress));
   return tx;
 }
 
@@ -116,9 +120,10 @@ export function buildWithdrawFromTreasury(params: {
   tribeId: string;
   capId: string;
   amount: number;
+  recipient: string;
 }): Transaction {
   const tx = new Transaction();
-  tx.moveCall({
+  const [coin] = tx.moveCall({
     target: `${packages.tribe}::tribe::withdraw_from_treasury`,
     typeArguments: [coinType],
     arguments: [
@@ -127,6 +132,7 @@ export function buildWithdrawFromTreasury(params: {
       tx.pure.u64(params.amount),
     ],
   });
+  tx.transferObjects([coin], tx.pure.address(params.recipient));
   return tx;
 }
 
