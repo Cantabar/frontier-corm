@@ -1,18 +1,26 @@
 /**
  * Hook for querying Smart Assemblies (structures) owned by the current wallet.
  *
- * Ownership is represented by OwnerCap<Assembly> objects (wallet-owned).
- * Each OwnerCap points to a shared Assembly object via `authorized_object_id`.
- * We query for the caps first, then batch-fetch the Assembly objects.
+ * On-chain, different structure kinds have separate Move types — Assembly,
+ * StorageUnit, Gate and Turret — each with their own OwnerCap<T>.  We query
+ * for ALL four cap types and merge them into a single list.
  */
 
 import { useMemo } from "react";
-import { useSuiClientQuery, useSuiClientQueries } from "@mysten/dapp-kit";
+import { useSuiClientQueries } from "@mysten/dapp-kit";
 import { useIdentity } from "./useIdentity";
 import { config } from "../config";
 import type { AssemblyData, AssemblyStatus } from "../lib/types";
 
 const worldPkg = () => config.packages.world;
+
+/** Move module::Type pairs whose OwnerCaps represent player structures. */
+const STRUCTURE_TYPES = [
+  "assembly::Assembly",
+  "storage_unit::StorageUnit",
+  "gate::Gate",
+  "turret::Turret",
+] as const;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -67,28 +75,30 @@ export function useMyStructures() {
   const pkg = worldPkg();
   const enabled = !!address && pkg !== "0x0";
 
-  // Step 1: Query wallet-owned OwnerCap<Assembly> objects
-  const {
-    data: capData,
-    isLoading: capsLoading,
-    error: capsError,
-    refetch,
-  } = useSuiClientQuery(
-    "getOwnedObjects",
-    {
-      owner: address,
-      filter: {
-        StructType: `${pkg}::access::OwnerCap<${pkg}::assembly::Assembly>`,
-      },
-      options: { showContent: true },
-    },
-    { enabled },
-  );
+  // Step 1: Query wallet-owned OwnerCap<T> objects for every structure kind
+  const capResults = useSuiClientQueries({
+    queries: enabled
+      ? STRUCTURE_TYPES.map((t) => ({
+          method: "getOwnedObjects" as const,
+          params: {
+            owner: address,
+            filter: { StructType: `${pkg}::access::OwnerCap<${pkg}::${t}>` },
+            options: { showContent: true },
+          },
+        }))
+      : [],
+    combine: (results) => ({
+      data: results.flatMap((r) => r.data?.data ?? []),
+      isLoading: results.some((r) => r.isLoading),
+      error: results.find((r) => r.error)?.error ?? null,
+      refetch: () => results.forEach((r) => r.refetch()),
+    }),
+  });
 
   // Extract cap ID → assembly ID mappings
   const capMappings = useMemo(() => {
-    if (!capData?.data) return [];
-    return capData.data
+    if (!capResults.data) return [];
+    return capResults.data
       .map((obj) => {
         const fields = (obj.data?.content as { fields?: Record<string, unknown> })?.fields;
         if (!fields) return null;
@@ -98,9 +108,9 @@ export function useMyStructures() {
         };
       })
       .filter((m): m is { capId: string; assemblyId: string } => m !== null && !!m.assemblyId);
-  }, [capData]);
+  }, [capResults.data]);
 
-  // Step 2: Batch-fetch each Assembly shared object
+  // Step 2: Batch-fetch each shared structure object
   const assemblyResults = useSuiClientQueries({
     queries: capMappings.length > 0
       ? capMappings.map((m) => ({
@@ -134,8 +144,8 @@ export function useMyStructures() {
 
   return {
     structures,
-    isLoading: capsLoading || assemblyResults.isLoading,
-    error: capsError ?? assemblyResults.error,
-    refetch,
+    isLoading: capResults.isLoading || assemblyResults.isLoading,
+    error: capResults.error ?? assemblyResults.error,
+    refetch: capResults.refetch,
   };
 }
