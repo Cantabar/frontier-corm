@@ -1,0 +1,6128 @@
+[
+  {
+    "blueprintId": 1182,
+    "primaryTypeId": 77800,
+    "primaryName": "Feldspar Crystals",
+    "primaryIcon": "icons/type-77800.png",
+    "primaryCategoryName": "Asteroid",
+    "primaryGroupName": "Char Ores",
+    "primaryMetaGroupName": null,
+    "runTime": 3,
+    "outputs": [
+      {
+        "typeId": 89258,
+        "quantity": 5
+      },
+      {
+        "typeId": 89259,
+        "quantity": 15
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 77800,
+        "quantity": 20
+      }
+    ]
+  },
+  {
+    "blueprintId": 1201,
+    "primaryTypeId": 77800,
+    "primaryName": "Feldspar Crystals",
+    "primaryIcon": "icons/type-77800.png",
+    "primaryCategoryName": "Asteroid",
+    "primaryGroupName": "Char Ores",
+    "primaryMetaGroupName": null,
+    "runTime": 3,
+    "outputs": [
+      {
+        "typeId": 89258,
+        "quantity": 10
+      },
+      {
+        "typeId": 89259,
+        "quantity": 30
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 77800,
+        "quantity": 40
+      }
+    ]
+  },
+  {
+    "blueprintId": 1220,
+    "primaryTypeId": 77800,
+    "primaryName": "Feldspar Crystals",
+    "primaryIcon": "icons/type-77800.png",
+    "primaryCategoryName": "Asteroid",
+    "primaryGroupName": "Char Ores",
+    "primaryMetaGroupName": null,
+    "runTime": 4,
+    "outputs": [
+      {
+        "typeId": 89258,
+        "quantity": 30
+      },
+      {
+        "typeId": 89259,
+        "quantity": 90
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 77800,
+        "quantity": 120
+      }
+    ]
+  },
+  {
+    "blueprintId": 1183,
+    "primaryTypeId": 77811,
+    "primaryName": "Hydrated Sulfide Matrix",
+    "primaryIcon": "icons/type-77811.png",
+    "primaryCategoryName": "Asteroid",
+    "primaryGroupName": "Comet Ores",
+    "primaryMetaGroupName": null,
+    "runTime": 3,
+    "outputs": [
+      {
+        "typeId": 89258,
+        "quantity": 10
+      },
+      {
+        "typeId": 78423,
+        "quantity": 150
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 77811,
+        "quantity": 20
+      }
+    ]
+  },
+  {
+    "blueprintId": 1203,
+    "primaryTypeId": 77811,
+    "primaryName": "Hydrated Sulfide Matrix",
+    "primaryIcon": "icons/type-77811.png",
+    "primaryCategoryName": "Asteroid",
+    "primaryGroupName": "Comet Ores",
+    "primaryMetaGroupName": null,
+    "runTime": 3,
+    "outputs": [
+      {
+        "typeId": 89258,
+        "quantity": 20
+      },
+      {
+        "typeId": 78423,
+        "quantity": 200
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 77811,
+        "quantity": 40
+      }
+    ]
+  },
+  {
+    "blueprintId": 1222,
+    "primaryTypeId": 77811,
+    "primaryName": "Hydrated Sulfide Matrix",
+    "primaryIcon": "icons/type-77811.png",
+    "primaryCategoryName": "Asteroid",
+    "primaryGroupName": "Comet Ores",
+    "primaryMetaGroupName": null,
+    "runTime": 4,
+    "outputs": [
+      {
+        "typeId": 89258,
+        "quantity": 60
+      },
+      {
+        "typeId": 78423,
+        "quantity": 600
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 77811,
+        "quantity": 120
+      }
+    ]
+  },
+  {
+    "blueprintId": 1197,
+    "primaryTypeId": 78446,
+    "primaryName": "Methane Ice Shards",
+    "primaryIcon": "icons/type-78446.png",
+    "primaryCategoryName": "Asteroid",
+    "primaryGroupName": "Dewdrop Ores",
+    "primaryMetaGroupName": null,
+    "runTime": 15,
+    "outputs": [
+      {
+        "typeId": 88781,
+        "quantity": 1
+      },
+      {
+        "typeId": 77804,
+        "quantity": 126
+      },
+      {
+        "typeId": 78423,
+        "quantity": 349
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 78446,
+        "quantity": 100
+      }
+    ]
+  },
+  {
+    "blueprintId": 1198,
+    "primaryTypeId": 78447,
+    "primaryName": "Primitive Kerogen Matrix",
+    "primaryIcon": "icons/type-78447.png",
+    "primaryCategoryName": "Asteroid",
+    "primaryGroupName": "Ember Ores",
+    "primaryMetaGroupName": null,
+    "runTime": 15,
+    "outputs": [
+      {
+        "typeId": 88781,
+        "quantity": 1
+      },
+      {
+        "typeId": 88783,
+        "quantity": 16
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 78447,
+        "quantity": 100
+      }
+    ]
+  },
+  {
+    "blueprintId": 1199,
+    "primaryTypeId": 78448,
+    "primaryName": "Aromatic Carbon Veins",
+    "primaryIcon": "icons/type-78448.png",
+    "primaryCategoryName": "Asteroid",
+    "primaryGroupName": "Glint Ores",
+    "primaryMetaGroupName": null,
+    "runTime": 15,
+    "outputs": [
+      {
+        "typeId": 88781,
+        "quantity": 1
+      },
+      {
+        "typeId": 88782,
+        "quantity": 4
+      },
+      {
+        "typeId": 88783,
+        "quantity": 8
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 78448,
+        "quantity": 100
+      }
+    ]
+  },
+  {
+    "blueprintId": 1204,
+    "primaryTypeId": 78426,
+    "primaryName": "Iridosmine Nodules",
+    "primaryIcon": "icons/type-78426.png",
+    "primaryCategoryName": "Asteroid",
+    "primaryGroupName": "Ingot Ores",
+    "primaryMetaGroupName": null,
+    "runTime": 5,
+    "outputs": [
+      {
+        "typeId": 89260,
+        "quantity": 40
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 78426,
+        "quantity": 40
+      }
+    ]
+  },
+  {
+    "blueprintId": 1223,
+    "primaryTypeId": 78426,
+    "primaryName": "Iridosmine Nodules",
+    "primaryIcon": "icons/type-78426.png",
+    "primaryCategoryName": "Asteroid",
+    "primaryGroupName": "Ingot Ores",
+    "primaryMetaGroupName": null,
+    "runTime": 8,
+    "outputs": [
+      {
+        "typeId": 89260,
+        "quantity": 120
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 78426,
+        "quantity": 120
+      }
+    ]
+  },
+  {
+    "blueprintId": 1195,
+    "primaryTypeId": 77729,
+    "primaryName": "Rough Old Crude Matter",
+    "primaryIcon": "icons/type-77729.png",
+    "primaryCategoryName": "Asteroid",
+    "primaryGroupName": "Rift",
+    "primaryMetaGroupName": null,
+    "runTime": 20,
+    "outputs": [
+      {
+        "typeId": 83839,
+        "quantity": 16
+      },
+      {
+        "typeId": 77728,
+        "quantity": 28
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 77729,
+        "quantity": 30
+      }
+    ]
+  },
+  {
+    "blueprintId": 1196,
+    "primaryTypeId": 78434,
+    "primaryName": "Rough Young Crude Matter",
+    "primaryIcon": "icons/type-78434.png",
+    "primaryCategoryName": "Asteroid",
+    "primaryGroupName": "Rift",
+    "primaryMetaGroupName": null,
+    "runTime": 20,
+    "outputs": [
+      {
+        "typeId": 83839,
+        "quantity": 1
+      },
+      {
+        "typeId": 78435,
+        "quantity": 28
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 78434,
+        "quantity": 30
+      }
+    ]
+  },
+  {
+    "blueprintId": 1184,
+    "primaryTypeId": 77810,
+    "primaryName": "Platinum-Palladium Matrix",
+    "primaryIcon": "icons/type-77810.png",
+    "primaryCategoryName": "Asteroid",
+    "primaryGroupName": "Slag Ores",
+    "primaryMetaGroupName": null,
+    "runTime": 3,
+    "outputs": [
+      {
+        "typeId": 89259,
+        "quantity": 8
+      },
+      {
+        "typeId": 89260,
+        "quantity": 15
+      },
+      {
+        "typeId": 99001,
+        "quantity": 4
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 77810,
+        "quantity": 20
+      }
+    ]
+  },
+  {
+    "blueprintId": 1202,
+    "primaryTypeId": 77810,
+    "primaryName": "Platinum-Palladium Matrix",
+    "primaryIcon": "icons/type-77810.png",
+    "primaryCategoryName": "Asteroid",
+    "primaryGroupName": "Slag Ores",
+    "primaryMetaGroupName": null,
+    "runTime": 3,
+    "outputs": [
+      {
+        "typeId": 89259,
+        "quantity": 10
+      },
+      {
+        "typeId": 89260,
+        "quantity": 30
+      },
+      {
+        "typeId": 99001,
+        "quantity": 8
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 77810,
+        "quantity": 40
+      }
+    ]
+  },
+  {
+    "blueprintId": 1221,
+    "primaryTypeId": 77810,
+    "primaryName": "Platinum-Palladium Matrix",
+    "primaryIcon": "icons/type-77810.png",
+    "primaryCategoryName": "Asteroid",
+    "primaryGroupName": "Slag Ores",
+    "primaryMetaGroupName": null,
+    "runTime": 4,
+    "outputs": [
+      {
+        "typeId": 89259,
+        "quantity": 30
+      },
+      {
+        "typeId": 89260,
+        "quantity": 90
+      },
+      {
+        "typeId": 99001,
+        "quantity": 24
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 77810,
+        "quantity": 120
+      }
+    ]
+  },
+  {
+    "blueprintId": 1200,
+    "primaryTypeId": 78449,
+    "primaryName": "Tholin Nodules",
+    "primaryIcon": "icons/type-78449.png",
+    "primaryCategoryName": "Asteroid",
+    "primaryGroupName": "Soot Ores",
+    "primaryMetaGroupName": null,
+    "runTime": 15,
+    "outputs": [
+      {
+        "typeId": 88781,
+        "quantity": 1
+      },
+      {
+        "typeId": 88782,
+        "quantity": 8
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 78449,
+        "quantity": 100
+      }
+    ]
+  },
+  {
+    "blueprintId": 1050,
+    "primaryTypeId": 83898,
+    "primaryName": "Eclipsite Mining Lens",
+    "primaryIcon": "icons/type-83898.png",
+    "primaryCategoryName": "Charge",
+    "primaryGroupName": "Asteroid Mining Crystal",
+    "primaryMetaGroupName": null,
+    "runTime": 5,
+    "outputs": [
+      {
+        "typeId": 83898,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 77803,
+        "quantity": 50
+      },
+      {
+        "typeId": 83893,
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "blueprintId": 1049,
+    "primaryTypeId": 83896,
+    "primaryName": "Gravionite Mining Lens",
+    "primaryIcon": "icons/type-83896.png",
+    "primaryCategoryName": "Charge",
+    "primaryGroupName": "Asteroid Mining Crystal",
+    "primaryMetaGroupName": null,
+    "runTime": 5,
+    "outputs": [
+      {
+        "typeId": 83896,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 77803,
+        "quantity": 50
+      },
+      {
+        "typeId": 83891,
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "blueprintId": 1027,
+    "primaryTypeId": 83897,
+    "primaryName": "Luminalis Mining Lens",
+    "primaryIcon": "icons/type-83897.png",
+    "primaryCategoryName": "Charge",
+    "primaryGroupName": "Asteroid Mining Crystal",
+    "primaryMetaGroupName": null,
+    "runTime": 3,
+    "outputs": [
+      {
+        "typeId": 83897,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 77803,
+        "quantity": 45
+      },
+      {
+        "typeId": 83892,
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "blueprintId": 1026,
+    "primaryTypeId": 83895,
+    "primaryName": "Radiantium Mining Lens",
+    "primaryIcon": "icons/type-83895.png",
+    "primaryCategoryName": "Charge",
+    "primaryGroupName": "Asteroid Mining Crystal",
+    "primaryMetaGroupName": null,
+    "runTime": 3,
+    "outputs": [
+      {
+        "typeId": 83895,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 77803,
+        "quantity": 45
+      },
+      {
+        "typeId": 83894,
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "blueprintId": 1007,
+    "primaryTypeId": 83463,
+    "primaryName": "Synthetic Mining Lens",
+    "primaryIcon": "icons/type-83463.png",
+    "primaryCategoryName": "Charge",
+    "primaryGroupName": "Asteroid Mining Crystal",
+    "primaryMetaGroupName": null,
+    "runTime": 3,
+    "outputs": [
+      {
+        "typeId": 83463,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 89259,
+        "quantity": 3
+      }
+    ]
+  },
+  {
+    "blueprintId": 1061,
+    "primaryTypeId": 82134,
+    "primaryName": "Coilgun Ammo 1 (M)",
+    "primaryIcon": "icons/type-82134.png",
+    "primaryCategoryName": "Charge",
+    "primaryGroupName": "Coilgun Charge",
+    "primaryMetaGroupName": "Enhanced",
+    "runTime": 13,
+    "outputs": [
+      {
+        "typeId": 82134,
+        "quantity": 100
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84182,
+        "quantity": 7
+      }
+    ]
+  },
+  {
+    "blueprintId": 1030,
+    "primaryTypeId": 82133,
+    "primaryName": "Coilgun Ammo 1 (S)",
+    "primaryIcon": "icons/type-82133.png",
+    "primaryCategoryName": "Charge",
+    "primaryGroupName": "Coilgun Charge",
+    "primaryMetaGroupName": "Standard",
+    "runTime": 5,
+    "outputs": [
+      {
+        "typeId": 82133,
+        "quantity": 100
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 77801,
+        "quantity": 230
+      }
+    ]
+  },
+  {
+    "blueprintId": 1034,
+    "primaryTypeId": 82137,
+    "primaryName": "EM Disintegrator Charge (M)",
+    "primaryIcon": "icons/type-82137.png",
+    "primaryCategoryName": "Charge",
+    "primaryGroupName": "EM Disintegrator Charge ",
+    "primaryMetaGroupName": "Enhanced",
+    "runTime": 3,
+    "outputs": [
+      {
+        "typeId": 82137,
+        "quantity": 100
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 77801,
+        "quantity": 20
+      },
+      {
+        "typeId": 77805,
+        "quantity": 60
+      }
+    ]
+  },
+  {
+    "blueprintId": 1064,
+    "primaryTypeId": 82137,
+    "primaryName": "EM Disintegrator Charge (M)",
+    "primaryIcon": "icons/type-82137.png",
+    "primaryCategoryName": "Charge",
+    "primaryGroupName": "EM Disintegrator Charge ",
+    "primaryMetaGroupName": "Enhanced",
+    "runTime": 3,
+    "outputs": [
+      {
+        "typeId": 82137,
+        "quantity": 100
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 77801,
+        "quantity": 6
+      },
+      {
+        "typeId": 77805,
+        "quantity": 20
+      }
+    ]
+  },
+  {
+    "blueprintId": 1054,
+    "primaryTypeId": 81658,
+    "primaryName": "EM Disintegrator Charge (S)",
+    "primaryIcon": "icons/type-81658.png",
+    "primaryCategoryName": "Charge",
+    "primaryGroupName": "EM Disintegrator Charge ",
+    "primaryMetaGroupName": "Basic",
+    "runTime": 3,
+    "outputs": [
+      {
+        "typeId": 81658,
+        "quantity": 100
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 77801,
+        "quantity": 3
+      },
+      {
+        "typeId": 77805,
+        "quantity": 10
+      }
+    ]
+  },
+  {
+    "blueprintId": 1010,
+    "primaryTypeId": 82128,
+    "primaryName": "AC Gyrojet Ammo 1 (S) ",
+    "primaryIcon": "icons/type-82128.png",
+    "primaryCategoryName": "Charge",
+    "primaryGroupName": "Gyrojet Ammunition",
+    "primaryMetaGroupName": "Standard",
+    "runTime": 3,
+    "outputs": [
+      {
+        "typeId": 82128,
+        "quantity": 100
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 89260,
+        "quantity": 24
+      }
+    ]
+  },
+  {
+    "blueprintId": 1053,
+    "primaryTypeId": 82126,
+    "primaryName": "AC Gyrojet Ammo 2 (S)",
+    "primaryIcon": "icons/type-82126.png",
+    "primaryCategoryName": "Charge",
+    "primaryGroupName": "Gyrojet Ammunition",
+    "primaryMetaGroupName": "Enhanced",
+    "runTime": 5,
+    "outputs": [
+      {
+        "typeId": 82126,
+        "quantity": 100
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 77801,
+        "quantity": 230
+      }
+    ]
+  },
+  {
+    "blueprintId": 1051,
+    "primaryTypeId": 82127,
+    "primaryName": "AC Gyrojet Ammo 3 (S)",
+    "primaryIcon": "icons/type-82127.png",
+    "primaryCategoryName": "Charge",
+    "primaryGroupName": "Gyrojet Ammunition",
+    "primaryMetaGroupName": "Prototype",
+    "runTime": 5,
+    "outputs": [
+      {
+        "typeId": 82127,
+        "quantity": 100
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 77801,
+        "quantity": 230
+      }
+    ]
+  },
+  {
+    "blueprintId": 1013,
+    "primaryTypeId": 88887,
+    "primaryName": "Compressed Coolant ",
+    "primaryIcon": "icons/type-88887.png",
+    "primaryCategoryName": "Charge",
+    "primaryGroupName": "Heat Sink Charge",
+    "primaryMetaGroupName": null,
+    "runTime": 3,
+    "outputs": [
+      {
+        "typeId": 88887,
+        "quantity": 10
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 88335,
+        "quantity": 115
+      },
+      {
+        "typeId": 89260,
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "blueprintId": 1040,
+    "primaryTypeId": 82411,
+    "primaryName": "EM Nanite Sequencer",
+    "primaryIcon": "icons/type-82411.png",
+    "primaryCategoryName": "Charge",
+    "primaryGroupName": "Nanitic Armor Weave Sequencer",
+    "primaryMetaGroupName": "Basic",
+    "runTime": 248,
+    "outputs": [
+      {
+        "typeId": 82411,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 1
+      },
+      {
+        "typeId": 84210,
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "blueprintId": 1046,
+    "primaryTypeId": 82410,
+    "primaryName": "Explosive Nanite Sequencer",
+    "primaryIcon": "icons/type-82410.png",
+    "primaryCategoryName": "Charge",
+    "primaryGroupName": "Nanitic Armor Weave Sequencer",
+    "primaryMetaGroupName": "Basic",
+    "runTime": 222,
+    "outputs": [
+      {
+        "typeId": 82410,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 1
+      },
+      {
+        "typeId": 88561,
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "blueprintId": 1045,
+    "primaryTypeId": 82413,
+    "primaryName": "Kinetic Nanite Sequencer",
+    "primaryIcon": "icons/type-82413.png",
+    "primaryCategoryName": "Charge",
+    "primaryGroupName": "Nanitic Armor Weave Sequencer",
+    "primaryMetaGroupName": "Basic",
+    "runTime": 222,
+    "outputs": [
+      {
+        "typeId": 82413,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 1
+      },
+      {
+        "typeId": 88561,
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "blueprintId": 1042,
+    "primaryTypeId": 82412,
+    "primaryName": "Thermal Nanite Sequencer",
+    "primaryIcon": "icons/type-82412.png",
+    "primaryCategoryName": "Charge",
+    "primaryGroupName": "Nanitic Armor Weave Sequencer",
+    "primaryMetaGroupName": "Basic",
+    "runTime": 222,
+    "outputs": [
+      {
+        "typeId": 82412,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 1
+      },
+      {
+        "typeId": 88561,
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "blueprintId": 1062,
+    "primaryTypeId": 82132,
+    "primaryName": "Rapid Plasma Ammo 1 (M)",
+    "primaryIcon": "icons/type-82132.png",
+    "primaryCategoryName": "Charge",
+    "primaryGroupName": "Plasma Charge",
+    "primaryMetaGroupName": "Enhanced",
+    "runTime": 13,
+    "outputs": [
+      {
+        "typeId": 82132,
+        "quantity": 100
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84182,
+        "quantity": 4
+      },
+      {
+        "typeId": 88234,
+        "quantity": 800
+      },
+      {
+        "typeId": 77801,
+        "quantity": 1000
+      },
+      {
+        "typeId": 88234,
+        "quantity": 400
+      },
+      {
+        "typeId": 99001,
+        "quantity": 700
+      },
+      {
+        "typeId": 77811,
+        "quantity": 100
+      }
+    ]
+  },
+  {
+    "blueprintId": 1029,
+    "primaryTypeId": 82130,
+    "primaryName": "Rapid Plasma Ammo 1 (S)",
+    "primaryIcon": "icons/type-82130.png",
+    "primaryCategoryName": "Charge",
+    "primaryGroupName": "Plasma Charge",
+    "primaryMetaGroupName": "Standard",
+    "runTime": 5,
+    "outputs": [
+      {
+        "typeId": 82130,
+        "quantity": 100
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 77805,
+        "quantity": 400
+      },
+      {
+        "typeId": 88234,
+        "quantity": 400
+      }
+    ]
+  },
+  {
+    "blueprintId": 1052,
+    "primaryTypeId": 82131,
+    "primaryName": "Rapid Plasma Ammo 2 (S)",
+    "primaryIcon": "icons/type-82131.png",
+    "primaryCategoryName": "Charge",
+    "primaryGroupName": "Plasma Charge",
+    "primaryMetaGroupName": "Enhanced",
+    "runTime": 5,
+    "outputs": [
+      {
+        "typeId": 82131,
+        "quantity": 100
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 77805,
+        "quantity": 400
+      },
+      {
+        "typeId": 88234,
+        "quantity": 400
+      }
+    ]
+  },
+  {
+    "blueprintId": 1063,
+    "primaryTypeId": 82140,
+    "primaryName": "Howitzer Ammo 1 (M)",
+    "primaryIcon": "icons/type-82140.png",
+    "primaryCategoryName": "Charge",
+    "primaryGroupName": "Projectile Ammo",
+    "primaryMetaGroupName": "Enhanced",
+    "runTime": 13,
+    "outputs": [
+      {
+        "typeId": 82140,
+        "quantity": 100
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84182,
+        "quantity": 6
+      },
+      {
+        "typeId": 88234,
+        "quantity": 400
+      }
+    ]
+  },
+  {
+    "blueprintId": 1056,
+    "primaryTypeId": 78437,
+    "primaryName": "EU-90 Fuel",
+    "primaryIcon": "icons/type-78437.png",
+    "primaryCategoryName": "Commodity",
+    "primaryGroupName": "Crude Fuel",
+    "primaryMetaGroupName": null,
+    "runTime": 35,
+    "outputs": [
+      {
+        "typeId": 78437,
+        "quantity": 600
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 78516,
+        "quantity": 600
+      },
+      {
+        "typeId": 83899,
+        "quantity": 60
+      }
+    ]
+  },
+  {
+    "blueprintId": 1033,
+    "primaryTypeId": 78515,
+    "primaryName": "SOF-80 Fuel",
+    "primaryIcon": "icons/type-78515.png",
+    "primaryCategoryName": "Commodity",
+    "primaryGroupName": "Crude Fuel",
+    "primaryMetaGroupName": null,
+    "runTime": 35,
+    "outputs": [
+      {
+        "typeId": 78515,
+        "quantity": 600
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 83899,
+        "quantity": 44
+      },
+      {
+        "typeId": 84868,
+        "quantity": 600
+      }
+    ]
+  },
+  {
+    "blueprintId": 1043,
+    "primaryTypeId": 78416,
+    "primaryName": "Apocalypse Protocol Frame",
+    "primaryIcon": "icons/type-78416.png",
+    "primaryCategoryName": "Commodity",
+    "primaryGroupName": "Exotronic Frames",
+    "primaryMetaGroupName": "Enhanced",
+    "runTime": 46,
+    "outputs": [
+      {
+        "typeId": 78416,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 88565,
+        "quantity": 1
+      },
+      {
+        "typeId": 88780,
+        "quantity": 1
+      },
+      {
+        "typeId": 88783,
+        "quantity": 128
+      }
+    ]
+  },
+  {
+    "blueprintId": 1047,
+    "primaryTypeId": 78420,
+    "primaryName": "Archangel Protocol Frame",
+    "primaryIcon": "icons/type-78420.png",
+    "primaryCategoryName": "Commodity",
+    "primaryGroupName": "Exotronic Frames",
+    "primaryMetaGroupName": "Experimental",
+    "runTime": 31,
+    "outputs": [
+      {
+        "typeId": 78420,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 88565,
+        "quantity": 1
+      },
+      {
+        "typeId": 88780,
+        "quantity": 1
+      },
+      {
+        "typeId": 88783,
+        "quantity": 38
+      }
+    ]
+  },
+  {
+    "blueprintId": 1044,
+    "primaryTypeId": 78417,
+    "primaryName": "Bastion Program Frame",
+    "primaryIcon": "icons/type-78417.png",
+    "primaryCategoryName": "Commodity",
+    "primaryGroupName": "Exotronic Frames",
+    "primaryMetaGroupName": "Enhanced",
+    "runTime": 31,
+    "outputs": [
+      {
+        "typeId": 78417,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 88565,
+        "quantity": 1
+      },
+      {
+        "typeId": 88780,
+        "quantity": 1
+      },
+      {
+        "typeId": 88783,
+        "quantity": 38
+      }
+    ]
+  },
+  {
+    "blueprintId": 1060,
+    "primaryTypeId": 78422,
+    "primaryName": "Equilibrium Program Frame",
+    "primaryIcon": "icons/type-78422.png",
+    "primaryCategoryName": "Commodity",
+    "primaryGroupName": "Exotronic Frames",
+    "primaryMetaGroupName": "Standard",
+    "runTime": 126,
+    "outputs": [
+      {
+        "typeId": 78422,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 88565,
+        "quantity": 1
+      },
+      {
+        "typeId": 88780,
+        "quantity": 1
+      },
+      {
+        "typeId": 88782,
+        "quantity": 1347
+      }
+    ]
+  },
+  {
+    "blueprintId": 1048,
+    "primaryTypeId": 78421,
+    "primaryName": "Exterminata Protocol Frame",
+    "primaryIcon": "icons/type-78421.png",
+    "primaryCategoryName": "Commodity",
+    "primaryGroupName": "Exotronic Frames",
+    "primaryMetaGroupName": "Exotic",
+    "runTime": 31,
+    "outputs": [
+      {
+        "typeId": 78421,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 88565,
+        "quantity": 1
+      },
+      {
+        "typeId": 88780,
+        "quantity": 1
+      },
+      {
+        "typeId": 88783,
+        "quantity": 38
+      }
+    ]
+  },
+  {
+    "blueprintId": 1005,
+    "primaryTypeId": 78418,
+    "primaryName": "Nomad Program Frame",
+    "primaryIcon": "icons/type-78418.png",
+    "primaryCategoryName": "Commodity",
+    "primaryGroupName": "Exotronic Frames",
+    "primaryMetaGroupName": "Standard",
+    "runTime": 20,
+    "outputs": [
+      {
+        "typeId": 78418,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 83818,
+        "quantity": 5
+      }
+    ]
+  },
+  {
+    "blueprintId": 1016,
+    "primaryTypeId": 88319,
+    "primaryName": "D2 Fuel",
+    "primaryIcon": "icons/type-88319.png",
+    "primaryCategoryName": "Commodity",
+    "primaryGroupName": "Hydrogen Fuel",
+    "primaryMetaGroupName": null,
+    "runTime": 6,
+    "outputs": [
+      {
+        "typeId": 88319,
+        "quantity": 200
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 83839,
+        "quantity": 1
+      },
+      {
+        "typeId": 88335,
+        "quantity": 200
+      }
+    ]
+  },
+  {
+    "blueprintId": 1180,
+    "primaryTypeId": 88319,
+    "primaryName": "D2 Fuel",
+    "primaryIcon": "icons/type-88319.png",
+    "primaryCategoryName": "Commodity",
+    "primaryGroupName": "Hydrogen Fuel",
+    "primaryMetaGroupName": null,
+    "runTime": 3,
+    "outputs": [
+      {
+        "typeId": 83839,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 88319,
+        "quantity": 200
+      }
+    ]
+  },
+  {
+    "blueprintId": 1032,
+    "primaryTypeId": 89979,
+    "primaryName": "Carom Stack",
+    "primaryIcon": "icons/type-89979.png",
+    "primaryCategoryName": "Commodity",
+    "primaryGroupName": "Miscellaneous",
+    "primaryMetaGroupName": null,
+    "runTime": 43200,
+    "outputs": [
+      {
+        "typeId": 89979,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 89981,
+        "quantity": 1
+      },
+      {
+        "typeId": 89983,
+        "quantity": 1
+      },
+      {
+        "typeId": 89985,
+        "quantity": 1
+      },
+      {
+        "typeId": 89987,
+        "quantity": 1
+      },
+      {
+        "typeId": 89988,
+        "quantity": 1
+      },
+      {
+        "typeId": 89989,
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "blueprintId": 1031,
+    "primaryTypeId": 89978,
+    "primaryName": "Stride Stack",
+    "primaryIcon": "icons/type-89978.png",
+    "primaryCategoryName": "Commodity",
+    "primaryGroupName": "Miscellaneous",
+    "primaryMetaGroupName": null,
+    "runTime": 43200,
+    "outputs": [
+      {
+        "typeId": 89978,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 89980,
+        "quantity": 1
+      },
+      {
+        "typeId": 89982,
+        "quantity": 1
+      },
+      {
+        "typeId": 89984,
+        "quantity": 1
+      },
+      {
+        "typeId": 89986,
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "blueprintId": 1185,
+    "primaryTypeId": 88765,
+    "primaryName": "Mummified Clone",
+    "primaryIcon": "icons/type-88765.png",
+    "primaryCategoryName": "Commodity",
+    "primaryGroupName": "Salvage",
+    "primaryMetaGroupName": null,
+    "runTime": 3,
+    "outputs": [
+      {
+        "typeId": 78423,
+        "quantity": 7
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 88765,
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "blueprintId": 1194,
+    "primaryTypeId": 88765,
+    "primaryName": "Mummified Clone",
+    "primaryIcon": "icons/type-88765.png",
+    "primaryCategoryName": "Commodity",
+    "primaryGroupName": "Salvage",
+    "primaryMetaGroupName": null,
+    "runTime": 3,
+    "outputs": [
+      {
+        "typeId": 88782,
+        "quantity": 1
+      },
+      {
+        "typeId": 88783,
+        "quantity": 1
+      },
+      {
+        "typeId": 78423,
+        "quantity": 50
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 88765,
+        "quantity": 5
+      }
+    ]
+  },
+  {
+    "blueprintId": 1179,
+    "primaryTypeId": 88764,
+    "primaryName": "Salvaged Materials",
+    "primaryIcon": "icons/type-88764.png",
+    "primaryCategoryName": "Commodity",
+    "primaryGroupName": "Salvage",
+    "primaryMetaGroupName": null,
+    "runTime": 3,
+    "outputs": [
+      {
+        "typeId": 84182,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 88764,
+        "quantity": 3
+      }
+    ]
+  },
+  {
+    "blueprintId": 1188,
+    "primaryTypeId": 88764,
+    "primaryName": "Salvaged Materials",
+    "primaryIcon": "icons/type-88764.png",
+    "primaryCategoryName": "Commodity",
+    "primaryGroupName": "Salvage",
+    "primaryMetaGroupName": null,
+    "runTime": 4,
+    "outputs": [
+      {
+        "typeId": 84210,
+        "quantity": 1
+      },
+      {
+        "typeId": 88561,
+        "quantity": 2
+      },
+      {
+        "typeId": 84182,
+        "quantity": 6
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 88764,
+        "quantity": 10
+      }
+    ]
+  },
+  {
+    "blueprintId": 1038,
+    "primaryTypeId": 88841,
+    "primaryName": "Batched Carbon Weave",
+    "primaryIcon": "icons/type-88841.png",
+    "primaryCategoryName": "Material",
+    "primaryGroupName": "Manufacturing Component",
+    "primaryMetaGroupName": null,
+    "runTime": 8,
+    "outputs": [
+      {
+        "typeId": 88841,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84210,
+        "quantity": 10
+      }
+    ]
+  },
+  {
+    "blueprintId": 1037,
+    "primaryTypeId": 88839,
+    "primaryName": "Batched Printed Circuits",
+    "primaryIcon": "icons/type-88839.png",
+    "primaryCategoryName": "Material",
+    "primaryGroupName": "Manufacturing Component",
+    "primaryMetaGroupName": null,
+    "runTime": 5,
+    "outputs": [
+      {
+        "typeId": 88839,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 10
+      }
+    ]
+  },
+  {
+    "blueprintId": 1039,
+    "primaryTypeId": 84204,
+    "primaryName": "Batched Reinforced Alloys",
+    "primaryIcon": "icons/type-84204.png",
+    "primaryCategoryName": "Material",
+    "primaryGroupName": "Manufacturing Component",
+    "primaryMetaGroupName": null,
+    "runTime": 7,
+    "outputs": [
+      {
+        "typeId": 84204,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84182,
+        "quantity": 10
+      }
+    ]
+  },
+  {
+    "blueprintId": 1035,
+    "primaryTypeId": 88843,
+    "primaryName": "Batched Thermal Composites",
+    "primaryIcon": "icons/type-88843.png",
+    "primaryCategoryName": "Material",
+    "primaryGroupName": "Manufacturing Component",
+    "primaryMetaGroupName": null,
+    "runTime": 7,
+    "outputs": [
+      {
+        "typeId": 88843,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 88561,
+        "quantity": 10
+      }
+    ]
+  },
+  {
+    "blueprintId": 1015,
+    "primaryTypeId": 89089,
+    "primaryName": "Building Foam",
+    "primaryIcon": "icons/type-89089.png",
+    "primaryCategoryName": "Material",
+    "primaryGroupName": "Manufacturing Component",
+    "primaryMetaGroupName": null,
+    "runTime": 25,
+    "outputs": [
+      {
+        "typeId": 89089,
+        "quantity": 10
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84182,
+        "quantity": 65
+      },
+      {
+        "typeId": 84210,
+        "quantity": 65
+      },
+      {
+        "typeId": 88561,
+        "quantity": 65
+      }
+    ]
+  },
+  {
+    "blueprintId": 1003,
+    "primaryTypeId": 84210,
+    "primaryName": "Carbon Weave",
+    "primaryIcon": "icons/type-84210.png",
+    "primaryCategoryName": "Material",
+    "primaryGroupName": "Manufacturing Component",
+    "primaryMetaGroupName": null,
+    "runTime": 5,
+    "outputs": [
+      {
+        "typeId": 84210,
+        "quantity": 14
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 89258,
+        "quantity": 350
+      }
+    ]
+  },
+  {
+    "blueprintId": 1020,
+    "primaryTypeId": 84210,
+    "primaryName": "Carbon Weave",
+    "primaryIcon": "icons/type-84210.png",
+    "primaryCategoryName": "Material",
+    "primaryGroupName": "Manufacturing Component",
+    "primaryMetaGroupName": null,
+    "runTime": 5,
+    "outputs": [
+      {
+        "typeId": 84210,
+        "quantity": 14
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 77804,
+        "quantity": 3150
+      }
+    ]
+  },
+  {
+    "blueprintId": 1022,
+    "primaryTypeId": 88780,
+    "primaryName": "Echo Chamber",
+    "primaryIcon": "icons/type-88780.png",
+    "primaryCategoryName": "Material",
+    "primaryGroupName": "Manufacturing Component",
+    "primaryMetaGroupName": null,
+    "runTime": 17,
+    "outputs": [
+      {
+        "typeId": 88780,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 77801,
+        "quantity": 120
+      },
+      {
+        "typeId": 88234,
+        "quantity": 45
+      },
+      {
+        "typeId": 88235,
+        "quantity": 105
+      }
+    ]
+  },
+  {
+    "blueprintId": 1058,
+    "primaryTypeId": 88842,
+    "primaryName": "Packaged Carbon Weave",
+    "primaryIcon": "icons/type-88842.png",
+    "primaryCategoryName": "Material",
+    "primaryGroupName": "Manufacturing Component",
+    "primaryMetaGroupName": null,
+    "runTime": 37,
+    "outputs": [
+      {
+        "typeId": 88842,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 88841,
+        "quantity": 10
+      }
+    ]
+  },
+  {
+    "blueprintId": 1057,
+    "primaryTypeId": 88840,
+    "primaryName": "Packaged Printed Circuits",
+    "primaryIcon": "icons/type-88840.png",
+    "primaryCategoryName": "Material",
+    "primaryGroupName": "Manufacturing Component",
+    "primaryMetaGroupName": null,
+    "runTime": 24,
+    "outputs": [
+      {
+        "typeId": 88840,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 88839,
+        "quantity": 10
+      }
+    ]
+  },
+  {
+    "blueprintId": 1059,
+    "primaryTypeId": 84206,
+    "primaryName": "Packaged Reinforced Alloys",
+    "primaryIcon": "icons/type-84206.png",
+    "primaryCategoryName": "Material",
+    "primaryGroupName": "Manufacturing Component",
+    "primaryMetaGroupName": null,
+    "runTime": 32,
+    "outputs": [
+      {
+        "typeId": 84206,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84204,
+        "quantity": 10
+      }
+    ]
+  },
+  {
+    "blueprintId": 1055,
+    "primaryTypeId": 88844,
+    "primaryName": "Packaged Thermal Composites",
+    "primaryIcon": "icons/type-88844.png",
+    "primaryCategoryName": "Material",
+    "primaryGroupName": "Manufacturing Component",
+    "primaryMetaGroupName": null,
+    "runTime": 32,
+    "outputs": [
+      {
+        "typeId": 88844,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 88843,
+        "quantity": 10
+      }
+    ]
+  },
+  {
+    "blueprintId": 1002,
+    "primaryTypeId": 84180,
+    "primaryName": "Printed Circuits",
+    "primaryIcon": "icons/type-84180.png",
+    "primaryCategoryName": "Material",
+    "primaryGroupName": "Manufacturing Component",
+    "primaryMetaGroupName": null,
+    "runTime": 3,
+    "outputs": [
+      {
+        "typeId": 84180,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 89258,
+        "quantity": 3
+      },
+      {
+        "typeId": 89259,
+        "quantity": 5
+      }
+    ]
+  },
+  {
+    "blueprintId": 1017,
+    "primaryTypeId": 84180,
+    "primaryName": "Printed Circuits",
+    "primaryIcon": "icons/type-84180.png",
+    "primaryCategoryName": "Material",
+    "primaryGroupName": "Manufacturing Component",
+    "primaryMetaGroupName": null,
+    "runTime": 3,
+    "outputs": [
+      {
+        "typeId": 84180,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 77803,
+        "quantity": 37
+      },
+      {
+        "typeId": 77804,
+        "quantity": 22
+      }
+    ]
+  },
+  {
+    "blueprintId": 1004,
+    "primaryTypeId": 84182,
+    "primaryName": "Reinforced Alloys",
+    "primaryIcon": "icons/type-84182.png",
+    "primaryCategoryName": "Material",
+    "primaryGroupName": "Manufacturing Component",
+    "primaryMetaGroupName": null,
+    "runTime": 4,
+    "outputs": [
+      {
+        "typeId": 84182,
+        "quantity": 8
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 89259,
+        "quantity": 105
+      },
+      {
+        "typeId": 89260,
+        "quantity": 70
+      },
+      {
+        "typeId": 99001,
+        "quantity": 70
+      }
+    ]
+  },
+  {
+    "blueprintId": 1019,
+    "primaryTypeId": 84182,
+    "primaryName": "Reinforced Alloys",
+    "primaryIcon": "icons/type-84182.png",
+    "primaryCategoryName": "Material",
+    "primaryGroupName": "Manufacturing Component",
+    "primaryMetaGroupName": null,
+    "runTime": 4,
+    "outputs": [
+      {
+        "typeId": 84182,
+        "quantity": 14
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 77801,
+        "quantity": 1050
+      },
+      {
+        "typeId": 88235,
+        "quantity": 1050
+      }
+    ]
+  },
+  {
+    "blueprintId": 1482,
+    "primaryTypeId": 92483,
+    "primaryName": "Still Kernel",
+    "primaryIcon": "icons/type-92483.png",
+    "primaryCategoryName": "Material",
+    "primaryGroupName": "Manufacturing Component",
+    "primaryMetaGroupName": null,
+    "runTime": 11,
+    "outputs": [
+      {
+        "typeId": 92483,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 92422,
+        "quantity": 50
+      },
+      {
+        "typeId": 78449,
+        "quantity": 5
+      }
+    ]
+  },
+  {
+    "blueprintId": 1023,
+    "primaryTypeId": 88565,
+    "primaryName": "Still Knot",
+    "primaryIcon": "icons/type-88565.png",
+    "primaryCategoryName": "Material",
+    "primaryGroupName": "Manufacturing Component",
+    "primaryMetaGroupName": null,
+    "runTime": 11,
+    "outputs": [
+      {
+        "typeId": 88565,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 83839,
+        "quantity": 5
+      },
+      {
+        "typeId": 88564,
+        "quantity": 5
+      }
+    ]
+  },
+  {
+    "blueprintId": 1000,
+    "primaryTypeId": 88561,
+    "primaryName": "Thermal Composites",
+    "primaryIcon": "icons/type-88561.png",
+    "primaryCategoryName": "Material",
+    "primaryGroupName": "Manufacturing Component",
+    "primaryMetaGroupName": null,
+    "runTime": 4,
+    "outputs": [
+      {
+        "typeId": 88561,
+        "quantity": 14
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 89258,
+        "quantity": 140
+      },
+      {
+        "typeId": 89259,
+        "quantity": 90
+      }
+    ]
+  },
+  {
+    "blueprintId": 1021,
+    "primaryTypeId": 88561,
+    "primaryName": "Thermal Composites",
+    "primaryIcon": "icons/type-88561.png",
+    "primaryCategoryName": "Material",
+    "primaryGroupName": "Manufacturing Component",
+    "primaryMetaGroupName": null,
+    "runTime": 4,
+    "outputs": [
+      {
+        "typeId": 88561,
+        "quantity": 14
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 77803,
+        "quantity": 630
+      },
+      {
+        "typeId": 77804,
+        "quantity": 1260
+      },
+      {
+        "typeId": 88235,
+        "quantity": 210
+      }
+    ]
+  },
+  {
+    "blueprintId": 1191,
+    "primaryTypeId": 78435,
+    "primaryName": "Eupraxite",
+    "primaryIcon": "icons/type-78435.png",
+    "primaryCategoryName": "Material",
+    "primaryGroupName": "Mineral",
+    "primaryMetaGroupName": null,
+    "runTime": 18,
+    "outputs": [
+      {
+        "typeId": 78516,
+        "quantity": 600
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 78435,
+        "quantity": 10
+      }
+    ]
+  },
+  {
+    "blueprintId": 1480,
+    "primaryTypeId": 78435,
+    "primaryName": "Eupraxite",
+    "primaryIcon": "icons/type-78435.png",
+    "primaryCategoryName": "Material",
+    "primaryGroupName": "Mineral",
+    "primaryMetaGroupName": null,
+    "runTime": 20,
+    "outputs": [
+      {
+        "typeId": 78435,
+        "quantity": 3
+      },
+      {
+        "typeId": 92422,
+        "quantity": 26
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 92394,
+        "quantity": 30
+      }
+    ]
+  },
+  {
+    "blueprintId": 1186,
+    "primaryTypeId": 89258,
+    "primaryName": "Hydrocarbon Residue",
+    "primaryIcon": "icons/type-89258.png",
+    "primaryCategoryName": "Material",
+    "primaryGroupName": "Mineral",
+    "primaryMetaGroupName": null,
+    "runTime": 9,
+    "outputs": [
+      {
+        "typeId": 88234,
+        "quantity": 20
+      },
+      {
+        "typeId": 77804,
+        "quantity": 180
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 89258,
+        "quantity": 20
+      }
+    ]
+  },
+  {
+    "blueprintId": 1205,
+    "primaryTypeId": 89258,
+    "primaryName": "Hydrocarbon Residue",
+    "primaryIcon": "icons/type-89258.png",
+    "primaryCategoryName": "Material",
+    "primaryGroupName": "Mineral",
+    "primaryMetaGroupName": null,
+    "runTime": 25,
+    "outputs": [
+      {
+        "typeId": 88234,
+        "quantity": 60
+      },
+      {
+        "typeId": 77804,
+        "quantity": 540
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 89258,
+        "quantity": 60
+      }
+    ]
+  },
+  {
+    "blueprintId": 1192,
+    "primaryTypeId": 89260,
+    "primaryName": "Iron-Rich Nodules",
+    "primaryIcon": "icons/type-89260.png",
+    "primaryCategoryName": "Material",
+    "primaryGroupName": "Mineral",
+    "primaryMetaGroupName": null,
+    "runTime": 9,
+    "outputs": [
+      {
+        "typeId": 77805,
+        "quantity": 20
+      },
+      {
+        "typeId": 77801,
+        "quantity": 198
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 89260,
+        "quantity": 10
+      }
+    ]
+  },
+  {
+    "blueprintId": 1212,
+    "primaryTypeId": 89260,
+    "primaryName": "Iron-Rich Nodules",
+    "primaryIcon": "icons/type-89260.png",
+    "primaryCategoryName": "Material",
+    "primaryGroupName": "Mineral",
+    "primaryMetaGroupName": null,
+    "runTime": 25,
+    "outputs": [
+      {
+        "typeId": 77805,
+        "quantity": 60
+      },
+      {
+        "typeId": 77801,
+        "quantity": 594
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 89260,
+        "quantity": 60
+      }
+    ]
+  },
+  {
+    "blueprintId": 1190,
+    "primaryTypeId": 89259,
+    "primaryName": "Silica Grains",
+    "primaryIcon": "icons/type-89259.png",
+    "primaryCategoryName": "Material",
+    "primaryGroupName": "Mineral",
+    "primaryMetaGroupName": null,
+    "runTime": 9,
+    "outputs": [
+      {
+        "typeId": 88235,
+        "quantity": 50
+      },
+      {
+        "typeId": 77803,
+        "quantity": 150
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 89259,
+        "quantity": 20
+      }
+    ]
+  },
+  {
+    "blueprintId": 1209,
+    "primaryTypeId": 89259,
+    "primaryName": "Silica Grains",
+    "primaryIcon": "icons/type-89259.png",
+    "primaryCategoryName": "Material",
+    "primaryGroupName": "Mineral",
+    "primaryMetaGroupName": null,
+    "runTime": 25,
+    "outputs": [
+      {
+        "typeId": 88235,
+        "quantity": 150
+      },
+      {
+        "typeId": 77803,
+        "quantity": 450
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 89259,
+        "quantity": 60
+      }
+    ]
+  },
+  {
+    "blueprintId": 1193,
+    "primaryTypeId": 77728,
+    "primaryName": "Sophrogon",
+    "primaryIcon": "icons/type-77728.png",
+    "primaryCategoryName": "Material",
+    "primaryGroupName": "Mineral",
+    "primaryMetaGroupName": null,
+    "runTime": 18,
+    "outputs": [
+      {
+        "typeId": 84868,
+        "quantity": 600
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 77728,
+        "quantity": 10
+      }
+    ]
+  },
+  {
+    "blueprintId": 1481,
+    "primaryTypeId": 77728,
+    "primaryName": "Sophrogon",
+    "primaryIcon": "icons/type-77728.png",
+    "primaryCategoryName": "Material",
+    "primaryGroupName": "Mineral",
+    "primaryMetaGroupName": null,
+    "runTime": 20,
+    "outputs": [
+      {
+        "typeId": 77728,
+        "quantity": 3
+      },
+      {
+        "typeId": 92422,
+        "quantity": 26
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 92414,
+        "quantity": 30
+      }
+    ]
+  },
+  {
+    "blueprintId": 1181,
+    "primaryTypeId": 78423,
+    "primaryName": "Water Ice",
+    "primaryIcon": "icons/type-78423.png",
+    "primaryCategoryName": "Material",
+    "primaryGroupName": "Mineral",
+    "primaryMetaGroupName": null,
+    "runTime": 3,
+    "outputs": [
+      {
+        "typeId": 88335,
+        "quantity": 75
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 78423,
+        "quantity": 275
+      }
+    ]
+  },
+  {
+    "blueprintId": 1118,
+    "primaryTypeId": 82651,
+    "primaryName": "Systematic Armor Restorer II",
+    "primaryIcon": "icons/type-82651.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Armor Repair Unit",
+    "primaryMetaGroupName": "Standard",
+    "runTime": 111,
+    "outputs": [
+      {
+        "typeId": 82651,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 1
+      },
+      {
+        "typeId": 84182,
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "blueprintId": 1119,
+    "primaryTypeId": 83437,
+    "primaryName": "Systematic Armor Restorer III",
+    "primaryIcon": "icons/type-83437.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Armor Repair Unit",
+    "primaryMetaGroupName": "Enhanced",
+    "runTime": 222,
+    "outputs": [
+      {
+        "typeId": 83437,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 1
+      },
+      {
+        "typeId": 84182,
+        "quantity": 1
+      },
+      {
+        "typeId": 92483,
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "blueprintId": 1087,
+    "primaryTypeId": 83438,
+    "primaryName": "Systematic Armor Restorer IV",
+    "primaryIcon": "icons/type-83438.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Armor Repair Unit",
+    "primaryMetaGroupName": "Prototype",
+    "runTime": 962,
+    "outputs": [
+      {
+        "typeId": 83438,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 22
+      },
+      {
+        "typeId": 84182,
+        "quantity": 22
+      },
+      {
+        "typeId": 92483,
+        "quantity": 4
+      }
+    ]
+  },
+  {
+    "blueprintId": 1090,
+    "primaryTypeId": 83524,
+    "primaryName": "Large Cutting Laser",
+    "primaryIcon": "icons/type-83524.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Asteroid Mining Laser",
+    "primaryMetaGroupName": "Enhanced",
+    "runTime": 14863,
+    "outputs": [
+      {
+        "typeId": 83524,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 7
+      },
+      {
+        "typeId": 84210,
+        "quantity": 15
+      }
+    ]
+  },
+  {
+    "blueprintId": 1089,
+    "primaryTypeId": 83528,
+    "primaryName": "Medium Cutting Laser",
+    "primaryIcon": "icons/type-83528.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Asteroid Mining Laser",
+    "primaryMetaGroupName": "Standard",
+    "runTime": 863,
+    "outputs": [
+      {
+        "typeId": 83528,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 5
+      },
+      {
+        "typeId": 84210,
+        "quantity": 10
+      }
+    ]
+  },
+  {
+    "blueprintId": 1008,
+    "primaryTypeId": 77852,
+    "primaryName": "Small Cutting Laser",
+    "primaryIcon": "icons/type-77852.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Asteroid Mining Laser",
+    "primaryMetaGroupName": "Basic",
+    "runTime": 167,
+    "outputs": [
+      {
+        "typeId": 77852,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 2
+      },
+      {
+        "typeId": 84210,
+        "quantity": 3
+      }
+    ]
+  },
+  {
+    "blueprintId": 1178,
+    "primaryTypeId": 78506,
+    "primaryName": "Celerity CD01",
+    "primaryIcon": "icons/type-78506.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Crude Engines",
+    "primaryMetaGroupName": "Standard",
+    "runTime": 207,
+    "outputs": [
+      {
+        "typeId": 78506,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 4
+      },
+      {
+        "typeId": 84182,
+        "quantity": 4
+      },
+      {
+        "typeId": 88561,
+        "quantity": 8
+      }
+    ]
+  },
+  {
+    "blueprintId": 1098,
+    "primaryTypeId": 78507,
+    "primaryName": "Celerity CD02",
+    "primaryIcon": "icons/type-78507.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Crude Engines",
+    "primaryMetaGroupName": "Standard",
+    "runTime": 471,
+    "outputs": [
+      {
+        "typeId": 78507,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 8
+      },
+      {
+        "typeId": 84182,
+        "quantity": 8
+      },
+      {
+        "typeId": 88561,
+        "quantity": 16
+      },
+      {
+        "typeId": 92483,
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "blueprintId": 1068,
+    "primaryTypeId": 78508,
+    "primaryName": "Celerity CD03",
+    "primaryIcon": "icons/type-78508.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Crude Engines",
+    "primaryMetaGroupName": "Enhanced",
+    "runTime": 4230,
+    "outputs": [
+      {
+        "typeId": 78508,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 16
+      },
+      {
+        "typeId": 84182,
+        "quantity": 16
+      },
+      {
+        "typeId": 88561,
+        "quantity": 32
+      },
+      {
+        "typeId": 92483,
+        "quantity": 2
+      }
+    ]
+  },
+  {
+    "blueprintId": 1177,
+    "primaryTypeId": 78511,
+    "primaryName": "Tempo CD41",
+    "primaryIcon": "icons/type-78511.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Crude Engines",
+    "primaryMetaGroupName": "Standard",
+    "runTime": 413,
+    "outputs": [
+      {
+        "typeId": 78511,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 4
+      },
+      {
+        "typeId": 84182,
+        "quantity": 4
+      },
+      {
+        "typeId": 88561,
+        "quantity": 8
+      }
+    ]
+  },
+  {
+    "blueprintId": 1103,
+    "primaryTypeId": 78510,
+    "primaryName": "Tempo CD42",
+    "primaryIcon": "icons/type-78510.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Crude Engines",
+    "primaryMetaGroupName": "Standard",
+    "runTime": 942,
+    "outputs": [
+      {
+        "typeId": 78510,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 8
+      },
+      {
+        "typeId": 84182,
+        "quantity": 8
+      },
+      {
+        "typeId": 88561,
+        "quantity": 16
+      },
+      {
+        "typeId": 92483,
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "blueprintId": 1176,
+    "primaryTypeId": 78490,
+    "primaryName": "Velocity CD81",
+    "primaryIcon": "icons/type-78490.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Crude Engines",
+    "primaryMetaGroupName": "Standard",
+    "runTime": 825,
+    "outputs": [
+      {
+        "typeId": 78490,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 4
+      },
+      {
+        "typeId": 84182,
+        "quantity": 4
+      },
+      {
+        "typeId": 88561,
+        "quantity": 8
+      }
+    ]
+  },
+  {
+    "blueprintId": 1102,
+    "primaryTypeId": 78502,
+    "primaryName": "Velocity CD82",
+    "primaryIcon": "icons/type-78502.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Crude Engines",
+    "primaryMetaGroupName": "Standard",
+    "runTime": 1883,
+    "outputs": [
+      {
+        "typeId": 78502,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 8
+      },
+      {
+        "typeId": 84182,
+        "quantity": 8
+      },
+      {
+        "typeId": 88561,
+        "quantity": 16
+      },
+      {
+        "typeId": 92483,
+        "quantity": 2
+      }
+    ]
+  },
+  {
+    "blueprintId": 1115,
+    "primaryTypeId": 77484,
+    "primaryName": "Crude Extractor",
+    "primaryIcon": "icons/type-77484.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Crude Extractor",
+    "primaryMetaGroupName": "Basic",
+    "runTime": 750,
+    "outputs": [
+      {
+        "typeId": 77484,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 3
+      },
+      {
+        "typeId": 84210,
+        "quantity": 5
+      }
+    ]
+  },
+  {
+    "blueprintId": 1150,
+    "primaryTypeId": 82653,
+    "primaryName": "Attuned Shield Generator II",
+    "primaryIcon": "icons/type-82653.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Defensive System",
+    "primaryMetaGroupName": "Standard",
+    "runTime": 207,
+    "outputs": [
+      {
+        "typeId": 82653,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 4
+      },
+      {
+        "typeId": 84210,
+        "quantity": 8
+      }
+    ]
+  },
+  {
+    "blueprintId": 1151,
+    "primaryTypeId": 83450,
+    "primaryName": "Attuned Shield Generator III",
+    "primaryIcon": "icons/type-83450.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Defensive System",
+    "primaryMetaGroupName": "Enhanced",
+    "runTime": 505,
+    "outputs": [
+      {
+        "typeId": 83450,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 12
+      },
+      {
+        "typeId": 84210,
+        "quantity": 24
+      }
+    ]
+  },
+  {
+    "blueprintId": 1083,
+    "primaryTypeId": 83451,
+    "primaryName": "Attuned Shield Generator IV",
+    "primaryIcon": "icons/type-83451.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Defensive System",
+    "primaryMetaGroupName": "Prototype",
+    "runTime": 1169,
+    "outputs": [
+      {
+        "typeId": 83451,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 31
+      },
+      {
+        "typeId": 84210,
+        "quantity": 62
+      }
+    ]
+  },
+  {
+    "blueprintId": 1012,
+    "primaryTypeId": 82647,
+    "primaryName": "Bulky Armor Plates II",
+    "primaryIcon": "icons/type-82647.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Defensive System",
+    "primaryMetaGroupName": "Standard",
+    "runTime": 155,
+    "outputs": [
+      {
+        "typeId": 82647,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84182,
+        "quantity": 4
+      }
+    ]
+  },
+  {
+    "blueprintId": 1169,
+    "primaryTypeId": 83421,
+    "primaryName": "Bulky Armor Plates III",
+    "primaryIcon": "icons/type-83421.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Defensive System",
+    "primaryMetaGroupName": "Enhanced",
+    "runTime": 357,
+    "outputs": [
+      {
+        "typeId": 83421,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84182,
+        "quantity": 7
+      }
+    ]
+  },
+  {
+    "blueprintId": 1081,
+    "primaryTypeId": 83423,
+    "primaryName": "Bulky Armor Plates V",
+    "primaryIcon": "icons/type-83423.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Defensive System",
+    "primaryMetaGroupName": "Experimental",
+    "runTime": 921,
+    "outputs": [
+      {
+        "typeId": 83423,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84182,
+        "quantity": 24
+      }
+    ]
+  },
+  {
+    "blueprintId": 1014,
+    "primaryTypeId": 82652,
+    "primaryName": "Bulwark Shield Generator II",
+    "primaryIcon": "icons/type-82652.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Defensive System",
+    "primaryMetaGroupName": "Standard",
+    "runTime": 207,
+    "outputs": [
+      {
+        "typeId": 82652,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 4
+      },
+      {
+        "typeId": 84210,
+        "quantity": 7
+      },
+      {
+        "typeId": 99001,
+        "quantity": 150
+      }
+    ]
+  },
+  {
+    "blueprintId": 1149,
+    "primaryTypeId": 83448,
+    "primaryName": "Bulwark Shield Generator III",
+    "primaryIcon": "icons/type-83448.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Defensive System",
+    "primaryMetaGroupName": "Enhanced",
+    "runTime": 505,
+    "outputs": [
+      {
+        "typeId": 83448,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 12
+      },
+      {
+        "typeId": 84210,
+        "quantity": 21
+      },
+      {
+        "typeId": 99001,
+        "quantity": 450
+      }
+    ]
+  },
+  {
+    "blueprintId": 1084,
+    "primaryTypeId": 83449,
+    "primaryName": "Bulwark Shield Generator IV",
+    "primaryIcon": "icons/type-83449.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Defensive System",
+    "primaryMetaGroupName": "Prototype",
+    "runTime": 1169,
+    "outputs": [
+      {
+        "typeId": 83449,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 31
+      },
+      {
+        "typeId": 84210,
+        "quantity": 60
+      },
+      {
+        "typeId": 99001,
+        "quantity": 600
+      }
+    ]
+  },
+  {
+    "blueprintId": 1170,
+    "primaryTypeId": 82648,
+    "primaryName": "Coated Armor Plates II",
+    "primaryIcon": "icons/type-82648.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Defensive System",
+    "primaryMetaGroupName": "Standard",
+    "runTime": 172,
+    "outputs": [
+      {
+        "typeId": 82648,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84210,
+        "quantity": 4
+      }
+    ]
+  },
+  {
+    "blueprintId": 1171,
+    "primaryTypeId": 83425,
+    "primaryName": "Coated Armor Plates III",
+    "primaryIcon": "icons/type-83425.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Defensive System",
+    "primaryMetaGroupName": "Enhanced",
+    "runTime": 391,
+    "outputs": [
+      {
+        "typeId": 83425,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84210,
+        "quantity": 7
+      }
+    ]
+  },
+  {
+    "blueprintId": 1082,
+    "primaryTypeId": 83426,
+    "primaryName": "Coated Armor Plates IV",
+    "primaryIcon": "icons/type-83426.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Defensive System",
+    "primaryMetaGroupName": "Prototype",
+    "runTime": 921,
+    "outputs": [
+      {
+        "typeId": 83426,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84210,
+        "quantity": 16
+      }
+    ]
+  },
+  {
+    "blueprintId": 1096,
+    "primaryTypeId": 82650,
+    "primaryName": "Nimble Armor Plates II",
+    "primaryIcon": "icons/type-82650.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Defensive System",
+    "primaryMetaGroupName": "Standard",
+    "runTime": 150,
+    "outputs": [
+      {
+        "typeId": 82650,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84182,
+        "quantity": 2
+      },
+      {
+        "typeId": 84210,
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "blueprintId": 1174,
+    "primaryTypeId": 83433,
+    "primaryName": "Nimble Armor Plates III",
+    "primaryIcon": "icons/type-83433.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Defensive System",
+    "primaryMetaGroupName": "Enhanced",
+    "runTime": 357,
+    "outputs": [
+      {
+        "typeId": 83433,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84182,
+        "quantity": 4
+      },
+      {
+        "typeId": 84210,
+        "quantity": 2
+      }
+    ]
+  },
+  {
+    "blueprintId": 1094,
+    "primaryTypeId": 83434,
+    "primaryName": "Nimble Armor Plates IV",
+    "primaryIcon": "icons/type-83434.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Defensive System",
+    "primaryMetaGroupName": "Prototype",
+    "runTime": 830,
+    "outputs": [
+      {
+        "typeId": 83434,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84182,
+        "quantity": 8
+      },
+      {
+        "typeId": 84210,
+        "quantity": 4
+      }
+    ]
+  },
+  {
+    "blueprintId": 1172,
+    "primaryTypeId": 82649,
+    "primaryName": "Reactive Armor Plates II",
+    "primaryIcon": "icons/type-82649.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Defensive System",
+    "primaryMetaGroupName": "Standard",
+    "runTime": 182,
+    "outputs": [
+      {
+        "typeId": 82649,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84210,
+        "quantity": 3
+      },
+      {
+        "typeId": 88561,
+        "quantity": 3
+      }
+    ]
+  },
+  {
+    "blueprintId": 1173,
+    "primaryTypeId": 83429,
+    "primaryName": "Reactive Armor Plates III",
+    "primaryIcon": "icons/type-83429.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Defensive System",
+    "primaryMetaGroupName": "Enhanced",
+    "runTime": 421,
+    "outputs": [
+      {
+        "typeId": 83429,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84210,
+        "quantity": 6
+      },
+      {
+        "typeId": 88561,
+        "quantity": 6
+      }
+    ]
+  },
+  {
+    "blueprintId": 1095,
+    "primaryTypeId": 83430,
+    "primaryName": "Reactive Armor Plates IV",
+    "primaryIcon": "icons/type-83430.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Defensive System",
+    "primaryMetaGroupName": "Prototype",
+    "runTime": 943,
+    "outputs": [
+      {
+        "typeId": 83430,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84210,
+        "quantity": 11
+      },
+      {
+        "typeId": 88561,
+        "quantity": 11
+      }
+    ]
+  },
+  {
+    "blueprintId": 1152,
+    "primaryTypeId": 82654,
+    "primaryName": "Reinforced Shield Generator II",
+    "primaryIcon": "icons/type-82654.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Defensive System",
+    "primaryMetaGroupName": "Standard",
+    "runTime": 207,
+    "outputs": [
+      {
+        "typeId": 82654,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 4
+      },
+      {
+        "typeId": 84210,
+        "quantity": 8
+      }
+    ]
+  },
+  {
+    "blueprintId": 1153,
+    "primaryTypeId": 83456,
+    "primaryName": "Reinforced Shield Generator III",
+    "primaryIcon": "icons/type-83456.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Defensive System",
+    "primaryMetaGroupName": "Enhanced",
+    "runTime": 505,
+    "outputs": [
+      {
+        "typeId": 83456,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 12
+      },
+      {
+        "typeId": 84210,
+        "quantity": 24
+      }
+    ]
+  },
+  {
+    "blueprintId": 1085,
+    "primaryTypeId": 83457,
+    "primaryName": "Reinforced Shield Generator IV",
+    "primaryIcon": "icons/type-83457.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Defensive System",
+    "primaryMetaGroupName": "Prototype",
+    "runTime": 1169,
+    "outputs": [
+      {
+        "typeId": 83457,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 31
+      },
+      {
+        "typeId": 84210,
+        "quantity": 62
+      }
+    ]
+  },
+  {
+    "blueprintId": 1104,
+    "primaryTypeId": 81656,
+    "primaryName": "Tuho 7",
+    "primaryIcon": "icons/type-81656.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Energy Lance",
+    "primaryMetaGroupName": "Standard",
+    "runTime": 137,
+    "outputs": [
+      {
+        "typeId": 81656,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 4
+      },
+      {
+        "typeId": 84182,
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "blueprintId": 1105,
+    "primaryTypeId": 82090,
+    "primaryName": "Tuho 9",
+    "primaryIcon": "icons/type-82090.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Energy Lance",
+    "primaryMetaGroupName": "Enhanced",
+    "runTime": 301,
+    "outputs": [
+      {
+        "typeId": 82090,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 4
+      },
+      {
+        "typeId": 84182,
+        "quantity": 2
+      }
+    ]
+  },
+  {
+    "blueprintId": 1106,
+    "primaryTypeId": 82091,
+    "primaryName": "Tuho S",
+    "primaryIcon": "icons/type-82091.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Energy Lance",
+    "primaryMetaGroupName": "Prototype",
+    "runTime": 620,
+    "outputs": [
+      {
+        "typeId": 82091,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 5
+      },
+      {
+        "typeId": 84182,
+        "quantity": 2
+      }
+    ]
+  },
+  {
+    "blueprintId": 1071,
+    "primaryTypeId": 81657,
+    "primaryName": "Xoru 7",
+    "primaryIcon": "icons/type-81657.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Energy Lance",
+    "primaryMetaGroupName": "Enhanced",
+    "runTime": 664,
+    "outputs": [
+      {
+        "typeId": 81657,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 8
+      },
+      {
+        "typeId": 84182,
+        "quantity": 2
+      }
+    ]
+  },
+  {
+    "blueprintId": 1074,
+    "primaryTypeId": 82094,
+    "primaryName": "Xoru 9",
+    "primaryIcon": "icons/type-82094.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Energy Lance",
+    "primaryMetaGroupName": "Prototype",
+    "runTime": 2872,
+    "outputs": [
+      {
+        "typeId": 82094,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 8
+      },
+      {
+        "typeId": 84182,
+        "quantity": 4
+      }
+    ]
+  },
+  {
+    "blueprintId": 1078,
+    "primaryTypeId": 82095,
+    "primaryName": "Xoru S",
+    "primaryIcon": "icons/type-82095.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Energy Lance",
+    "primaryMetaGroupName": "Experimental",
+    "runTime": 11770,
+    "outputs": [
+      {
+        "typeId": 82095,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 10
+      },
+      {
+        "typeId": 84182,
+        "quantity": 4
+      }
+    ]
+  },
+  {
+    "blueprintId": 1100,
+    "primaryTypeId": 83497,
+    "primaryName": "Cargo Grid II",
+    "primaryIcon": "icons/type-83497.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Expanded Cargohold",
+    "primaryMetaGroupName": "Standard",
+    "runTime": 209,
+    "outputs": [
+      {
+        "typeId": 83497,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84182,
+        "quantity": 4
+      },
+      {
+        "typeId": 84210,
+        "quantity": 7
+      }
+    ]
+  },
+  {
+    "blueprintId": 1145,
+    "primaryTypeId": 83498,
+    "primaryName": "Cargo Grid III",
+    "primaryIcon": "icons/type-83498.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Expanded Cargohold",
+    "primaryMetaGroupName": "Enhanced",
+    "runTime": 469,
+    "outputs": [
+      {
+        "typeId": 83498,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84182,
+        "quantity": 7
+      },
+      {
+        "typeId": 84210,
+        "quantity": 13
+      }
+    ]
+  },
+  {
+    "blueprintId": 1146,
+    "primaryTypeId": 83499,
+    "primaryName": "Cargo Grid IV",
+    "primaryIcon": "icons/type-83499.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Expanded Cargohold",
+    "primaryMetaGroupName": "Prototype",
+    "runTime": 1054,
+    "outputs": [
+      {
+        "typeId": 83499,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84182,
+        "quantity": 14
+      },
+      {
+        "typeId": 84210,
+        "quantity": 26
+      }
+    ]
+  },
+  {
+    "blueprintId": 1147,
+    "primaryTypeId": 83500,
+    "primaryName": "Cargo Grid V",
+    "primaryIcon": "icons/type-83500.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Expanded Cargohold",
+    "primaryMetaGroupName": "Experimental",
+    "runTime": 2339,
+    "outputs": [
+      {
+        "typeId": 83500,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84182,
+        "quantity": 28
+      },
+      {
+        "typeId": 84210,
+        "quantity": 52
+      }
+    ]
+  },
+  {
+    "blueprintId": 1148,
+    "primaryTypeId": 83501,
+    "primaryName": "Cargo Grid VI",
+    "primaryIcon": "icons/type-83501.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Expanded Cargohold",
+    "primaryMetaGroupName": "Exotic",
+    "runTime": 5144,
+    "outputs": [
+      {
+        "typeId": 83501,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84182,
+        "quantity": 56
+      },
+      {
+        "typeId": 84210,
+        "quantity": 104
+      }
+    ]
+  },
+  {
+    "blueprintId": 1120,
+    "primaryTypeId": 83441,
+    "primaryName": "Adaptive Nanitic Armor Weave II",
+    "primaryIcon": "icons/type-83441.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Flex Armor Hardener",
+    "primaryMetaGroupName": "Standard",
+    "runTime": 97,
+    "outputs": [
+      {
+        "typeId": 83441,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 88561,
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "blueprintId": 1121,
+    "primaryTypeId": 83442,
+    "primaryName": "Adaptive Nanitic Armor Weave III",
+    "primaryIcon": "icons/type-83442.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Flex Armor Hardener",
+    "primaryMetaGroupName": "Enhanced",
+    "runTime": 194,
+    "outputs": [
+      {
+        "typeId": 83442,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 88561,
+        "quantity": 1
+      },
+      {
+        "typeId": 92483,
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "blueprintId": 1086,
+    "primaryTypeId": 83443,
+    "primaryName": "Adaptive Nanitic Armor Weave IV",
+    "primaryIcon": "icons/type-83443.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Flex Armor Hardener",
+    "primaryMetaGroupName": "Prototype",
+    "runTime": 804,
+    "outputs": [
+      {
+        "typeId": 83443,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 88561,
+        "quantity": 12
+      },
+      {
+        "typeId": 92483,
+        "quantity": 6
+      }
+    ]
+  },
+  {
+    "blueprintId": 1067,
+    "primaryTypeId": 87599,
+    "primaryName": "Cryogenic Ejector S",
+    "primaryIcon": "icons/type-87599.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Heat Ejector",
+    "primaryMetaGroupName": null,
+    "runTime": 904,
+    "outputs": [
+      {
+        "typeId": 87599,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 77805,
+        "quantity": 35
+      },
+      {
+        "typeId": 84182,
+        "quantity": 6
+      },
+      {
+        "typeId": 88335,
+        "quantity": 560
+      },
+      {
+        "typeId": 99001,
+        "quantity": 35
+      }
+    ]
+  },
+  {
+    "blueprintId": 1066,
+    "primaryTypeId": 88889,
+    "primaryName": "Heat Exchanger S",
+    "primaryIcon": "icons/type-88889.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Heat Ejector",
+    "primaryMetaGroupName": null,
+    "runTime": 452,
+    "outputs": [
+      {
+        "typeId": 88889,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 77805,
+        "quantity": 35
+      },
+      {
+        "typeId": 84182,
+        "quantity": 6
+      },
+      {
+        "typeId": 88335,
+        "quantity": 560
+      },
+      {
+        "typeId": 99001,
+        "quantity": 35
+      }
+    ]
+  },
+  {
+    "blueprintId": 1001,
+    "primaryTypeId": 88886,
+    "primaryName": "Heat Exchanger XS",
+    "primaryIcon": "icons/type-88886.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Heat Ejector",
+    "primaryMetaGroupName": null,
+    "runTime": 197,
+    "outputs": [
+      {
+        "typeId": 88886,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84182,
+        "quantity": 3
+      },
+      {
+        "typeId": 88335,
+        "quantity": 280
+      },
+      {
+        "typeId": 99001,
+        "quantity": 2
+      }
+    ]
+  },
+  {
+    "blueprintId": 1130,
+    "primaryTypeId": 72960,
+    "primaryName": "Hull Repairer",
+    "primaryIcon": "icons/type-72960.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Hull Repair Unit",
+    "primaryMetaGroupName": null,
+    "runTime": 148,
+    "outputs": [
+      {
+        "typeId": 72960,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 1
+      },
+      {
+        "typeId": 84210,
+        "quantity": 2
+      }
+    ]
+  },
+  {
+    "blueprintId": 1175,
+    "primaryTypeId": 77753,
+    "primaryName": "Embark",
+    "primaryIcon": "icons/type-77753.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Hydrogen Engines",
+    "primaryMetaGroupName": "Basic",
+    "runTime": 89,
+    "outputs": [
+      {
+        "typeId": 77753,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 2
+      },
+      {
+        "typeId": 84182,
+        "quantity": 2
+      },
+      {
+        "typeId": 88561,
+        "quantity": 4
+      }
+    ]
+  },
+  {
+    "blueprintId": 1011,
+    "primaryTypeId": 81846,
+    "primaryName": "Sojourn",
+    "primaryIcon": "icons/type-81846.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Hydrogen Engines",
+    "primaryMetaGroupName": "Basic",
+    "runTime": 39,
+    "outputs": [
+      {
+        "typeId": 81846,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84182,
+        "quantity": 2
+      },
+      {
+        "typeId": 89258,
+        "quantity": 10
+      }
+    ]
+  },
+  {
+    "blueprintId": 1069,
+    "primaryTypeId": 82028,
+    "primaryName": "Base Coilgun (M)",
+    "primaryIcon": "icons/type-82028.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Mass Driver Weapon",
+    "primaryMetaGroupName": "Enhanced",
+    "runTime": 574,
+    "outputs": [
+      {
+        "typeId": 82028,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 77805,
+        "quantity": 120
+      },
+      {
+        "typeId": 84180,
+        "quantity": 2
+      },
+      {
+        "typeId": 84182,
+        "quantity": 2
+      },
+      {
+        "typeId": 99001,
+        "quantity": 120
+      }
+    ]
+  },
+  {
+    "blueprintId": 1107,
+    "primaryTypeId": 81972,
+    "primaryName": "Base Coilgun (S)",
+    "primaryIcon": "icons/type-81972.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Mass Driver Weapon",
+    "primaryMetaGroupName": "Standard",
+    "runTime": 115,
+    "outputs": [
+      {
+        "typeId": 81972,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 77805,
+        "quantity": 60
+      },
+      {
+        "typeId": 84180,
+        "quantity": 1
+      },
+      {
+        "typeId": 84182,
+        "quantity": 1
+      },
+      {
+        "typeId": 99001,
+        "quantity": 60
+      }
+    ]
+  },
+  {
+    "blueprintId": 1073,
+    "primaryTypeId": 82092,
+    "primaryName": "Tier 2 Coilgun (M)",
+    "primaryIcon": "icons/type-82092.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Mass Driver Weapon",
+    "primaryMetaGroupName": "Prototype",
+    "runTime": 2457,
+    "outputs": [
+      {
+        "typeId": 82092,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 77805,
+        "quantity": 70
+      },
+      {
+        "typeId": 84180,
+        "quantity": 2
+      },
+      {
+        "typeId": 84182,
+        "quantity": 1
+      },
+      {
+        "typeId": 99001,
+        "quantity": 70
+      }
+    ]
+  },
+  {
+    "blueprintId": 1108,
+    "primaryTypeId": 82088,
+    "primaryName": "Tier 2 Coilgun (S)",
+    "primaryIcon": "icons/type-82088.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Mass Driver Weapon",
+    "primaryMetaGroupName": "Enhanced",
+    "runTime": 249,
+    "outputs": [
+      {
+        "typeId": 82088,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 77805,
+        "quantity": 140
+      },
+      {
+        "typeId": 84180,
+        "quantity": 2
+      },
+      {
+        "typeId": 84182,
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "blueprintId": 1077,
+    "primaryTypeId": 82093,
+    "primaryName": "Tier 3 Coilgun (M)",
+    "primaryIcon": "icons/type-82093.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Mass Driver Weapon",
+    "primaryMetaGroupName": "Experimental",
+    "runTime": 9935,
+    "outputs": [
+      {
+        "typeId": 82093,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 77805,
+        "quantity": 440
+      },
+      {
+        "typeId": 84180,
+        "quantity": 4
+      },
+      {
+        "typeId": 84182,
+        "quantity": 2
+      }
+    ]
+  },
+  {
+    "blueprintId": 1109,
+    "primaryTypeId": 82089,
+    "primaryName": "Tier 3 Coilgun (S)",
+    "primaryIcon": "icons/type-82089.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Mass Driver Weapon",
+    "primaryMetaGroupName": "Prototype",
+    "runTime": 505,
+    "outputs": [
+      {
+        "typeId": 82089,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 77805,
+        "quantity": 110
+      },
+      {
+        "typeId": 84180,
+        "quantity": 2
+      },
+      {
+        "typeId": 84182,
+        "quantity": 1
+      },
+      {
+        "typeId": 99001,
+        "quantity": 110
+      }
+    ]
+  },
+  {
+    "blueprintId": 1128,
+    "primaryTypeId": 83623,
+    "primaryName": "Explo-electro Nanitic Brace II",
+    "primaryIcon": "icons/type-83623.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Nanitic Brace",
+    "primaryMetaGroupName": "Standard",
+    "runTime": 159,
+    "outputs": [
+      {
+        "typeId": 83623,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 1
+      },
+      {
+        "typeId": 84210,
+        "quantity": 2
+      },
+      {
+        "typeId": 88561,
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "blueprintId": 1129,
+    "primaryTypeId": 83624,
+    "primaryName": "Explo-electro Nanitic Brace III",
+    "primaryIcon": "icons/type-83624.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Nanitic Brace",
+    "primaryMetaGroupName": "Enhanced",
+    "runTime": 350,
+    "outputs": [
+      {
+        "typeId": 83624,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 1
+      },
+      {
+        "typeId": 84210,
+        "quantity": 2
+      },
+      {
+        "typeId": 88561,
+        "quantity": 3
+      }
+    ]
+  },
+  {
+    "blueprintId": 1131,
+    "primaryTypeId": 83625,
+    "primaryName": "Explo-electro Nanitic Brace IV",
+    "primaryIcon": "icons/type-83625.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Nanitic Brace",
+    "primaryMetaGroupName": "Prototype",
+    "runTime": 796,
+    "outputs": [
+      {
+        "typeId": 83625,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 1
+      },
+      {
+        "typeId": 84210,
+        "quantity": 2
+      },
+      {
+        "typeId": 88561,
+        "quantity": 8
+      }
+    ]
+  },
+  {
+    "blueprintId": 1125,
+    "primaryTypeId": 83618,
+    "primaryName": "Explonetic-electro Nanitic Brace II ",
+    "primaryIcon": "icons/type-83618.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Nanitic Brace",
+    "primaryMetaGroupName": "Standard",
+    "runTime": 159,
+    "outputs": [
+      {
+        "typeId": 83618,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 1
+      },
+      {
+        "typeId": 84210,
+        "quantity": 2
+      },
+      {
+        "typeId": 88561,
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "blueprintId": 1126,
+    "primaryTypeId": 83619,
+    "primaryName": "Explonetic-electro Nanitic Brace III",
+    "primaryIcon": "icons/type-83619.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Nanitic Brace",
+    "primaryMetaGroupName": "Enhanced",
+    "runTime": 362,
+    "outputs": [
+      {
+        "typeId": 83619,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 1
+      },
+      {
+        "typeId": 84210,
+        "quantity": 2
+      },
+      {
+        "typeId": 88561,
+        "quantity": 4
+      }
+    ]
+  },
+  {
+    "blueprintId": 1127,
+    "primaryTypeId": 83620,
+    "primaryName": "Explonetic-electro Nanitic Brace IV",
+    "primaryIcon": "icons/type-83620.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Nanitic Brace",
+    "primaryMetaGroupName": "Prototype",
+    "runTime": 835,
+    "outputs": [
+      {
+        "typeId": 83620,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 1
+      },
+      {
+        "typeId": 84210,
+        "quantity": 2
+      },
+      {
+        "typeId": 88561,
+        "quantity": 11
+      }
+    ]
+  },
+  {
+    "blueprintId": 1122,
+    "primaryTypeId": 83613,
+    "primaryName": "Thermal-electro Nanitic Brace II",
+    "primaryIcon": "icons/type-83613.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Nanitic Brace",
+    "primaryMetaGroupName": "Standard",
+    "runTime": 181,
+    "outputs": [
+      {
+        "typeId": 83613,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 1
+      },
+      {
+        "typeId": 84210,
+        "quantity": 2
+      },
+      {
+        "typeId": 88561,
+        "quantity": 4
+      }
+    ]
+  },
+  {
+    "blueprintId": 1123,
+    "primaryTypeId": 83614,
+    "primaryName": "Thermal-electro Nanitic Brace III",
+    "primaryIcon": "icons/type-83614.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Nanitic Brace",
+    "primaryMetaGroupName": "Enhanced",
+    "runTime": 405,
+    "outputs": [
+      {
+        "typeId": 83614,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 1
+      },
+      {
+        "typeId": 84210,
+        "quantity": 2
+      },
+      {
+        "typeId": 88561,
+        "quantity": 9
+      }
+    ]
+  },
+  {
+    "blueprintId": 1124,
+    "primaryTypeId": 83615,
+    "primaryName": "Thermal-electro Nanitic Brace IV ",
+    "primaryIcon": "icons/type-83615.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Nanitic Brace",
+    "primaryMetaGroupName": "Prototype",
+    "runTime": 916,
+    "outputs": [
+      {
+        "typeId": 83615,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 1
+      },
+      {
+        "typeId": 84210,
+        "quantity": 2
+      },
+      {
+        "typeId": 88561,
+        "quantity": 20
+      }
+    ]
+  },
+  {
+    "blueprintId": 1132,
+    "primaryTypeId": 83628,
+    "primaryName": "Thermalnetic Nanitic Brace II",
+    "primaryIcon": "icons/type-83628.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Nanitic Brace",
+    "primaryMetaGroupName": "Standard",
+    "runTime": 181,
+    "outputs": [
+      {
+        "typeId": 83628,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 1
+      },
+      {
+        "typeId": 84210,
+        "quantity": 2
+      },
+      {
+        "typeId": 88561,
+        "quantity": 4
+      }
+    ]
+  },
+  {
+    "blueprintId": 1133,
+    "primaryTypeId": 83629,
+    "primaryName": "Thermalnetic Nanitic Brace III",
+    "primaryIcon": "icons/type-83629.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Nanitic Brace",
+    "primaryMetaGroupName": "Enhanced",
+    "runTime": 405,
+    "outputs": [
+      {
+        "typeId": 83629,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 1
+      },
+      {
+        "typeId": 88561,
+        "quantity": 12
+      }
+    ]
+  },
+  {
+    "blueprintId": 1134,
+    "primaryTypeId": 83630,
+    "primaryName": "Thermalnetic Nanitic Brace IV",
+    "primaryIcon": "icons/type-83630.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Nanitic Brace",
+    "primaryMetaGroupName": "Prototype",
+    "runTime": 923,
+    "outputs": [
+      {
+        "typeId": 83630,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 1
+      },
+      {
+        "typeId": 88561,
+        "quantity": 24
+      }
+    ]
+  },
+  {
+    "blueprintId": 1112,
+    "primaryTypeId": 82032,
+    "primaryName": "Base Rapid Plasma (S)",
+    "primaryIcon": "icons/type-82032.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Plasma Weapon",
+    "primaryMetaGroupName": "Standard",
+    "runTime": 132,
+    "outputs": [
+      {
+        "typeId": 82032,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 1
+      },
+      {
+        "typeId": 84182,
+        "quantity": 1
+      },
+      {
+        "typeId": 88234,
+        "quantity": 90
+      }
+    ]
+  },
+  {
+    "blueprintId": 1072,
+    "primaryTypeId": 82033,
+    "primaryName": "Rapid Plasma (M)",
+    "primaryIcon": "icons/type-82033.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Plasma Weapon",
+    "primaryMetaGroupName": "Enhanced",
+    "runTime": 643,
+    "outputs": [
+      {
+        "typeId": 82033,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 2
+      },
+      {
+        "typeId": 84182,
+        "quantity": 2
+      },
+      {
+        "typeId": 88234,
+        "quantity": 180
+      }
+    ]
+  },
+  {
+    "blueprintId": 1076,
+    "primaryTypeId": 82096,
+    "primaryName": "Tier 2 Rapid Plasma (M)",
+    "primaryIcon": "icons/type-82096.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Plasma Weapon",
+    "primaryMetaGroupName": "Prototype",
+    "runTime": 2727,
+    "outputs": [
+      {
+        "typeId": 82096,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 2
+      },
+      {
+        "typeId": 84182,
+        "quantity": 2
+      },
+      {
+        "typeId": 88234,
+        "quantity": 300
+      }
+    ]
+  },
+  {
+    "blueprintId": 1113,
+    "primaryTypeId": 82086,
+    "primaryName": "Tier 2 Rapid Plasma (S)",
+    "primaryIcon": "icons/type-82086.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Plasma Weapon",
+    "primaryMetaGroupName": "Enhanced",
+    "runTime": 283,
+    "outputs": [
+      {
+        "typeId": 82086,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 1
+      },
+      {
+        "typeId": 84182,
+        "quantity": 1
+      },
+      {
+        "typeId": 88234,
+        "quantity": 150
+      }
+    ]
+  },
+  {
+    "blueprintId": 1080,
+    "primaryTypeId": 82097,
+    "primaryName": "Tier 3 Rapid Plasma (M)",
+    "primaryIcon": "icons/type-82097.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Plasma Weapon",
+    "primaryMetaGroupName": "Experimental",
+    "runTime": 11412,
+    "outputs": [
+      {
+        "typeId": 82097,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 2
+      },
+      {
+        "typeId": 84182,
+        "quantity": 2
+      },
+      {
+        "typeId": 88234,
+        "quantity": 420
+      }
+    ]
+  },
+  {
+    "blueprintId": 1114,
+    "primaryTypeId": 82087,
+    "primaryName": "Tier 3 Rapid Plasma (S)",
+    "primaryIcon": "icons/type-82087.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Plasma Weapon",
+    "primaryMetaGroupName": "Prototype",
+    "runTime": 597,
+    "outputs": [
+      {
+        "typeId": 82087,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 1
+      },
+      {
+        "typeId": 84182,
+        "quantity": 1
+      },
+      {
+        "typeId": 88234,
+        "quantity": 210
+      }
+    ]
+  },
+  {
+    "blueprintId": 1006,
+    "primaryTypeId": 81974,
+    "primaryName": "Base Autocannon (S)",
+    "primaryIcon": "icons/type-81974.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Projectile Weapon",
+    "primaryMetaGroupName": "Standard",
+    "runTime": 156,
+    "outputs": [
+      {
+        "typeId": 81974,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 89260,
+        "quantity": 10
+      },
+      {
+        "typeId": 89259,
+        "quantity": 30
+      }
+    ]
+  },
+  {
+    "blueprintId": 1070,
+    "primaryTypeId": 82030,
+    "primaryName": "Base Howitzer (M)",
+    "primaryIcon": "icons/type-82030.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Projectile Weapon",
+    "primaryMetaGroupName": "Enhanced",
+    "runTime": 632,
+    "outputs": [
+      {
+        "typeId": 82030,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 2
+      },
+      {
+        "typeId": 84182,
+        "quantity": 2
+      },
+      {
+        "typeId": 88235,
+        "quantity": 150
+      }
+    ]
+  },
+  {
+    "blueprintId": 1110,
+    "primaryTypeId": 82084,
+    "primaryName": "Tier 2 Autocannon (S)",
+    "primaryIcon": "icons/type-82084.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Projectile Weapon",
+    "primaryMetaGroupName": "Enhanced",
+    "runTime": 276,
+    "outputs": [
+      {
+        "typeId": 82084,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 1
+      },
+      {
+        "typeId": 84182,
+        "quantity": 1
+      },
+      {
+        "typeId": 88235,
+        "quantity": 125
+      }
+    ]
+  },
+  {
+    "blueprintId": 1075,
+    "primaryTypeId": 82098,
+    "primaryName": "Tier 2 Howitzer (M)",
+    "primaryIcon": "icons/type-82098.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Projectile Weapon",
+    "primaryMetaGroupName": "Prototype",
+    "runTime": 2667,
+    "outputs": [
+      {
+        "typeId": 82098,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 2
+      },
+      {
+        "typeId": 84182,
+        "quantity": 2
+      },
+      {
+        "typeId": 88235,
+        "quantity": 250
+      }
+    ]
+  },
+  {
+    "blueprintId": 1111,
+    "primaryTypeId": 82085,
+    "primaryName": "Tier 3 Autocannon (S)",
+    "primaryIcon": "icons/type-82085.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Projectile Weapon",
+    "primaryMetaGroupName": "Prototype",
+    "runTime": 577,
+    "outputs": [
+      {
+        "typeId": 82085,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 1
+      },
+      {
+        "typeId": 84182,
+        "quantity": 1
+      },
+      {
+        "typeId": 88235,
+        "quantity": 170
+      }
+    ]
+  },
+  {
+    "blueprintId": 1079,
+    "primaryTypeId": 82099,
+    "primaryName": "Tier 3 Howitzer (M)",
+    "primaryIcon": "icons/type-82099.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Projectile Weapon",
+    "primaryMetaGroupName": "Experimental",
+    "runTime": 11086,
+    "outputs": [
+      {
+        "typeId": 82099,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 2
+      },
+      {
+        "typeId": 84182,
+        "quantity": 2
+      },
+      {
+        "typeId": 88235,
+        "quantity": 340
+      }
+    ]
+  },
+  {
+    "blueprintId": 1116,
+    "primaryTypeId": 82681,
+    "primaryName": "Afterburner II",
+    "primaryIcon": "icons/type-82681.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Propulsion Module",
+    "primaryMetaGroupName": "Standard",
+    "runTime": 97,
+    "outputs": [
+      {
+        "typeId": 82681,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 88561,
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "blueprintId": 1117,
+    "primaryTypeId": 83536,
+    "primaryName": "Afterburner III",
+    "primaryIcon": "icons/type-83536.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Propulsion Module",
+    "primaryMetaGroupName": "Enhanced",
+    "runTime": 194,
+    "outputs": [
+      {
+        "typeId": 83536,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 88561,
+        "quantity": 1
+      },
+      {
+        "typeId": 92483,
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "blueprintId": 1092,
+    "primaryTypeId": 82915,
+    "primaryName": "Afterburner IV",
+    "primaryIcon": "icons/type-82915.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Propulsion Module",
+    "primaryMetaGroupName": "Prototype",
+    "runTime": 798,
+    "outputs": [
+      {
+        "typeId": 82915,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 4
+      },
+      {
+        "typeId": 84210,
+        "quantity": 4
+      },
+      {
+        "typeId": 88561,
+        "quantity": 4
+      },
+      {
+        "typeId": 92483,
+        "quantity": 3
+      }
+    ]
+  },
+  {
+    "blueprintId": 1156,
+    "primaryTypeId": 83768,
+    "primaryName": "EM Field Array II",
+    "primaryIcon": "icons/type-83768.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Shield Hardener",
+    "primaryMetaGroupName": "Standard",
+    "runTime": 218,
+    "outputs": [
+      {
+        "typeId": 83768,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84210,
+        "quantity": 12
+      }
+    ]
+  },
+  {
+    "blueprintId": 1157,
+    "primaryTypeId": 83769,
+    "primaryName": "EM Field Array III",
+    "primaryIcon": "icons/type-83769.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Shield Hardener",
+    "primaryMetaGroupName": "Enhanced",
+    "runTime": 461,
+    "outputs": [
+      {
+        "typeId": 83769,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84210,
+        "quantity": 16
+      }
+    ]
+  },
+  {
+    "blueprintId": 1158,
+    "primaryTypeId": 83770,
+    "primaryName": "EM Field Array IV",
+    "primaryIcon": "icons/type-83770.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Shield Hardener",
+    "primaryMetaGroupName": "Prototype",
+    "runTime": 949,
+    "outputs": [
+      {
+        "typeId": 83770,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84210,
+        "quantity": 19
+      }
+    ]
+  },
+  {
+    "blueprintId": 1163,
+    "primaryTypeId": 83777,
+    "primaryName": "Explosive Field Array II",
+    "primaryIcon": "icons/type-83777.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Shield Hardener",
+    "primaryMetaGroupName": "Standard",
+    "runTime": 201,
+    "outputs": [
+      {
+        "typeId": 83777,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84182,
+        "quantity": 6
+      },
+      {
+        "typeId": 88561,
+        "quantity": 6
+      }
+    ]
+  },
+  {
+    "blueprintId": 1164,
+    "primaryTypeId": 83778,
+    "primaryName": "Explosive Field Array III",
+    "primaryIcon": "icons/type-83778.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Shield Hardener",
+    "primaryMetaGroupName": "Enhanced",
+    "runTime": 415,
+    "outputs": [
+      {
+        "typeId": 83778,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84182,
+        "quantity": 7
+      },
+      {
+        "typeId": 88561,
+        "quantity": 7
+      }
+    ]
+  },
+  {
+    "blueprintId": 1165,
+    "primaryTypeId": 83779,
+    "primaryName": "Explosive Field Array IV",
+    "primaryIcon": "icons/type-83779.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Shield Hardener",
+    "primaryMetaGroupName": "Prototype",
+    "runTime": 863,
+    "outputs": [
+      {
+        "typeId": 83779,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84182,
+        "quantity": 9
+      },
+      {
+        "typeId": 88561,
+        "quantity": 8
+      }
+    ]
+  },
+  {
+    "blueprintId": 1166,
+    "primaryTypeId": 83782,
+    "primaryName": "Kinetic Field Array II",
+    "primaryIcon": "icons/type-83782.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Shield Hardener",
+    "primaryMetaGroupName": "Standard",
+    "runTime": 184,
+    "outputs": [
+      {
+        "typeId": 83782,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84182,
+        "quantity": 8
+      }
+    ]
+  },
+  {
+    "blueprintId": 1167,
+    "primaryTypeId": 83783,
+    "primaryName": "Kinetic Field Array III",
+    "primaryIcon": "icons/type-83783.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Shield Hardener",
+    "primaryMetaGroupName": "Enhanced",
+    "runTime": 387,
+    "outputs": [
+      {
+        "typeId": 83783,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84182,
+        "quantity": 10
+      }
+    ]
+  },
+  {
+    "blueprintId": 1168,
+    "primaryTypeId": 83784,
+    "primaryName": "Kinetic Field Array IV",
+    "primaryIcon": "icons/type-83784.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Shield Hardener",
+    "primaryMetaGroupName": "Prototype",
+    "runTime": 804,
+    "outputs": [
+      {
+        "typeId": 83784,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84182,
+        "quantity": 12
+      }
+    ]
+  },
+  {
+    "blueprintId": 1159,
+    "primaryTypeId": 83772,
+    "primaryName": "Thermal Field Array II",
+    "primaryIcon": "icons/type-83772.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Shield Hardener",
+    "primaryMetaGroupName": "Standard",
+    "runTime": 201,
+    "outputs": [
+      {
+        "typeId": 83772,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 88561,
+        "quantity": 12
+      }
+    ]
+  },
+  {
+    "blueprintId": 1160,
+    "primaryTypeId": 83773,
+    "primaryName": "Thermal Field Array III",
+    "primaryIcon": "icons/type-83773.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Shield Hardener",
+    "primaryMetaGroupName": "Enhanced",
+    "runTime": 426,
+    "outputs": [
+      {
+        "typeId": 83773,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 88561,
+        "quantity": 16
+      }
+    ]
+  },
+  {
+    "blueprintId": 1161,
+    "primaryTypeId": 83774,
+    "primaryName": "Thermal Field Array IV",
+    "primaryIcon": "icons/type-83774.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Shield Hardener",
+    "primaryMetaGroupName": "Prototype",
+    "runTime": 881,
+    "outputs": [
+      {
+        "typeId": 83774,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 88561,
+        "quantity": 19
+      }
+    ]
+  },
+  {
+    "blueprintId": 1162,
+    "primaryTypeId": 83775,
+    "primaryName": "Thermal Field Array V",
+    "primaryIcon": "icons/type-83775.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Shield Hardener",
+    "primaryMetaGroupName": "Experimental",
+    "runTime": 1811,
+    "outputs": [
+      {
+        "typeId": 83775,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 88561,
+        "quantity": 22
+      }
+    ]
+  },
+  {
+    "blueprintId": 1154,
+    "primaryTypeId": 82667,
+    "primaryName": "Shield Restorer II",
+    "primaryIcon": "icons/type-82667.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Shield Recharger",
+    "primaryMetaGroupName": "Standard",
+    "runTime": 243,
+    "outputs": [
+      {
+        "typeId": 82667,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 77805,
+        "quantity": 13
+      },
+      {
+        "typeId": 84180,
+        "quantity": 17
+      },
+      {
+        "typeId": 84210,
+        "quantity": 17
+      }
+    ]
+  },
+  {
+    "blueprintId": 1155,
+    "primaryTypeId": 83458,
+    "primaryName": "Shield Restorer III",
+    "primaryIcon": "icons/type-83458.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Shield Recharger",
+    "primaryMetaGroupName": "Enhanced",
+    "runTime": 496,
+    "outputs": [
+      {
+        "typeId": 83458,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 77805,
+        "quantity": 15
+      },
+      {
+        "typeId": 84180,
+        "quantity": 20
+      },
+      {
+        "typeId": 84210,
+        "quantity": 19
+      }
+    ]
+  },
+  {
+    "blueprintId": 1088,
+    "primaryTypeId": 83459,
+    "primaryName": "Shield Restorer IV",
+    "primaryIcon": "icons/type-83459.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Shield Recharger",
+    "primaryMetaGroupName": "Prototype",
+    "runTime": 970,
+    "outputs": [
+      {
+        "typeId": 83459,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 77805,
+        "quantity": 13
+      },
+      {
+        "typeId": 84180,
+        "quantity": 17
+      },
+      {
+        "typeId": 84210,
+        "quantity": 17
+      },
+      {
+        "typeId": 92483,
+        "quantity": 3
+      }
+    ]
+  },
+  {
+    "blueprintId": 1140,
+    "primaryTypeId": 82683,
+    "primaryName": "Stasis Net II",
+    "primaryIcon": "icons/type-82683.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Stasis Web",
+    "primaryMetaGroupName": "Standard",
+    "runTime": 178,
+    "outputs": [
+      {
+        "typeId": 82683,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 2
+      },
+      {
+        "typeId": 84182,
+        "quantity": 2
+      },
+      {
+        "typeId": 88561,
+        "quantity": 4
+      }
+    ]
+  },
+  {
+    "blueprintId": 1141,
+    "primaryTypeId": 83520,
+    "primaryName": "Stasis Net III",
+    "primaryIcon": "icons/type-83520.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Stasis Web",
+    "primaryMetaGroupName": "Enhanced",
+    "runTime": 366,
+    "outputs": [
+      {
+        "typeId": 83520,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 2
+      },
+      {
+        "typeId": 84182,
+        "quantity": 3
+      },
+      {
+        "typeId": 88561,
+        "quantity": 4
+      }
+    ]
+  },
+  {
+    "blueprintId": 1142,
+    "primaryTypeId": 83521,
+    "primaryName": "Stasis Net IV",
+    "primaryIcon": "icons/type-83521.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Stasis Web",
+    "primaryMetaGroupName": "Prototype",
+    "runTime": 760,
+    "outputs": [
+      {
+        "typeId": 83521,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 3
+      },
+      {
+        "typeId": 84182,
+        "quantity": 3
+      },
+      {
+        "typeId": 88561,
+        "quantity": 5
+      }
+    ]
+  },
+  {
+    "blueprintId": 1143,
+    "primaryTypeId": 83522,
+    "primaryName": "Stasis Net V",
+    "primaryIcon": "icons/type-83522.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Stasis Web",
+    "primaryMetaGroupName": "Experimental",
+    "runTime": 1553,
+    "outputs": [
+      {
+        "typeId": 83522,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 3
+      },
+      {
+        "typeId": 84182,
+        "quantity": 4
+      },
+      {
+        "typeId": 88561,
+        "quantity": 5
+      }
+    ]
+  },
+  {
+    "blueprintId": 1144,
+    "primaryTypeId": 83523,
+    "primaryName": "Stasis Net VI",
+    "primaryIcon": "icons/type-83523.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Stasis Web",
+    "primaryMetaGroupName": "Exotic",
+    "runTime": 3192,
+    "outputs": [
+      {
+        "typeId": 83523,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 4
+      },
+      {
+        "typeId": 84182,
+        "quantity": 4
+      },
+      {
+        "typeId": 88561,
+        "quantity": 6
+      }
+    ]
+  },
+  {
+    "blueprintId": 1472,
+    "primaryTypeId": 90887,
+    "primaryName": "Hop",
+    "primaryIcon": "icons/type-90887.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Warp Accelerator",
+    "primaryMetaGroupName": "Standard",
+    "runTime": 120,
+    "outputs": [
+      {
+        "typeId": 90887,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 88561,
+        "quantity": 2
+      },
+      {
+        "typeId": 84180,
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "blueprintId": 1479,
+    "primaryTypeId": 92421,
+    "primaryName": "Leap",
+    "primaryIcon": "icons/type-92421.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Warp Accelerator",
+    "primaryMetaGroupName": "Standard",
+    "runTime": 320,
+    "outputs": [
+      {
+        "typeId": 92421,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 88561,
+        "quantity": 4
+      },
+      {
+        "typeId": 84180,
+        "quantity": 4
+      },
+      {
+        "typeId": 84182,
+        "quantity": 4
+      }
+    ]
+  },
+  {
+    "blueprintId": 1474,
+    "primaryTypeId": 92390,
+    "primaryName": "Lunge",
+    "primaryIcon": "icons/type-92390.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Warp Accelerator",
+    "primaryMetaGroupName": "Standard",
+    "runTime": 800,
+    "outputs": [
+      {
+        "typeId": 92390,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 88561,
+        "quantity": 8
+      },
+      {
+        "typeId": 84180,
+        "quantity": 16
+      },
+      {
+        "typeId": 84182,
+        "quantity": 16
+      }
+    ]
+  },
+  {
+    "blueprintId": 1473,
+    "primaryTypeId": 92389,
+    "primaryName": "Skip",
+    "primaryIcon": "icons/type-92389.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Warp Accelerator",
+    "primaryMetaGroupName": "Standard",
+    "runTime": 97,
+    "outputs": [
+      {
+        "typeId": 92389,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 88561,
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "blueprintId": 1135,
+    "primaryTypeId": 82682,
+    "primaryName": "Warp Entangler II",
+    "primaryIcon": "icons/type-82682.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Warp Scrambler",
+    "primaryMetaGroupName": "Standard",
+    "runTime": 181,
+    "outputs": [
+      {
+        "typeId": 82682,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 2
+      },
+      {
+        "typeId": 84182,
+        "quantity": 2
+      },
+      {
+        "typeId": 84210,
+        "quantity": 3
+      }
+    ]
+  },
+  {
+    "blueprintId": 1136,
+    "primaryTypeId": 83516,
+    "primaryName": "Warp Entangler III",
+    "primaryIcon": "icons/type-83516.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Warp Scrambler",
+    "primaryMetaGroupName": "Enhanced",
+    "runTime": 371,
+    "outputs": [
+      {
+        "typeId": 83516,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 2
+      },
+      {
+        "typeId": 84182,
+        "quantity": 3
+      },
+      {
+        "typeId": 84210,
+        "quantity": 3
+      }
+    ]
+  },
+  {
+    "blueprintId": 1137,
+    "primaryTypeId": 83517,
+    "primaryName": "Warp Entangler IV",
+    "primaryIcon": "icons/type-83517.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Warp Scrambler",
+    "primaryMetaGroupName": "Prototype",
+    "runTime": 777,
+    "outputs": [
+      {
+        "typeId": 83517,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 3
+      },
+      {
+        "typeId": 84182,
+        "quantity": 3
+      },
+      {
+        "typeId": 84210,
+        "quantity": 4
+      }
+    ]
+  },
+  {
+    "blueprintId": 1138,
+    "primaryTypeId": 83518,
+    "primaryName": "Warp Entangler V",
+    "primaryIcon": "icons/type-83518.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Warp Scrambler",
+    "primaryMetaGroupName": "Experimental",
+    "runTime": 1585,
+    "outputs": [
+      {
+        "typeId": 83518,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 3
+      },
+      {
+        "typeId": 84182,
+        "quantity": 4
+      },
+      {
+        "typeId": 84210,
+        "quantity": 4
+      }
+    ]
+  },
+  {
+    "blueprintId": 1139,
+    "primaryTypeId": 83519,
+    "primaryName": "Warp Entangler VI",
+    "primaryIcon": "icons/type-83519.png",
+    "primaryCategoryName": "Module",
+    "primaryGroupName": "Warp Scrambler",
+    "primaryMetaGroupName": "Exotic",
+    "runTime": 3274,
+    "outputs": [
+      {
+        "typeId": 83519,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 84180,
+        "quantity": 4
+      },
+      {
+        "typeId": 84182,
+        "quantity": 4
+      },
+      {
+        "typeId": 84210,
+        "quantity": 5
+      }
+    ]
+  },
+  {
+    "blueprintId": 1475,
+    "primaryTypeId": 91967,
+    "primaryName": "Aggressive Shell",
+    "primaryIcon": "icons/type-91967.png",
+    "primaryCategoryName": "Shell",
+    "primaryGroupName": "Synthetic",
+    "primaryMetaGroupName": null,
+    "runTime": 46400,
+    "outputs": [
+      {
+        "typeId": 91967,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 78418,
+        "quantity": 1
+      },
+      {
+        "typeId": 83839,
+        "quantity": 3
+      },
+      {
+        "typeId": 92483,
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "blueprintId": 1487,
+    "primaryTypeId": 91749,
+    "primaryName": "Reaping Shell",
+    "primaryIcon": "icons/type-91749.png",
+    "primaryCategoryName": "Shell",
+    "primaryGroupName": "Synthetic",
+    "primaryMetaGroupName": null,
+    "runTime": 50800,
+    "outputs": [
+      {
+        "typeId": 91749,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 78421,
+        "quantity": 1
+      },
+      {
+        "typeId": 77728,
+        "quantity": 3
+      },
+      {
+        "typeId": 92483,
+        "quantity": 1
+      },
+      {
+        "typeId": 78423,
+        "quantity": 8
+      }
+    ]
+  },
+  {
+    "blueprintId": 1476,
+    "primaryTypeId": 91968,
+    "primaryName": "Rugged Shell",
+    "primaryIcon": "icons/type-91968.png",
+    "primaryCategoryName": "Shell",
+    "primaryGroupName": "Synthetic",
+    "primaryMetaGroupName": null,
+    "runTime": 37100,
+    "outputs": [
+      {
+        "typeId": 91968,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 78416,
+        "quantity": 1
+      },
+      {
+        "typeId": 88781,
+        "quantity": 6
+      },
+      {
+        "typeId": 88783,
+        "quantity": 4
+      },
+      {
+        "typeId": 83839,
+        "quantity": 2
+      },
+      {
+        "typeId": 92483,
+        "quantity": 1
+      },
+      {
+        "typeId": 78423,
+        "quantity": 4
+      }
+    ]
+  },
+  {
+    "blueprintId": 1234,
+    "primaryTypeId": 81611,
+    "primaryName": "Chumaq",
+    "primaryIcon": "icons/type-81611.png",
+    "primaryCategoryName": "Ship",
+    "primaryGroupName": "Combat Battlecruiser",
+    "primaryMetaGroupName": null,
+    "runTime": 324000,
+    "outputs": [
+      {
+        "typeId": 81611,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 78422,
+        "quantity": 1
+      },
+      {
+        "typeId": 88842,
+        "quantity": 128
+      },
+      {
+        "typeId": 88844,
+        "quantity": 128
+      },
+      {
+        "typeId": 84206,
+        "quantity": 256
+      }
+    ]
+  },
+  {
+    "blueprintId": 1471,
+    "primaryTypeId": 91107,
+    "primaryName": "Carom",
+    "primaryIcon": "icons/type-91107.png",
+    "primaryCategoryName": "Ship",
+    "primaryGroupName": "Corvette",
+    "primaryMetaGroupName": null,
+    "runTime": 10260,
+    "outputs": [
+      {
+        "typeId": 91107,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 89979,
+        "quantity": 1
+      },
+      {
+        "typeId": 78418,
+        "quantity": 2
+      },
+      {
+        "typeId": 84210,
+        "quantity": 44
+      },
+      {
+        "typeId": 88561,
+        "quantity": 44
+      },
+      {
+        "typeId": 84182,
+        "quantity": 88
+      }
+    ]
+  },
+  {
+    "blueprintId": 1226,
+    "primaryTypeId": 87846,
+    "primaryName": "Recurve",
+    "primaryIcon": "icons/type-87846.png",
+    "primaryCategoryName": "Ship",
+    "primaryGroupName": "Corvette",
+    "primaryMetaGroupName": null,
+    "runTime": 130,
+    "outputs": [
+      {
+        "typeId": 87846,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 78418,
+        "quantity": 2
+      },
+      {
+        "typeId": 84210,
+        "quantity": 25
+      },
+      {
+        "typeId": 88561,
+        "quantity": 25
+      },
+      {
+        "typeId": 84182,
+        "quantity": 45
+      },
+      {
+        "typeId": 92483,
+        "quantity": 2
+      }
+    ]
+  },
+  {
+    "blueprintId": 1009,
+    "primaryTypeId": 87847,
+    "primaryName": "Reflex",
+    "primaryIcon": "icons/type-87847.png",
+    "primaryCategoryName": "Ship",
+    "primaryGroupName": "Corvette",
+    "primaryMetaGroupName": null,
+    "runTime": 50,
+    "outputs": [
+      {
+        "typeId": 87847,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 78418,
+        "quantity": 1
+      },
+      {
+        "typeId": 84182,
+        "quantity": 28
+      },
+      {
+        "typeId": 89258,
+        "quantity": 40
+      }
+    ]
+  },
+  {
+    "blueprintId": 1224,
+    "primaryTypeId": 87848,
+    "primaryName": "Reiver",
+    "primaryIcon": "icons/type-87848.png",
+    "primaryCategoryName": "Ship",
+    "primaryGroupName": "Corvette",
+    "primaryMetaGroupName": null,
+    "runTime": 150,
+    "outputs": [
+      {
+        "typeId": 87848,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 78418,
+        "quantity": 2
+      },
+      {
+        "typeId": 84210,
+        "quantity": 33
+      },
+      {
+        "typeId": 88561,
+        "quantity": 33
+      },
+      {
+        "typeId": 84182,
+        "quantity": 78
+      }
+    ]
+  },
+  {
+    "blueprintId": 1470,
+    "primaryTypeId": 91106,
+    "primaryName": "Stride",
+    "primaryIcon": "icons/type-91106.png",
+    "primaryCategoryName": "Ship",
+    "primaryGroupName": "Corvette",
+    "primaryMetaGroupName": null,
+    "runTime": 10630,
+    "outputs": [
+      {
+        "typeId": 91106,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 89978,
+        "quantity": 1
+      },
+      {
+        "typeId": 78418,
+        "quantity": 2
+      },
+      {
+        "typeId": 84210,
+        "quantity": 48
+      },
+      {
+        "typeId": 88561,
+        "quantity": 48
+      },
+      {
+        "typeId": 84182,
+        "quantity": 96
+      }
+    ]
+  },
+  {
+    "blueprintId": 1233,
+    "primaryTypeId": 82430,
+    "primaryName": "MAUL",
+    "primaryIcon": "icons/type-82430.png",
+    "primaryCategoryName": "Ship",
+    "primaryGroupName": "Cruiser",
+    "primaryMetaGroupName": null,
+    "runTime": 244800,
+    "outputs": [
+      {
+        "typeId": 82430,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 78416,
+        "quantity": 1
+      },
+      {
+        "typeId": 84206,
+        "quantity": 46
+      },
+      {
+        "typeId": 88842,
+        "quantity": 30
+      },
+      {
+        "typeId": 88844,
+        "quantity": 30
+      },
+      {
+        "typeId": 88780,
+        "quantity": 7
+      },
+      {
+        "typeId": 88565,
+        "quantity": 2
+      }
+    ]
+  },
+  {
+    "blueprintId": 1230,
+    "primaryTypeId": 81808,
+    "primaryName": "TADES",
+    "primaryIcon": "icons/type-81808.png",
+    "primaryCategoryName": "Ship",
+    "primaryGroupName": "Destroyer",
+    "primaryMetaGroupName": null,
+    "runTime": 151200,
+    "outputs": [
+      {
+        "typeId": 81808,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 78416,
+        "quantity": 1
+      },
+      {
+        "typeId": 84204,
+        "quantity": 124
+      },
+      {
+        "typeId": 88841,
+        "quantity": 72
+      },
+      {
+        "typeId": 88843,
+        "quantity": 72
+      },
+      {
+        "typeId": 92483,
+        "quantity": 4
+      }
+    ]
+  },
+  {
+    "blueprintId": 1231,
+    "primaryTypeId": 82424,
+    "primaryName": "HAF",
+    "primaryIcon": "icons/type-82424.png",
+    "primaryCategoryName": "Ship",
+    "primaryGroupName": "Frigate",
+    "primaryMetaGroupName": null,
+    "runTime": 82800,
+    "outputs": [
+      {
+        "typeId": 82424,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 78421,
+        "quantity": 1
+      },
+      {
+        "typeId": 84204,
+        "quantity": 160
+      },
+      {
+        "typeId": 88841,
+        "quantity": 74
+      },
+      {
+        "typeId": 88843,
+        "quantity": 74
+      }
+    ]
+  },
+  {
+    "blueprintId": 1483,
+    "primaryTypeId": 82425,
+    "primaryName": "LAI",
+    "primaryIcon": "icons/type-82425.png",
+    "primaryCategoryName": "Ship",
+    "primaryGroupName": "Frigate",
+    "primaryMetaGroupName": null,
+    "runTime": 78000,
+    "outputs": [
+      {
+        "typeId": 82425,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 78421,
+        "quantity": 1
+      },
+      {
+        "typeId": 84204,
+        "quantity": 80
+      },
+      {
+        "typeId": 88841,
+        "quantity": 70
+      },
+      {
+        "typeId": 88843,
+        "quantity": 70
+      },
+      {
+        "typeId": 92483,
+        "quantity": 4
+      }
+    ]
+  },
+  {
+    "blueprintId": 1228,
+    "primaryTypeId": 82426,
+    "primaryName": "LORHA",
+    "primaryIcon": "icons/type-82426.png",
+    "primaryCategoryName": "Ship",
+    "primaryGroupName": "Frigate",
+    "primaryMetaGroupName": null,
+    "runTime": 8320,
+    "outputs": [
+      {
+        "typeId": 82426,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 78417,
+        "quantity": 1
+      },
+      {
+        "typeId": 84204,
+        "quantity": 58
+      },
+      {
+        "typeId": 88841,
+        "quantity": 29
+      },
+      {
+        "typeId": 88843,
+        "quantity": 29
+      }
+    ]
+  },
+  {
+    "blueprintId": 1229,
+    "primaryTypeId": 81904,
+    "primaryName": "MCF",
+    "primaryIcon": "icons/type-81904.png",
+    "primaryCategoryName": "Ship",
+    "primaryGroupName": "Frigate",
+    "primaryMetaGroupName": null,
+    "runTime": 79200,
+    "outputs": [
+      {
+        "typeId": 81904,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 78421,
+        "quantity": 1
+      },
+      {
+        "typeId": 84204,
+        "quantity": 88
+      },
+      {
+        "typeId": 88841,
+        "quantity": 48
+      },
+      {
+        "typeId": 88843,
+        "quantity": 48
+      },
+      {
+        "typeId": 92483,
+        "quantity": 3
+      }
+    ]
+  },
+  {
+    "blueprintId": 1232,
+    "primaryTypeId": 81609,
+    "primaryName": "USV",
+    "primaryIcon": "icons/type-81609.png",
+    "primaryCategoryName": "Ship",
+    "primaryGroupName": "Frigate",
+    "primaryMetaGroupName": null,
+    "runTime": 8200,
+    "outputs": [
+      {
+        "typeId": 81609,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 78420,
+        "quantity": 1
+      },
+      {
+        "typeId": 84204,
+        "quantity": 56
+      },
+      {
+        "typeId": 88841,
+        "quantity": 28
+      },
+      {
+        "typeId": 88843,
+        "quantity": 28
+      }
+    ]
+  },
+  {
+    "blueprintId": 1227,
+    "primaryTypeId": 87698,
+    "primaryName": "Wend",
+    "primaryIcon": "icons/type-87698.png",
+    "primaryCategoryName": "Ship",
+    "primaryGroupName": "Shuttle",
+    "primaryMetaGroupName": null,
+    "runTime": 60,
+    "outputs": [
+      {
+        "typeId": 87698,
+        "quantity": 1
+      }
+    ],
+    "inputs": [
+      {
+        "typeId": 78418,
+        "quantity": 1
+      },
+      {
+        "typeId": 84182,
+        "quantity": 34
+      },
+      {
+        "typeId": 84210,
+        "quantity": 17
+      },
+      {
+        "typeId": 88561,
+        "quantity": 17
+      }
+    ]
+  }
+]
