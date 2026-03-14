@@ -4,6 +4,7 @@ import { useCurrentAccount } from "@mysten/dapp-kit";
 import { useMyStructures } from "../hooks/useStructures";
 import { LoadingSpinner } from "../components/shared/LoadingSpinner";
 import { EmptyState } from "../components/shared/EmptyState";
+import { SsuInventoryModal } from "../components/structures/SsuInventoryModal";
 import { truncateAddress } from "../lib/format";
 import { ASSEMBLY_TYPES } from "../lib/types";
 import type { AssemblyData, AssemblyTypeFilter, AssemblyStatus } from "../lib/types";
@@ -106,7 +107,7 @@ const Grid = styled.div`
   gap: ${({ theme }) => theme.spacing.sm};
 `;
 
-const StructureCard = styled.div`
+const StructureCard = styled.div<{ $clickable?: boolean }>`
   display: flex;
   align-items: center;
   gap: ${({ theme }) => theme.spacing.md};
@@ -115,9 +116,11 @@ const StructureCard = styled.div`
   border: 1px solid ${({ theme }) => theme.colors.surface.border};
   border-radius: ${({ theme }) => theme.radii.md};
   transition: border-color 0.15s;
+  cursor: ${({ $clickable }) => ($clickable ? "pointer" : "default")};
 
   &:hover {
-    border-color: ${({ theme }) => theme.colors.surface.borderHover};
+    border-color: ${({ $clickable, theme }) =>
+      $clickable ? theme.colors.primary.main : theme.colors.surface.borderHover};
   }
 `;
 
@@ -211,6 +214,7 @@ export function MyStructuresPage() {
 
   const [typeFilter, setTypeFilter] = useState<AssemblyTypeFilter>("all");
   const [statusFilter, setStatusFilter] = useState<AssemblyStatus | "all">("all");
+  const [selectedSsu, setSelectedSsu] = useState<AssemblyData | null>(null);
 
   const filtered = useMemo(
     () =>
@@ -290,9 +294,13 @@ export function MyStructuresPage() {
       ) : (
         <Grid>
           {filtered.map((s) => (
-            <StructureRow key={s.id} structure={s} />
+            <StructureRow key={s.id} structure={s} onSelect={setSelectedSsu} />
           ))}
         </Grid>
+      )}
+
+      {selectedSsu && (
+        <SsuInventoryModal ssu={selectedSsu} onClose={() => setSelectedSsu(null)} />
       )}
     </Page>
   );
@@ -302,11 +310,21 @@ export function MyStructuresPage() {
 // Structure row sub-component
 // ---------------------------------------------------------------------------
 
-function StructureRow({ structure }: { structure: AssemblyData }) {
+function StructureRow({
+  structure,
+  onSelect,
+}: {
+  structure: AssemblyData;
+  onSelect: (ssu: AssemblyData) => void;
+}) {
   const displayName = structure.name || truncateAddress(structure.id, 10, 6);
+  const isSsu = getTypeCategory(structure.typeId) === "SSU";
 
   return (
-    <StructureCard>
+    <StructureCard
+      $clickable={isSsu}
+      onClick={isSsu ? () => onSelect(structure) : undefined}
+    >
       <StructureInfo>
         <StructureName>{displayName}</StructureName>
         <StructureMeta>
