@@ -23,6 +23,14 @@ write_env_var() {
   fi
 }
 
+# ── Clear stale package IDs from previous runs ────────────────────
+if [ -f "$ENV_FILE" ]; then
+  echo "Clearing stale contract IDs from $ENV_FILE..."
+  for var in "${ENV_VARS[@]}" "${VITE_VARS[@]}" VITE_TRIBE_REGISTRY_ID; do
+    sed -i "s|^${var}=.*|${var}=|" "$ENV_FILE"
+  done
+fi
+
 echo "Waiting for SUI localnet..."
 until curl -so /dev/null -w '%{http_code}' http://127.0.0.1:9000 >/dev/null 2>&1; do
   sleep 2
