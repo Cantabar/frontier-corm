@@ -2,10 +2,12 @@ import { useState, useMemo } from "react";
 import styled from "styled-components";
 import { useCurrentAccount, useSignAndExecuteTransaction } from "@mysten/dapp-kit";
 import { useMyStructures } from "../hooks/useStructures";
+import { useNetworkNodes } from "../hooks/useNetworkNodes";
 import { useIdentity } from "../hooks/useIdentity";
 import { LoadingSpinner } from "../components/shared/LoadingSpinner";
 import { EmptyState } from "../components/shared/EmptyState";
 import { SsuInventoryModal } from "../components/structures/SsuInventoryModal";
+import { NetworkNodeGroup } from "../components/structures/NetworkNodeGroup";
 import { buildOnlineStructure, buildOfflineStructure } from "../lib/sui";
 import { config } from "../config";
 import { truncateAddress } from "../lib/format";
@@ -254,6 +256,8 @@ function getTypeLabel(typeId: number): string {
 // Component
 // ---------------------------------------------------------------------------
 
+const UNCONNECTED_KEY = "__unconnected__";
+
 export function MyStructuresPage() {
   const account = useCurrentAccount();
   const { characterId } = useIdentity();
@@ -262,6 +266,7 @@ export function MyStructuresPage() {
   const [typeFilter, setTypeFilter] = useState<AssemblyTypeFilter>("all");
   const [statusFilter, setStatusFilter] = useState<AssemblyStatus | "all">("all");
   const [selectedSsu, setSelectedSsu] = useState<AssemblyData | null>(null);
+  const [groupByNode, setGroupByNode] = useState(true);
 
   const filtered = useMemo(
     () =>
@@ -272,6 +277,41 @@ export function MyStructuresPage() {
       }),
     [structures, typeFilter, statusFilter],
   );
+
+  // Derive unique network node IDs from structures (stable ref for hook)
+  const nodeIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const s of structures) {
+      if (s.energySourceId) ids.add(s.energySourceId);
+    }
+    return Array.from(ids);
+  }, [structures]);
+
+  const { nodes: networkNodes } = useNetworkNodes(nodeIds);
+
+  // Group filtered structures by energySourceId
+  const groupedEntries = useMemo(() => {
+    if (!groupByNode) return null;
+    const map = new Map<string, AssemblyData[]>();
+    for (const s of filtered) {
+      const key = s.energySourceId ?? UNCONNECTED_KEY;
+      const arr = map.get(key);
+      if (arr) arr.push(s);
+      else map.set(key, [s]);
+    }
+    // Sort: named nodes first (alphabetically), then unnamed nodes, then unconnected last
+    return Array.from(map.entries()).sort(([a], [b]) => {
+      if (a === UNCONNECTED_KEY) return 1;
+      if (b === UNCONNECTED_KEY) return -1;
+      const nodeA = networkNodes.get(a);
+      const nodeB = networkNodes.get(b);
+      const nameA = nodeA?.name || "";
+      const nameB = nodeB?.name || "";
+      if (nameA && !nameB) return -1;
+      if (!nameA && nameB) return 1;
+      return nameA.localeCompare(nameB) || a.localeCompare(b);
+    });
+  }, [filtered, groupByNode, networkNodes]);
 
   const onlineCount = structures.filter((s) => s.status === "Online").length;
   const offlineCount = structures.filter((s) => s.status !== "Online").length;
@@ -305,6 +345,10 @@ export function MyStructuresPage() {
           <CardLabel>Offline</CardLabel>
           <CardValue>{offlineCount}</CardValue>
         </SummaryCard>
+        <SummaryCard>
+          <CardLabel>Nodes</CardLabel>
+          <CardValue>{nodeIds.length}</CardValue>
+        </SummaryCard>
       </SummaryGrid>
 
       {/* Filters */}
@@ -324,6 +368,9 @@ export function MyStructuresPage() {
           <option value="Anchored">Anchored</option>
           <option value="Unanchoring">Unanchoring</option>
         </StatusSelect>
+        <Tab $active={groupByNode} onClick={() => setGroupByNode((v) => !v)}>
+          {groupByNode ? "⊞ Grouped" : "☰ Flat"}
+        </Tab>
       </FilterRow>
 
       {/* List */}
@@ -338,6 +385,30 @@ export function MyStructuresPage() {
               : "No structures match the current filters."
           }
         />
+      ) : groupByNode && groupedEntries ? (
+        <div>
+          {groupedEntries.map(([key, group]) => (
+            <NetworkNodeGroup
+              key={key}
+              node={
+                key === UNCONNECTED_KEY ? null : networkNodes.get(key) ?? null
+              }
+              structureCount={group.length}
+            >
+              <Grid>
+                {group.map((s) => (
+                  <StructureRow
+                    key={s.id}
+                    structure={s}
+                    characterId={characterId}
+                    onRefresh={refetch}
+                    onSelect={setSelectedSsu}
+                  />
+                ))}
+              </Grid>
+            </NetworkNodeGroup>
+          ))}
+        </div>
       ) : (
         <Grid>
           {filtered.map((s) => (

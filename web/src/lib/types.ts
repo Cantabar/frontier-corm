@@ -194,6 +194,16 @@ export interface TrustlessContractData {
 
 export type AssemblyStatus = "Anchored" | "Online" | "Offline" | "Unanchoring";
 
+/** Network Node — energy source that powers connected assemblies. */
+export interface NetworkNodeData {
+  id: string;
+  typeId: number;
+  status: AssemblyStatus;
+  name: string;
+  fuelQuantity: number;
+  connectedAssemblyCount: number;
+}
+
 /** Which Move module the structure belongs to — needed to target the correct on-chain entry function. */
 export type StructureMoveType = "Assembly" | "StorageUnit" | "Gate" | "Turret";
 
