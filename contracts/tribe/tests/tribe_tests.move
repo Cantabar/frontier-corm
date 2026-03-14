@@ -702,6 +702,131 @@ fun double_vote_fails() {
 }
 
 #[test]
+fun self_join_success() {
+    let mut ts = ts::begin(@0x0);
+    let (leader_id, member_id) = setup_characters(&mut ts);
+
+    // Create tribe
+    ts::next_tx(&mut ts, user_a());
+    {
+        let leader = ts::take_shared_by_id<Character>(&ts, leader_id);
+        let mut tribe_registry = ts::take_shared<TribeRegistry>(&ts);
+        let cap = tribe::create_tribe<TESTCOIN>(
+            &mut tribe_registry, &leader, utf8(TRIBE_NAME), VOTE_THRESHOLD_51, ts::ctx(&mut ts),
+        );
+        transfer::public_transfer(cap, user_a());
+        ts::return_shared(tribe_registry);
+        ts::return_shared(leader);
+    };
+
+    // Bob self-joins (his character has tribe_id=100, matching the on-chain tribe)
+    ts::next_tx(&mut ts, user_b());
+    {
+        let member = ts::take_shared_by_id<Character>(&ts, member_id);
+        let mut tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
+
+        let member_cap = tribe::self_join(&mut tribe, &member, ts::ctx(&mut ts));
+
+        assert!(tribe::member_count(&tribe) == 2);
+        assert!(tribe::is_member(&tribe, object::id(&member)));
+        assert!(tribe::cap_role(&member_cap) == tribe::role_member());
+
+        transfer::public_transfer(member_cap, user_b());
+        ts::return_shared(tribe);
+        ts::return_shared(member);
+    };
+
+    ts::end(ts);
+}
+
+#[test]
+#[expected_failure(abort_code = 16)] // ECharacterTribeMismatch
+fun self_join_wrong_tribe_fails() {
+    let mut ts = ts::begin(@0x0);
+    let (leader_id, _) = setup_characters(&mut ts);
+
+    // Create tribe (in-game tribe 100)
+    ts::next_tx(&mut ts, user_a());
+    {
+        let leader = ts::take_shared_by_id<Character>(&ts, leader_id);
+        let mut tribe_registry = ts::take_shared<TribeRegistry>(&ts);
+        let cap = tribe::create_tribe<TESTCOIN>(
+            &mut tribe_registry, &leader, utf8(TRIBE_NAME), VOTE_THRESHOLD_51, ts::ctx(&mut ts),
+        );
+        transfer::public_transfer(cap, user_a());
+        ts::return_shared(tribe_registry);
+        ts::return_shared(leader);
+    };
+
+    // Create a character with a different tribe_id (200)
+    let outsider_addr = @0xC;
+    ts::next_tx(&mut ts, admin());
+    let outsider_id = {
+        let mut registry = ts::take_shared<ObjectRegistry>(&ts);
+        let admin_acl = ts::take_shared<AdminACL>(&ts);
+        let char = character::create_character(
+            &mut registry, &admin_acl,
+            9999, tenant(), 200, outsider_addr, utf8(b"Charlie"), ts::ctx(&mut ts),
+        );
+        let id = object::id(&char);
+        character::share_character(char, &admin_acl, ts::ctx(&mut ts));
+        ts::return_shared(registry);
+        ts::return_shared(admin_acl);
+        id
+    };
+
+    // Charlie tries to self-join a tribe with in-game tribe 100 — should abort
+    ts::next_tx(&mut ts, outsider_addr);
+    {
+        let outsider = ts::take_shared_by_id<Character>(&ts, outsider_id);
+        let mut tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
+
+        let cap = tribe::self_join(&mut tribe, &outsider, ts::ctx(&mut ts));
+        tribe::destroy_tribe_cap_for_testing(cap);
+
+        ts::return_shared(tribe);
+        ts::return_shared(outsider);
+    };
+
+    ts::end(ts);
+}
+
+#[test]
+#[expected_failure(abort_code = 2)] // EAlreadyMember
+fun self_join_already_member_fails() {
+    let mut ts = ts::begin(@0x0);
+    let (leader_id, _) = setup_characters(&mut ts);
+
+    // Create tribe (leader is already a member)
+    ts::next_tx(&mut ts, user_a());
+    {
+        let leader = ts::take_shared_by_id<Character>(&ts, leader_id);
+        let mut tribe_registry = ts::take_shared<TribeRegistry>(&ts);
+        let cap = tribe::create_tribe<TESTCOIN>(
+            &mut tribe_registry, &leader, utf8(TRIBE_NAME), VOTE_THRESHOLD_51, ts::ctx(&mut ts),
+        );
+        transfer::public_transfer(cap, user_a());
+        ts::return_shared(tribe_registry);
+        ts::return_shared(leader);
+    };
+
+    // Leader tries to self-join again — should abort
+    ts::next_tx(&mut ts, user_a());
+    {
+        let leader = ts::take_shared_by_id<Character>(&ts, leader_id);
+        let mut tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
+
+        let cap = tribe::self_join(&mut tribe, &leader, ts::ctx(&mut ts));
+        tribe::destroy_tribe_cap_for_testing(cap);
+
+        ts::return_shared(tribe);
+        ts::return_shared(leader);
+    };
+
+    ts::end(ts);
+}
+
+#[test]
 #[expected_failure(abort_code = 14)] // EInGameTribeAlreadyClaimed
 fun create_duplicate_in_game_tribe_fails() {
     let mut ts = ts::begin(@0x0);

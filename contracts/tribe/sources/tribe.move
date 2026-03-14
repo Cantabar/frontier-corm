@@ -49,6 +49,7 @@ const EDeadlineInPast: u64 = 12;
 const EProposalNotExpired: u64 = 13;
 const EInGameTribeAlreadyClaimed: u64 = 14;
 const EInGameTribeIdInvalid: u64 = 15;
+const ECharacterTribeMismatch: u64 = 16;
 
 // === Enums ===
 public enum Role has copy, drop, store {
@@ -259,6 +260,37 @@ public fun create_tribe<C>(
 
     transfer::share_object(tribe);
     leader_cap
+}
+
+/// Allows a Character whose in-game tribe matches this Tribe to join
+/// autonomously as a Member. No TribeCap authorization is needed — the
+/// Character's `tribe_id` (set by the world contract) serves as proof.
+/// Returns a `TribeCap` that must be transferred to the caller's wallet.
+public fun self_join<C>(
+    tribe: &mut Tribe<C>,
+    character: &Character,
+    ctx: &mut TxContext,
+): TribeCap {
+    let in_game_id = character.tribe();
+    assert!(in_game_id != 0, EInGameTribeIdInvalid);
+    assert!(in_game_id == tribe.in_game_tribe_id, ECharacterTribeMismatch);
+
+    let character_id = character.id();
+    assert!(!tribe.members.contains(character_id), EAlreadyMember);
+
+    tribe.members.add(character_id, Role::Member);
+    tribe.reputation.add(character_id, 0u64);
+    tribe.member_count = tribe.member_count + 1;
+
+    let tribe_id = object::id(tribe);
+    event::emit(MemberJoinedEvent { tribe_id, character_id, role: Role::Member });
+
+    TribeCap {
+        id: object::new(ctx),
+        tribe_id,
+        character_id,
+        role: Role::Member,
+    }
 }
 
 /// Adds a new member to the tribe. Requires an Officer or Leader `TribeCap`.
