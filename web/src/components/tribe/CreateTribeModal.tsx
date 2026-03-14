@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
-import { useSignAndExecuteTransaction } from "@mysten/dapp-kit";
+import { useSignAndExecuteTransaction, useSuiClient } from "@mysten/dapp-kit";
 import { useQueryClient } from "@tanstack/react-query";
 import { Modal } from "../shared/Modal";
 import { CoinTypeSelector } from "../shared/CoinTypeSelector";
@@ -107,8 +107,20 @@ export function CreateTribeModal({ onClose, onCreated }: Props) {
   const { characterId, inGameTribeId, address } = useIdentity();
   const { push } = useNotifications();
   const queryClient = useQueryClient();
+  const client = useSuiClient();
   const hasTribe = inGameTribeId != null && inGameTribeId > 0;
-  const { mutateAsync: signAndExecute, isPending } = useSignAndExecuteTransaction();
+  const { mutateAsync: signAndExecute, isPending } = useSignAndExecuteTransaction({
+    execute: async ({ bytes, signature }) => {
+      return await client.executeTransactionBlock({
+        transactionBlock: bytes,
+        signature,
+        options: {
+          showRawEffects: true,
+          showObjectChanges: true,
+        },
+      });
+    },
+  });
 
   const [name, setName] = useState("");
   const [threshold, setThreshold] = useState("50");
@@ -167,7 +179,10 @@ export function CreateTribeModal({ onClose, onCreated }: Props) {
       // Invalidate caches so tribe list and identity refresh
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["tribes"] }),
-        queryClient.invalidateQueries({ queryKey: ["sui.getOwnedObjects"] }),
+        queryClient.invalidateQueries({
+          predicate: (query) =>
+            Array.isArray(query.queryKey) && query.queryKey[1] === "getOwnedObjects",
+        }),
       ]);
 
       push({
