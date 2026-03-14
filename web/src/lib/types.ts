@@ -34,6 +34,14 @@ export interface TribeCapData {
   role: Role;
 }
 
+/** Lightweight tribe summary for list/discovery views. */
+export interface TribeListItem {
+  id: string;
+  name: string;
+  inGameTribeId: number;
+  leaderCharacterId: string;
+}
+
 export interface TreasuryProposalData {
   id: string;
   tribeId: string;
