@@ -63,6 +63,36 @@ const NotifBadge = styled.span`
   margin-left: auto;
 `;
 
+const DisabledNavItem = styled.span`
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.sm};
+  padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.lg};
+  color: ${({ theme }) => theme.colors.text.muted};
+  font-size: 14px;
+  font-weight: 500;
+  border-left: 3px solid transparent;
+  cursor: not-allowed;
+  position: relative;
+
+  &:hover::after {
+    content: "Create or join a Tribe to access this page.";
+    position: absolute;
+    left: calc(100% + 8px);
+    top: 50%;
+    transform: translateY(-50%);
+    background: ${({ theme }) => theme.colors.surface.raised};
+    color: ${({ theme }) => theme.colors.text.secondary};
+    border: 1px solid ${({ theme }) => theme.colors.surface.border};
+    border-radius: 4px;
+    padding: 6px 10px;
+    font-size: 12px;
+    white-space: nowrap;
+    z-index: 10;
+    pointer-events: none;
+  }
+`;
+
 export function Sidebar() {
   const { tribeCaps } = useIdentity();
   const { unreadCount } = useNotifications();
@@ -75,8 +105,10 @@ export function Sidebar() {
       </StyledLink>
       <SectionLabel>Tribe</SectionLabel>
       <StyledLink to="/tribes">All Tribes</StyledLink>
-      {userTribeId && (
+      {userTribeId ? (
         <StyledLink to={`/tribe/${userTribeId}`}>My Tribe</StyledLink>
+      ) : (
+        <DisabledNavItem>My Tribe</DisabledNavItem>
       )}
       <SectionLabel>Modules</SectionLabel>
       <StyledLink to="/jobs">Contract Board</StyledLink>
