@@ -18,7 +18,7 @@
 
 .PHONY: local local-down local-reset \
         infra-init deploy deploy-infra deploy-images deploy-frontend teardown \
-        build clean enrich-items help
+        build clean enrich-items seed-ores help
 
 SHELL := /bin/bash
 AWS_REGION ?= us-east-1
@@ -113,6 +113,11 @@ teardown: ## Destroy all AWS resources
 
 enrich-items: ## Enrich items.json with category/group/tier/tag data
 	node scripts/enrich-items.mjs
+
+# ── Seeding ────────────────────────────────────────────────────────
+
+seed-ores: ## Seed ore items into SSU for Player A (requires world-contracts deployed)
+	cd ../world-contracts && NODE_PATH=$$PWD/node_modules npx tsx $(CURDIR)/scripts/seed-ores.ts
 
 # ── Build / Clean ──────────────────────────────────────────────────
 
