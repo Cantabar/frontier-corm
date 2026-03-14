@@ -54,6 +54,7 @@ export function Sidebar() {
       </StyledLink>
       <SectionLabel>Modules</SectionLabel>
       <StyledLink to="/jobs">Contract Board</StyledLink>
+      <StyledLink to="/contracts">Trustless Contracts</StyledLink>
       <StyledLink to="/forge">Forge Planner</StyledLink>
       <StyledLink to="/events">Event Explorer</StyledLink>
     </Nav>

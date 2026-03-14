@@ -310,7 +310,7 @@ export function ContractDetail({ contract: initial }: Props) {
           <AccessSection>
             <strong>Access Restricted</strong>
             {c.allowedCharacters.length > 0 && (
-              <div>Characters: {c.allowedCharacters.map(truncateAddress).join(", ")}</div>
+              <div>Characters: {c.allowedCharacters.map((a) => truncateAddress(a)).join(", ")}</div>
             )}
             {c.allowedTribes.length > 0 && (
               <div>Tribes: {c.allowedTribes.join(", ")}</div>
