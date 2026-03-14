@@ -221,6 +221,50 @@ function extractDenormalisedFields(
         characterId: str(data.creator_id),
       };
 
+    // -- Trustless Contracts events --
+    case "ContractCreatedEvent":
+      return {
+        primaryId: str(data.contract_id),
+        tribeId: "",
+        characterId: str(data.poster_id),
+      };
+    case "ContractFilledEvent":
+      return {
+        primaryId: str(data.contract_id),
+        tribeId: "",
+        characterId: str(data.filler_id),
+      };
+    case "ContractCompletedEvent":
+      return {
+        primaryId: str(data.contract_id),
+        tribeId: "",
+        characterId: str(data.poster_id),
+      };
+    case "ContractCancelledEvent":
+      return {
+        primaryId: str(data.contract_id),
+        tribeId: "",
+        characterId: str(data.poster_id),
+      };
+    case "ContractExpiredEvent":
+      return {
+        primaryId: str(data.contract_id),
+        tribeId: "",
+        characterId: str(data.poster_id),
+      };
+    case "TransportAcceptedEvent":
+      return {
+        primaryId: str(data.contract_id),
+        tribeId: "",
+        characterId: str(data.courier_id),
+      };
+    case "TransportDeliveredEvent":
+      return {
+        primaryId: str(data.contract_id),
+        tribeId: "",
+        characterId: str(data.courier_id),
+      };
+
     default:
       return { primaryId: "", tribeId: "", characterId: null };
   }

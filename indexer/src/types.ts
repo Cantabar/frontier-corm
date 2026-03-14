@@ -18,6 +18,7 @@ export const MODULES = {
   tribe: "tribe::tribe",
   contractBoard: "contract_board::contract_board",
   forgePlanner: "forge_planner::forge_planner",
+  trustlessContracts: "trustless_contracts::trustless_contracts",
 } as const;
 
 // ============================================================
@@ -174,6 +175,68 @@ export interface OrderCancelledEvent {
 }
 
 // ============================================================
+// Phase 4 — Trustless Contracts Events
+// ============================================================
+
+export interface ContractCreatedEvent {
+  contract_id: string;
+  poster_id: string;
+  contract_type: Record<string, unknown>;
+  escrow_amount: string;
+  target_quantity: string;
+  deadline_ms: string;
+  allow_partial: boolean;
+  require_stake: boolean;
+  stake_amount: string;
+  allowed_characters: string[];
+  allowed_tribes: number[];
+}
+
+export interface ContractFilledEvent {
+  contract_id: string;
+  filler_id: string;
+  fill_quantity: string;
+  payout_amount: string;
+  remaining_quantity: string;
+}
+
+export interface ContractCompletedEvent {
+  contract_id: string;
+  poster_id: string;
+  total_filled: string;
+  total_escrow_paid: string;
+}
+
+export interface ContractCancelledEvent {
+  contract_id: string;
+  poster_id: string;
+  escrow_returned: string;
+}
+
+export interface ContractExpiredEvent {
+  contract_id: string;
+  poster_id: string;
+  escrow_returned: string;
+  stake_forfeited: string;
+  fill_pool_returned: string;
+}
+
+export interface TransportAcceptedEvent {
+  contract_id: string;
+  courier_id: string;
+  stake_amount: string;
+}
+
+export interface TransportDeliveredEvent {
+  contract_id: string;
+  courier_id: string;
+  delivered_quantity: string;
+  payment_released: string;
+  stake_released: string;
+  remaining_quantity: string;
+}
+
+// ============================================================
 // All known event type names (short names matching Move structs)
 // ============================================================
 
@@ -200,6 +263,14 @@ export const EVENT_TYPES = [
   "OrderCreatedEvent",
   "OrderFulfilledEvent",
   "OrderCancelledEvent",
+  // Trustless Contracts
+  "ContractCreatedEvent",
+  "ContractFilledEvent",
+  "ContractCompletedEvent",
+  "ContractCancelledEvent",
+  "ContractExpiredEvent",
+  "TransportAcceptedEvent",
+  "TransportDeliveredEvent",
 ] as const;
 
 export type EventTypeName = (typeof EVENT_TYPES)[number];
@@ -267,6 +338,7 @@ export interface IndexerConfig {
     tribe: string;
     contractBoard: string;
     forgePlanner: string;
+    trustlessContracts: string;
   };
   /** Postgres connection string */
   databaseUrl: string;
@@ -282,6 +354,7 @@ export const DEFAULT_CONFIG: IndexerConfig = {
     tribe: process.env.PACKAGE_TRIBE ?? "",
     contractBoard: process.env.PACKAGE_CONTRACT_BOARD ?? "",
     forgePlanner: process.env.PACKAGE_FORGE_PLANNER ?? "",
+    trustlessContracts: process.env.PACKAGE_TRUSTLESS_CONTRACTS ?? "",
   },
   databaseUrl: process.env.DATABASE_URL ?? "postgresql://corm:corm@localhost:5432/frontier_corm",
   apiPort: Number(process.env.API_PORT) || 3100,

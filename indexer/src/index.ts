@@ -9,9 +9,10 @@
  *
  * Environment variables (all optional, sensible defaults for local dev):
  *   SUI_RPC_URL          — Sui RPC endpoint (default: http://127.0.0.1:9000)
- *   PACKAGE_TRIBE        — Deployed tribe package ID
- *   PACKAGE_CONTRACT_BOARD — Deployed contract_board package ID
- *   PACKAGE_FORGE_PLANNER — Deployed forge_planner package ID
+ *   PACKAGE_TRIBE              — Deployed tribe package ID
+ *   PACKAGE_CONTRACT_BOARD     — Deployed contract_board package ID
+ *   PACKAGE_FORGE_PLANNER      — Deployed forge_planner package ID
+ *   PACKAGE_TRUSTLESS_CONTRACTS — Deployed trustless_contracts package ID
  *   DATABASE_URL         — Postgres connection string (default: postgresql://corm:corm@localhost:5432/frontier_corm)
  *   API_PORT             — API server port (default: 3100)
  *   POLL_INTERVAL_MS     — Event poll interval in ms (default: 2000)
@@ -42,7 +43,7 @@ async function main() {
       `\n  ⚠  Missing package IDs: ${missingPackages.join(", ")}`,
     );
     console.warn(
-      "     Set PACKAGE_TRIBE, PACKAGE_CONTRACT_BOARD, PACKAGE_FORGE_PLANNER env vars.",
+      "     Set PACKAGE_TRIBE, PACKAGE_CONTRACT_BOARD, PACKAGE_FORGE_PLANNER, PACKAGE_TRUSTLESS_CONTRACTS env vars.",
     );
     console.warn(
       "     The indexer will start but won't subscribe to events for missing packages.\n",
@@ -63,7 +64,7 @@ async function main() {
   const server = createServer(pool, config.apiPort);
 
   // 5. Start subscriber (only if at least one package ID is configured)
-  if (missingPackages.length < 3) {
+  if (missingPackages.length < Object.keys(config.packageIds).length) {
     subscriber.start();
   } else {
     console.log("[subscriber] No package IDs configured — subscriber not started.");
