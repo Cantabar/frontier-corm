@@ -36,14 +36,30 @@ const MOVE_TYPE_BY_INDEX: StructureMoveType[] = [
 // ---------------------------------------------------------------------------
 
 function parseAssemblyStatus(raw: unknown): AssemblyStatus {
-  if (typeof raw === "object" && raw !== null) {
-    if ("Online" in raw) return "Online";
-    if ("Offline" in raw) return "Offline";
-    if ("Unanchoring" in raw) return "Unanchoring";
+  // On-chain the field is `AssemblyStatus { status: Status }` where Status is
+  // an enum with variants NULL, OFFLINE, ONLINE.  SUI RPC serialises this as:
+  //   { type: "...::AssemblyStatus", fields: { status: { variant: "ONLINE", ... } } }
+  // Unwrap the outer struct to reach the inner Status enum.
+  let target = raw;
+  if (typeof target === "object" && target !== null) {
+    const outer = target as Record<string, unknown>;
+    if (outer.fields && typeof outer.fields === "object") {
+      const inner = (outer.fields as Record<string, unknown>).status;
+      if (inner !== undefined) target = inner;
+    }
   }
-  if (raw === "Online") return "Online";
-  if (raw === "Offline") return "Offline";
-  if (raw === "Unanchoring") return "Unanchoring";
+
+  // Normalise: accept { variant: "ONLINE" } objects or plain strings, case-insensitive.
+  let v = "";
+  if (typeof target === "string") {
+    v = target;
+  } else if (typeof target === "object" && target !== null) {
+    v = String((target as Record<string, unknown>).variant ?? "");
+  }
+  const upper = v.toUpperCase();
+  if (upper === "ONLINE")  return "Online";
+  if (upper === "OFFLINE") return "Offline";
+  if (upper === "UNANCHORING") return "Unanchoring";
   return "Anchored";
 }
 
