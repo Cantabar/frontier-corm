@@ -149,6 +149,18 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
     [structures],
   );
 
+  const getOwnerCapDetails = useCallback(
+    (ssuId: string) => {
+      const s = structures.find((s) => s.id === ssuId);
+      return {
+        ownerCapId: s?.ownerCapId ?? "",
+        ownerCapVersion: s?.ownerCapVersion ?? "",
+        ownerCapDigest: s?.ownerCapDigest ?? "",
+      };
+    },
+    [structures],
+  );
+
   // Contract type selection
   const [variant, setVariant] = useState<TrustlessContractVariant>("CoinForCoin");
 
@@ -164,6 +176,8 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
   // ItemForCoin fields
   const [sourceSsuId, setSourceSsuId] = useState("");
   const [itemId, setItemId] = useState("");
+  const [offeredQuantity, setOfferedQuantity] = useState("");
+  const [availableQuantity, setAvailableQuantity] = useState(0);
   const [itemWantedAmount, setItemWantedAmount] = useState("");
 
   // Transport fields
@@ -187,7 +201,7 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
   const [submitted, setSubmitted] = useState(false);
 
   // Reset item selections when the associated SSU changes
-  useEffect(() => { setItemId(""); }, [sourceSsuId]);
+  useEffect(() => { setItemId(""); setOfferedQuantity(""); setAvailableQuantity(0); }, [sourceSsuId]);
   useEffect(() => { setTransportItemTypeId(""); setTransportItemQuantity(""); }, [destinationSsuId]);
 
   function parseIdList(s: string): string[] {
@@ -233,11 +247,16 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
           allowedTribes: tribes,
         });
         break;
-      case "ItemForCoin":
+      case "ItemForCoin": {
+        const cap = getOwnerCapDetails(sourceSsuId);
         tx = buildCreateItemForCoin({
           characterId,
           sourceSsuId,
-          itemId,
+          typeId: Number(itemId),
+          quantity: Number(offeredQuantity),
+          ownerCapId: cap.ownerCapId,
+          ownerCapVersion: cap.ownerCapVersion,
+          ownerCapDigest: cap.ownerCapDigest,
           wantedAmount: Math.round(Number(itemWantedAmount) * 1e9),
           allowPartial,
           deadlineMs,
@@ -245,11 +264,17 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
           allowedTribes: tribes,
         });
         break;
-      case "ItemForItem":
+      }
+      case "ItemForItem": {
+        const cap = getOwnerCapDetails(sourceSsuId);
         tx = buildCreateItemForItem({
           characterId,
           sourceSsuId,
-          itemId,
+          typeId: Number(itemId),
+          quantity: Number(offeredQuantity),
+          ownerCapId: cap.ownerCapId,
+          ownerCapVersion: cap.ownerCapVersion,
+          ownerCapDigest: cap.ownerCapDigest,
           wantedTypeId: Number(i4iWantedTypeId),
           wantedQuantity: Number(i4iWantedQuantity),
           destinationSsuId: i4iDestinationSsuId,
@@ -259,6 +284,7 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
           allowedTribes: tribes,
         });
         break;
+      }
       case "Transport":
         tx = buildCreateTransport({
           characterId,
@@ -293,9 +319,9 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
       case "CoinForItem":
         return Number(escrow) > 0 && Number(wantedQuantity) > 0 && !!destinationSsuId;
       case "ItemForCoin":
-        return !!sourceSsuId && !!itemId && Number(itemWantedAmount) > 0;
+        return !!sourceSsuId && !!itemId && Number(offeredQuantity) > 0 && Number(itemWantedAmount) > 0;
       case "ItemForItem":
-        return !!sourceSsuId && !!itemId && Number(i4iWantedQuantity) > 0 && !!i4iDestinationSsuId;
+        return !!sourceSsuId && !!itemId && Number(offeredQuantity) > 0 && Number(i4iWantedQuantity) > 0 && !!i4iDestinationSsuId;
       case "Transport":
         return Number(escrow) > 0 && Number(transportItemQuantity) > 0 && !!destinationSsuId && Number(requiredStake) > 0;
     }
@@ -350,14 +376,36 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
           <Label>Source SSU</Label>
           <SsuPickerField value={sourceSsuId} onChange={setSourceSsuId} />
           {submitted && !sourceSsuId && <FieldError>Required</FieldError>}
-          <Label>Item</Label>
-          <SsuItemPickerField
-            ssuId={sourceSsuId}
-            ownerCapId={getOwnerCapId(sourceSsuId)}
-            value={itemId}
-            onChange={(entry) => setItemId(String(entry.typeId))}
-          />
-          {submitted && !itemId && <FieldError>Required</FieldError>}
+          <Row>
+            <div>
+              <Label>Item</Label>
+              <SsuItemPickerField
+                ssuId={sourceSsuId}
+                ownerCapId={getOwnerCapId(sourceSsuId)}
+                value={itemId}
+                onChange={(entry) => {
+                  setItemId(String(entry.typeId));
+                  setOfferedQuantity(String(entry.quantity));
+                  setAvailableQuantity(entry.quantity);
+                }}
+              />
+              {submitted && !itemId && <FieldError>Required</FieldError>}
+            </div>
+            <div>
+              <Label>Quantity{availableQuantity > 0 ? ` (max ${availableQuantity.toLocaleString()})` : ""}</Label>
+              <Input
+                type="number"
+                min="1"
+                max={availableQuantity || undefined}
+                value={offeredQuantity}
+                onChange={(e) => setOfferedQuantity(e.target.value)}
+              />
+              {submitted && !(Number(offeredQuantity) > 0) && <FieldError>Must be greater than 0</FieldError>}
+              {Number(offeredQuantity) > availableQuantity && availableQuantity > 0 && (
+                <FieldError>Exceeds available ({availableQuantity.toLocaleString()})</FieldError>
+              )}
+            </div>
+          </Row>
           <Label>Wanted Amount (SUI)</Label>
           <Input type="number" placeholder="0.0" value={itemWantedAmount} onChange={(e) => setItemWantedAmount(e.target.value)} />
           {submitted && !(Number(itemWantedAmount) > 0) && <FieldError>Must be greater than 0</FieldError>}
@@ -369,14 +417,36 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
           <Label>Source SSU</Label>
           <SsuPickerField value={sourceSsuId} onChange={setSourceSsuId} />
           {submitted && !sourceSsuId && <FieldError>Required</FieldError>}
-          <Label>Offered Item</Label>
-          <SsuItemPickerField
-            ssuId={sourceSsuId}
-            ownerCapId={getOwnerCapId(sourceSsuId)}
-            value={itemId}
-            onChange={(entry) => setItemId(String(entry.typeId))}
-          />
-          {submitted && !itemId && <FieldError>Required</FieldError>}
+          <Row>
+            <div>
+              <Label>Offered Item</Label>
+              <SsuItemPickerField
+                ssuId={sourceSsuId}
+                ownerCapId={getOwnerCapId(sourceSsuId)}
+                value={itemId}
+                onChange={(entry) => {
+                  setItemId(String(entry.typeId));
+                  setOfferedQuantity(String(entry.quantity));
+                  setAvailableQuantity(entry.quantity);
+                }}
+              />
+              {submitted && !itemId && <FieldError>Required</FieldError>}
+            </div>
+            <div>
+              <Label>Quantity{availableQuantity > 0 ? ` (max ${availableQuantity.toLocaleString()})` : ""}</Label>
+              <Input
+                type="number"
+                min="1"
+                max={availableQuantity || undefined}
+                value={offeredQuantity}
+                onChange={(e) => setOfferedQuantity(e.target.value)}
+              />
+              {submitted && !(Number(offeredQuantity) > 0) && <FieldError>Must be greater than 0</FieldError>}
+              {Number(offeredQuantity) > availableQuantity && availableQuantity > 0 && (
+                <FieldError>Exceeds available ({availableQuantity.toLocaleString()})</FieldError>
+              )}
+            </div>
+          </Row>
           <Separator />
           <Hint>What you want in return:</Hint>
           <Row>

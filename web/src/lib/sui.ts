@@ -548,7 +548,11 @@ export function buildCreateCoinForItem(params: {
 export function buildCreateItemForCoin(params: {
   characterId: string;
   sourceSsuId: string;
-  itemId: string;
+  typeId: number;
+  quantity: number;
+  ownerCapId: string;
+  ownerCapVersion: string;
+  ownerCapDigest: string;
   wantedAmount: number;
   allowPartial: boolean;
   deadlineMs: number;
@@ -556,13 +560,57 @@ export function buildCreateItemForCoin(params: {
   allowedTribes: number[];
 }): Transaction {
   const tx = new Transaction();
+  const pkg = worldPkg();
+  const suTypeArg = `${pkg}::storage_unit::StorageUnit`;
+
+  // 1. Borrow OwnerCap<StorageUnit> from Character
+  const [ownerCap, receipt] = tx.moveCall({
+    target: `${pkg}::character::borrow_owner_cap`,
+    typeArguments: [suTypeArg],
+    arguments: [
+      tx.object(params.characterId),
+      tx.object(
+        Inputs.ReceivingRef({
+          objectId: params.ownerCapId,
+          version: params.ownerCapVersion,
+          digest: params.ownerCapDigest,
+        }),
+      ),
+    ],
+  });
+
+  // 2. Withdraw item from SSU (returns transit Item with specified quantity)
+  const [item] = tx.moveCall({
+    target: `${pkg}::storage_unit::withdraw_by_owner`,
+    typeArguments: [suTypeArg],
+    arguments: [
+      tx.object(params.sourceSsuId),
+      tx.object(params.characterId),
+      ownerCap,
+      tx.pure.u64(params.typeId),
+      tx.pure.u32(params.quantity),
+    ],
+  });
+
+  // 3. Return OwnerCap to Character
+  tx.moveCall({
+    target: `${pkg}::character::return_owner_cap`,
+    typeArguments: [suTypeArg],
+    arguments: [
+      tx.object(params.characterId),
+      ownerCap,
+      receipt,
+    ],
+  });
+
+  // 4. Create the contract (consumes the transit Item)
   tx.moveCall({
     target: tcTarget("create_item_for_coin"),
     typeArguments: tcTypes(),
     arguments: [
       tx.object(params.characterId),
       tx.object(params.sourceSsuId),
-      tx.object(params.itemId),
+      item,
       tx.pure.u64(params.wantedAmount),
       tx.pure.bool(params.allowPartial),
       tx.pure.u64(params.deadlineMs),
@@ -577,7 +625,11 @@ export function buildCreateItemForCoin(params: {
 export function buildCreateItemForItem(params: {
   characterId: string;
   sourceSsuId: string;
-  itemId: string;
+  typeId: number;
+  quantity: number;
+  ownerCapId: string;
+  ownerCapVersion: string;
+  ownerCapDigest: string;
   wantedTypeId: number;
   wantedQuantity: number;
   destinationSsuId: string;
@@ -587,13 +639,57 @@ export function buildCreateItemForItem(params: {
   allowedTribes: number[];
 }): Transaction {
   const tx = new Transaction();
+  const pkg = worldPkg();
+  const suTypeArg = `${pkg}::storage_unit::StorageUnit`;
+
+  // 1. Borrow OwnerCap<StorageUnit> from Character
+  const [ownerCap, receipt] = tx.moveCall({
+    target: `${pkg}::character::borrow_owner_cap`,
+    typeArguments: [suTypeArg],
+    arguments: [
+      tx.object(params.characterId),
+      tx.object(
+        Inputs.ReceivingRef({
+          objectId: params.ownerCapId,
+          version: params.ownerCapVersion,
+          digest: params.ownerCapDigest,
+        }),
+      ),
+    ],
+  });
+
+  // 2. Withdraw item from SSU (returns transit Item with specified quantity)
+  const [item] = tx.moveCall({
+    target: `${pkg}::storage_unit::withdraw_by_owner`,
+    typeArguments: [suTypeArg],
+    arguments: [
+      tx.object(params.sourceSsuId),
+      tx.object(params.characterId),
+      ownerCap,
+      tx.pure.u64(params.typeId),
+      tx.pure.u32(params.quantity),
+    ],
+  });
+
+  // 3. Return OwnerCap to Character
+  tx.moveCall({
+    target: `${pkg}::character::return_owner_cap`,
+    typeArguments: [suTypeArg],
+    arguments: [
+      tx.object(params.characterId),
+      ownerCap,
+      receipt,
+    ],
+  });
+
+  // 4. Create the contract (consumes the transit Item)
   tx.moveCall({
     target: tcTarget("create_item_for_item"),
     typeArguments: tcTypes(),
     arguments: [
       tx.object(params.characterId),
       tx.object(params.sourceSsuId),
-      tx.object(params.itemId),
+      item,
       tx.pure.u64(params.wantedTypeId),
       tx.pure.u32(params.wantedQuantity),
       tx.pure.id(params.destinationSsuId),
