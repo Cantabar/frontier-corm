@@ -8,6 +8,7 @@ import { StatusBadge } from "../shared/StatusBadge";
 import { ItemBadge } from "../shared/ItemBadge";
 import { useIdentity } from "../../hooks/useIdentity";
 import { useContractObject } from "../../hooks/useContracts";
+import { useNotifications } from "../../hooks/useNotifications";
 import {
   buildFillWithCoins,
   buildFillItemForCoin,
@@ -128,6 +129,7 @@ interface Props {
 export function ContractDetail({ contract: initial }: Props) {
   const { characterId } = useIdentity();
   const { mutateAsync: signAndExecute, isPending } = useSignAndExecuteTransaction();
+  const { push } = useNotifications();
   const [showFill, setShowFill] = useState(false);
 
   // Fetch live object state for up-to-date balances/fill qty
@@ -162,26 +164,38 @@ export function ContractDetail({ contract: initial }: Props) {
 
   async function handleCancel() {
     if (!characterId) return;
-    const tx = buildCancelTrustlessContract({ contractId: c.id, characterId });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await signAndExecute({ transaction: tx as any });
+    try {
+      const tx = buildCancelTrustlessContract({ contractId: c.id, characterId });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await signAndExecute({ transaction: tx as any });
+    } catch (err) {
+      push({ level: "error", title: "Cancel Failed", message: String(err), source: "contract-detail" });
+    }
   }
 
   async function handleExpire() {
-    const tx = buildExpireTrustlessContract({ contractId: c.id });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await signAndExecute({ transaction: tx as any });
+    try {
+      const tx = buildExpireTrustlessContract({ contractId: c.id });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await signAndExecute({ transaction: tx as any });
+    } catch (err) {
+      push({ level: "error", title: "Expire Failed", message: String(err), source: "contract-detail" });
+    }
   }
 
   async function handleAcceptTransport() {
     if (!characterId || c.contractType.variant !== "Transport") return;
-    const tx = buildAcceptTransport({
-      contractId: c.id,
-      stakeAmount: Number(c.contractType.requiredStake),
-      characterId,
-    });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await signAndExecute({ transaction: tx as any });
+    try {
+      const tx = buildAcceptTransport({
+        contractId: c.id,
+        stakeAmount: Number(c.contractType.requiredStake),
+        characterId,
+      });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await signAndExecute({ transaction: tx as any });
+    } catch (err) {
+      push({ level: "error", title: "Accept Transport Failed", message: String(err), source: "contract-detail" });
+    }
   }
 
   return (

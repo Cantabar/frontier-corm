@@ -112,10 +112,10 @@ function eventToContract(ev: { parsedJson?: unknown; id: { txDigest: string } })
   };
 }
 
-function objectToContract(fields: Record<string, unknown>): TrustlessContractData {
+function objectToContract(objectId: string, fields: Record<string, unknown>): TrustlessContractData {
   const ct = (fields.contract_type as Record<string, unknown>) ?? {};
   return {
-    id: String(fields.id ?? ""),
+    id: objectId,
     posterId: String(fields.poster_id ?? ""),
     posterAddress: String(fields.poster_address ?? ""),
     contractType: parseContractType(ct),
@@ -168,8 +168,9 @@ export function useContractObject(contractId: string | undefined) {
     { enabled: !!contractId },
   );
 
+  const objectId = data?.data?.objectId ?? "";
   const fields = (data?.data?.content as { fields?: Record<string, unknown> })?.fields;
-  const contract = fields ? objectToContract(fields) : null;
+  const contract = fields && objectId ? objectToContract(objectId, fields) : null;
 
   return { contract, isLoading, error };
 }
