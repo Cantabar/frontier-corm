@@ -1,6 +1,8 @@
+import { useRef, useState } from "react";
 import styled from "styled-components";
 import { LoadingSpinner } from "../shared/LoadingSpinner";
 import { EmptyState } from "../shared/EmptyState";
+import { PortalTooltip } from "../shared/PortalTooltip";
 import { useSsuInventory } from "../../hooks/useSsuInventory";
 import { useItems } from "../../hooks/useItems";
 import { truncateAddress } from "../../lib/format";
@@ -21,7 +23,7 @@ const PanelWrapper = styled.div`
 
 const ScrollArea = styled.div`
   overflow-x: auto;
-  overflow-y: clip;
+  overflow-y: hidden;
 `;
 
 /** Horizontal strip of inventory slots */
@@ -89,10 +91,6 @@ const ItemTile = styled.div`
   &:hover {
     outline: 2px solid ${({ theme }) => theme.colors.primary.main};
   }
-
-  &:hover > div:last-child {
-    opacity: 1;
-  }
 `;
 
 const TileIcon = styled.img`
@@ -119,22 +117,6 @@ const QtyBadge = styled.span`
   color: ${({ theme }) => theme.colors.text.primary};
   text-shadow: 0 0 3px ${({ theme }) => theme.colors.surface.bg},
     0 0 3px ${({ theme }) => theme.colors.surface.bg};
-`;
-
-const Tooltip = styled.div`
-  position: absolute;
-  bottom: calc(100% + 6px);
-  left: 50%;
-  transform: translateX(-50%);
-  background: ${({ theme }) => theme.colors.surface.overlay};
-  border: 1px solid ${({ theme }) => theme.colors.surface.border};
-  border-radius: ${({ theme }) => theme.radii.sm};
-  padding: ${({ theme }) => theme.spacing.xs} ${({ theme }) => theme.spacing.sm};
-  white-space: nowrap;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.12s ease;
-  z-index: 200;
 `;
 
 const TooltipName = styled.div`
@@ -168,17 +150,23 @@ function InventoryItemTile({ item }: { item: InventoryItemEntry }) {
   const { getItem } = useItems();
   const info = getItem(item.typeId);
   const name = info?.name ?? `Type ${item.typeId}`;
+  const tileRef = useRef<HTMLDivElement>(null);
+  const [hovered, setHovered] = useState(false);
 
   return (
-    <ItemTile>
+    <ItemTile
+      ref={tileRef}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
       {info?.icon ? <TileIcon src={`/${info.icon}`} alt={name} /> : <TileIconPlaceholder />}
       <QtyBadge>{item.quantity.toLocaleString()}</QtyBadge>
-      <Tooltip>
+      <PortalTooltip targetRef={tileRef} visible={hovered}>
         <TooltipName>{name}</TooltipName>
         <TooltipMeta>
           ID {item.typeId} · {item.volume} m³ · ×{item.quantity.toLocaleString()}
         </TooltipMeta>
-      </Tooltip>
+      </PortalTooltip>
     </ItemTile>
   );
 }
