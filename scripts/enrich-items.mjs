@@ -66,6 +66,7 @@ const enriched = sourceItems.map((item) => {
     typeId: item.typeId,
     name: item.name,
     icon: item.icon,
+    volume: t.volume ?? 0,
     categoryId,
     categoryName,
     groupId,

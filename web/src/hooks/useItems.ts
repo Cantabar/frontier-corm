@@ -4,6 +4,7 @@ export interface ItemEntry {
   typeId: number;
   name: string;
   icon: string;
+  volume: number;
   categoryId: number | null;
   categoryName: string | null;
   groupId: number | null;
