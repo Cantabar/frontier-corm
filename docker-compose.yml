@@ -30,23 +30,6 @@ services:
       timeout: 3s
       retries: 3
 
-  # ── App API (auth + optimizer + privacy) ─────────────────────────
-  # Uncomment when app/src/server.ts exists:
-  #
-  # app:
-  #   build:
-  #     context: ./app
-  #     dockerfile: Dockerfile
-  #   ports:
-  #     - "3000:3000"
-  #   env_file: .env
-  #   environment:
-  #     - DATABASE_URL=postgresql://corm:corm@postgres:5432/frontier_corm
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
-  #   restart: unless-stopped
-
   # ── Postgres ─────────────────────────────────────────────────────
   postgres:
     image: postgres:16-alpine

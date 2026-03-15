@@ -10,7 +10,6 @@ import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import * as logs from "aws-cdk-lib/aws-logs";
-import * as iam from "aws-cdk-lib/aws-iam";
 
 export class FrontierCormStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -68,12 +67,6 @@ export class FrontierCormStack extends cdk.Stack {
       emptyOnDelete: true,
     });
 
-    const apiRepo = new ecr.Repository(this, "ApiRepo", {
-      repositoryName: `${prefix}-api-service`,
-      removalPolicy: cdk.RemovalPolicy.DESTROY,
-      emptyOnDelete: true,
-    });
-
     // ================================================================
     // RDS Postgres
     // ================================================================
@@ -122,14 +115,6 @@ export class FrontierCormStack extends cdk.Stack {
       description: "Update with actual Sui RPC endpoint after deployment",
     });
 
-    const sessionSecret = new secretsmanager.Secret(this, "SessionSecret", {
-      secretName: `${prefix}/session-secret`,
-      generateSecretString: {
-        excludePunctuation: false,
-        passwordLength: 64,
-      },
-    });
-
     // ================================================================
     // S3 — Frontend (static site)
     // ================================================================
@@ -141,19 +126,7 @@ export class FrontierCormStack extends cdk.Stack {
     });
 
     // ================================================================
-    // S3 — Encrypted contract blobs
-    // ================================================================
-    const encryptedBucket = new s3.Bucket(this, "EncryptedBucket", {
-      bucketName: `${prefix}-encrypted-${this.account}`,
-      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
-      encryption: s3.BucketEncryption.S3_MANAGED,
-      removalPolicy: cdk.RemovalPolicy.DESTROY,
-      autoDeleteObjects: true,
-      lifecycleRules: [{ expiration: cdk.Duration.days(90) }],
-    });
-
-    // ================================================================
-    // CloudFront — serves the React UI from S3
+    // CloudFront
     // ================================================================
     const distribution = new cloudfront.Distribution(this, "CfDistribution", {
       defaultBehavior: {
@@ -261,44 +234,6 @@ export class FrontierCormStack extends cdk.Stack {
     });
 
     // ================================================================
-    // ECS — API Service (auth + optimizer + privacy)
-    // ================================================================
-    const apiTaskDef = new ecs.FargateTaskDefinition(this, "ApiTaskDef", {
-      cpu: 512,
-      memoryLimitMiB: 1024,
-    });
-
-    apiTaskDef.addContainer("api", {
-      image: ecs.ContainerImage.fromEcrRepository(apiRepo, "latest"),
-      portMappings: [{ containerPort: 3000 }],
-      environment: {
-        NODE_ENV: "production",
-        S3_BUCKET_ENCRYPTED: encryptedBucket.bucketName,
-      },
-      secrets: {
-        SUI_RPC_URL: ecs.Secret.fromSecretsManager(suiSecret, "SUI_RPC_URL"),
-        SESSION_SECRET: ecs.Secret.fromSecretsManager(sessionSecret),
-      },
-      logging: ecs.LogDrivers.awsLogs({
-        logGroup,
-        streamPrefix: "api",
-      }),
-    });
-
-    encryptedBucket.grantReadWrite(apiTaskDef.taskRole);
-    suiSecret.grantRead(apiTaskDef.taskRole);
-    sessionSecret.grantRead(apiTaskDef.taskRole);
-
-    const apiService = new ecs.FargateService(this, "ApiService", {
-      cluster,
-      taskDefinition: apiTaskDef,
-      desiredCount: 1,
-      securityGroups: [ecsSg],
-      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
-      assignPublicIp: false,
-    });
-
-    // ================================================================
     // ALB Target Groups + Routing
     // ================================================================
     const indexerTg = listener.addTargets("IndexerTarget", {
@@ -309,21 +244,7 @@ export class FrontierCormStack extends cdk.Stack {
       priority: 10,
     });
 
-    const apiTg = listener.addTargets("ApiTarget", {
-      port: 3000,
-      targets: [apiService],
-      healthCheck: { path: "/health", interval: cdk.Duration.seconds(30) },
-      conditions: [
-        elbv2.ListenerCondition.pathPatterns([
-          "/api/auth/*",
-          "/api/optimizer/*",
-          "/api/privacy/*",
-        ]),
-      ],
-      priority: 20,
-    });
-
-    // Default action — return 404 for unmatched paths
+    // Default action
     listener.addAction("Default", {
       action: elbv2.ListenerAction.fixedResponse(404, {
         messageBody: "Not Found",
@@ -348,19 +269,9 @@ export class FrontierCormStack extends cdk.Stack {
       description: "S3 bucket for frontend deploy",
     });
 
-    new cdk.CfnOutput(this, "EncryptedBucketName", {
-      value: encryptedBucket.bucketName,
-      description: "S3 bucket for encrypted contract blobs",
-    });
-
     new cdk.CfnOutput(this, "IndexerEcrUri", {
       value: indexerRepo.repositoryUri,
       description: "ECR repo for indexer image",
-    });
-
-    new cdk.CfnOutput(this, "ApiEcrUri", {
-      value: apiRepo.repositoryUri,
-      description: "ECR repo for API service image",
     });
 
     new cdk.CfnOutput(this, "DbEndpoint", {
