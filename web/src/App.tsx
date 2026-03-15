@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import { Routes, Route } from "react-router-dom";
+import { useEffect, lazy, Suspense } from "react";
+import { Routes, Route, useLocation } from "react-router-dom";
 import styled from "styled-components";
 
 import { IdentityContext, useIdentityResolver } from "./hooks/useIdentity";
@@ -18,6 +18,9 @@ import { NotificationsPage } from "./pages/NotificationsPage";
 import { MyStructuresPage } from "./pages/MyStructuresPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { ToastContainer } from "./components/shared/Toast";
+import { LoadingSpinner } from "./components/shared/LoadingSpinner";
+
+const DappApp = lazy(() => import("./DappApp"));
 
 const Shell = styled.div`
   display: flex;
@@ -40,6 +43,7 @@ const Content = styled.main`
 export default function App() {
   const identity = useIdentityResolver();
   const { push } = useNotifications();
+  const location = useLocation();
 
   // Subscribe to indexer fetch errors and surface them as notifications
   useEffect(() => {
@@ -52,6 +56,15 @@ export default function App() {
       });
     });
   }, [push]);
+
+  // Render the lightweight dApp shell for /dapp/* routes (no sidebar/header)
+  if (location.pathname.startsWith("/dapp")) {
+    return (
+      <Suspense fallback={<LoadingSpinner />}>
+        <DappApp />
+      </Suspense>
+    );
+  }
 
   return (
     <IdentityContext.Provider value={identity}>
