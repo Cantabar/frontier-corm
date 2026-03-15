@@ -12,7 +12,7 @@ import { useWorldTribeInfo } from "./useWorldTribeInfo";
 import { useNotifications } from "./useNotifications";
 import { buildSelfJoinTribe, buildLookupTribeByGameId } from "../lib/sui";
 import { config } from "../config";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 export interface AutoJoinState {
   /** True when the user can self-join an existing on-chain tribe. */
@@ -36,6 +36,7 @@ export function useAutoJoinTribe(): AutoJoinState {
   const { push } = useNotifications();
   const client = useSuiClient();
   const { mutateAsync: signAndExecute } = useSignAndExecuteTransaction();
+  const queryClient = useQueryClient();
   const [isJoining, setIsJoining] = useState(false);
 
   // Basic eligibility: has character, has an in-game tribe, no existing TribeCap
@@ -95,6 +96,15 @@ export function useAutoJoinTribe(): AutoJoinState {
       });
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await signAndExecute({ transaction: tx as any });
+      // Invalidate caches so identity (TribeCap) and tribe list refresh
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["tribes"] }),
+        queryClient.invalidateQueries({ queryKey: ["autoJoinLookup"] }),
+        queryClient.invalidateQueries({
+          predicate: (query) =>
+            Array.isArray(query.queryKey) && query.queryKey[1] === "getOwnedObjects",
+        }),
+      ]);
       push({
         level: "info",
         title: "Joined Tribe",
@@ -111,7 +121,7 @@ export function useAutoJoinTribe(): AutoJoinState {
     } finally {
       setIsJoining(false);
     }
-  }, [eligible, tribeObjectId, characterId, address, signAndExecute, push, tribeName]);
+  }, [eligible, tribeObjectId, characterId, address, signAndExecute, queryClient, push, tribeName]);
 
   return { eligible, tribeObjectId, tribeName, isJoining, isLoading, join };
 }
