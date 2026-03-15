@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import styled from "styled-components";
 import type { BlueprintEntry } from "../../hooks/useBlueprints";
 import { useItems } from "../../hooks/useItems";
@@ -23,32 +23,11 @@ const Section = styled.section`
   margin-bottom: ${({ theme }) => theme.spacing.lg};
 `;
 
-const SectionHeader = styled.button`
+const SectionHeader = styled.div`
   display: flex;
   align-items: center;
   gap: ${({ theme }) => theme.spacing.sm};
-  width: 100%;
-  background: none;
-  border: none;
-  padding: 0;
   margin: 0 0 ${({ theme }) => theme.spacing.md};
-  cursor: pointer;
-  user-select: none;
-`;
-
-const SectionTitle = styled.h2`
-  font-size: 16px;
-  font-weight: 600;
-  color: ${({ theme }) => theme.colors.text.primary};
-  margin: 0;
-`;
-
-const Chevron = styled.span<{ $open: boolean }>`
-  display: inline-block;
-  font-size: 14px;
-  color: ${({ theme }) => theme.colors.text.muted};
-  transition: transform 0.15s;
-  transform: rotate(${({ $open }) => ($open ? "90deg" : "0deg")});
 `;
 
 const GroupByRow = styled.div`
@@ -161,8 +140,6 @@ const Grid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: ${({ theme }) => theme.spacing.sm};
-  max-height: 480px;
-  overflow-y: auto;
 `;
 
 const Card = styled.button<{ $tierColor?: string }>`
@@ -299,7 +276,6 @@ interface Props {
 export function BlueprintBrowser({ blueprints, onResolve }: Props) {
   const { getItem } = useItems();
 
-  const [collapsed, setCollapsed] = useState(false);
   const [query, setQuery] = useState("");
   const [groupBy, setGroupBy] = useState<GroupBy>("category");
   const [activeTab, setActiveTab] = useState<string | null>(null);
@@ -428,16 +404,12 @@ export function BlueprintBrowser({ blueprints, onResolve }: Props) {
 
   return (
     <Section>
-      <SectionHeader onClick={() => setCollapsed((c) => !c)}>
-        <Chevron $open={!collapsed}>▸</Chevron>
-        <SectionTitle>Blueprints</SectionTitle>
+      <SectionHeader>
         <CountBadge>{filtered.length} blueprints</CountBadge>
       </SectionHeader>
 
-      {!collapsed && (
-        <>
-          {/* Group-by toggle */}
-          <GroupByRow>
+      {/* Group-by toggle */}
+      <GroupByRow>
             <GroupByOption
               $active={groupBy === "category"}
               onClick={() => handleGroupByChange("category")}
@@ -450,10 +422,10 @@ export function BlueprintBrowser({ blueprints, onResolve }: Props) {
             >
               By Facility
             </GroupByOption>
-          </GroupByRow>
+      </GroupByRow>
 
-          {/* Tabs (categories or facilities) */}
-          <TabBar>
+      {/* Tabs (categories or facilities) */}
+      <TabBar>
             <Tab
               $active={activeTab === null}
               onClick={() => {
@@ -493,10 +465,10 @@ export function BlueprintBrowser({ blueprints, onResolve }: Props) {
                     ))}
                   </React.Fragment>
                 ))}
-          </TabBar>
+      </TabBar>
 
-          {/* Filters */}
-          <FiltersRow>
+      {/* Filters */}
+      <FiltersRow>
             {/* Facility dropdown — only shown in category mode */}
             {groupBy === "category" && facilityNames.length > 1 && (
               <GroupSelect
@@ -537,10 +509,10 @@ export function BlueprintBrowser({ blueprints, onResolve }: Props) {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
-          </FiltersRow>
+      </FiltersRow>
 
-          {/* Grid */}
-          <Grid>
+      {/* Grid */}
+      <Grid>
             {filtered.length === 0 && <Empty>No blueprints found</Empty>}
             {filtered.map((bp) => {
               const tierColor = bp.primaryMetaGroupName
@@ -606,9 +578,7 @@ export function BlueprintBrowser({ blueprints, onResolve }: Props) {
                 </Card>
               );
             })}
-          </Grid>
-        </>
-      )}
+      </Grid>
 
       {/* Detail modal */}
       {selectedBp && (
