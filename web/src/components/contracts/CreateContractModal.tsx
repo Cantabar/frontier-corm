@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
-import styled from "styled-components";
+import styled, { keyframes } from "styled-components";
 import { useSignAndExecuteTransaction, useSuiClient } from "@mysten/dapp-kit";
 import { Modal } from "../shared/Modal";
 import { useIdentity } from "../../hooks/useIdentity";
@@ -19,6 +19,19 @@ import { SsuItemPickerField } from "../shared/SsuItemPickerField";
 import { CharacterPickerField } from "../shared/CharacterPickerField";
 import { TribePickerField } from "../shared/TribePickerField";
 import { PrimaryButton } from "../shared/Button";
+
+// ---------------------------------------------------------------------------
+// Creation-phase tracking
+// ---------------------------------------------------------------------------
+type CreationPhase = null | "preparing" | "signing" | "confirming";
+
+const PHASE_LABELS: Record<Exclude<CreationPhase, null>, string> = {
+  preparing: "Preparing",
+  signing: "Waiting for wallet",
+  confirming: "Confirming on chain",
+};
+
+const PHASE_ORDER: Exclude<CreationPhase, null>[] = ["preparing", "signing", "confirming"];
 
 const Label = styled.label`
   display: block;
@@ -144,6 +157,70 @@ const FieldError = styled.div`
 `;
 
 // ---------------------------------------------------------------------------
+// Progress stepper
+// ---------------------------------------------------------------------------
+
+const pulse = keyframes`
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+`;
+
+const StepperWrapper = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: ${({ theme }) => theme.spacing.xs};
+  margin-bottom: ${({ theme }) => theme.spacing.md};
+`;
+
+const StepDot = styled.div<{ $state: "done" | "active" | "pending" }>`
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: ${({ $state, theme }) =>
+    $state === "done"
+      ? theme.colors.primary.main
+      : $state === "active"
+        ? theme.colors.primary.main
+        : theme.colors.surface.border};
+  animation: ${({ $state }) => ($state === "active" ? pulse : "none")} 1.2s ease-in-out infinite;
+`;
+
+const StepConnector = styled.div<{ $done: boolean }>`
+  width: 24px;
+  height: 2px;
+  background: ${({ $done, theme }) =>
+    $done ? theme.colors.primary.main : theme.colors.surface.border};
+`;
+
+const StepLabel = styled.span<{ $active: boolean }>`
+  font-size: 11px;
+  font-weight: ${({ $active }) => ($active ? 600 : 400)};
+  color: ${({ $active, theme }) =>
+    $active ? theme.colors.text.primary : theme.colors.text.muted};
+  white-space: nowrap;
+`;
+
+function CreationStepper({ phase }: { phase: Exclude<CreationPhase, null> }) {
+  const activeIdx = PHASE_ORDER.indexOf(phase);
+  return (
+    <StepperWrapper>
+      {PHASE_ORDER.map((p, i) => {
+        const state = i < activeIdx ? "done" : i === activeIdx ? "active" : "pending";
+        return (
+          <span key={p} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            {i > 0 && <StepConnector $done={i <= activeIdx} />}
+            <StepDot $state={state} />
+            <StepLabel $active={state === "active"}>{PHASE_LABELS[p]}</StepLabel>
+          </span>
+        );
+      })}
+    </StepperWrapper>
+  );
+}
+
+// ---------------------------------------------------------------------------
 
 const VARIANT_DESCRIPTIONS: Record<TrustlessContractVariant, string> = {
   CoinForCoin: "Offer coins, receive different coins",
@@ -245,6 +322,8 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [isEnabling, setIsEnabling] = useState(false);
+  const [creationPhase, setCreationPhase] = useState<CreationPhase>(null);
+  const isBusy = creationPhase !== null;
 
   // --- Extension check: SSUs that need TrustlessAuth ---
   const TRUSTLESS_EXT = "trustless_contracts::TrustlessAuth";
@@ -318,94 +397,98 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
     setSubmitted(true);
     if (!characterId || !isValid) return;
     setError(null);
+    setCreationPhase("preparing");
 
     const deadlineMs = Date.now() + Number(deadlineHours) * 3600 * 1000;
     const chars = allowedCharacters;
     const tribes = allowedTribes;
 
     let tx;
-    switch (variant) {
-      case "CoinForCoin":
-        tx = buildCreateCoinForCoin({
-          characterId,
-          escrowAmount: Math.round(Number(escrow) * 1e9),
-          wantedAmount: Math.round(Number(wantedAmount) * 1e9),
-          allowPartial,
-          deadlineMs,
-          allowedCharacters: chars,
-          allowedTribes: tribes,
-        });
-        break;
-      case "CoinForItem":
-        tx = buildCreateCoinForItem({
-          characterId,
-          escrowAmount: Math.round(Number(escrow) * 1e9),
-          wantedTypeId: Number(wantedTypeId),
-          wantedQuantity: Number(wantedQuantity),
-          destinationSsuId,
-          allowPartial,
-          deadlineMs,
-          allowedCharacters: chars,
-          allowedTribes: tribes,
-        });
-        break;
-      case "ItemForCoin": {
-        const cap = await getFreshOwnerCap(sourceSsuId);
-        tx = buildCreateItemForCoin({
-          characterId,
-          sourceSsuId,
-          typeId: Number(itemId),
-          quantity: Number(offeredQuantity),
-          ownerCapId: cap.ownerCapId,
-          ownerCapVersion: cap.ownerCapVersion,
-          ownerCapDigest: cap.ownerCapDigest,
-          wantedAmount: Math.round(Number(itemWantedAmount) * 1e9),
-          allowPartial,
-          deadlineMs,
-          allowedCharacters: chars,
-          allowedTribes: tribes,
-        });
-        break;
-      }
-      case "ItemForItem": {
-        const cap = await getFreshOwnerCap(sourceSsuId);
-        tx = buildCreateItemForItem({
-          characterId,
-          sourceSsuId,
-          typeId: Number(itemId),
-          quantity: Number(offeredQuantity),
-          ownerCapId: cap.ownerCapId,
-          ownerCapVersion: cap.ownerCapVersion,
-          ownerCapDigest: cap.ownerCapDigest,
-          wantedTypeId: Number(i4iWantedTypeId),
-          wantedQuantity: Number(i4iWantedQuantity),
-          destinationSsuId: i4iDestinationSsuId,
-          allowPartial,
-          deadlineMs,
-          allowedCharacters: chars,
-          allowedTribes: tribes,
-        });
-        break;
-      }
-      case "Transport":
-        tx = buildCreateTransport({
-          characterId,
-          escrowAmount: Math.round(Number(escrow) * 1e9),
-          itemTypeId: Number(transportItemTypeId),
-          itemQuantity: Number(transportItemQuantity),
-          sourceSsuId: transportSourceSsuId,
-          destinationSsuId,
-          requiredStake: Math.round(Number(requiredStake) * 1e9),
-          deadlineMs,
-          allowedCharacters: chars,
-          allowedTribes: tribes,
-        });
-        break;
-    }
-
     try {
+      switch (variant) {
+        case "CoinForCoin":
+          tx = buildCreateCoinForCoin({
+            characterId,
+            escrowAmount: Math.round(Number(escrow) * 1e9),
+            wantedAmount: Math.round(Number(wantedAmount) * 1e9),
+            allowPartial,
+            deadlineMs,
+            allowedCharacters: chars,
+            allowedTribes: tribes,
+          });
+          break;
+        case "CoinForItem":
+          tx = buildCreateCoinForItem({
+            characterId,
+            escrowAmount: Math.round(Number(escrow) * 1e9),
+            wantedTypeId: Number(wantedTypeId),
+            wantedQuantity: Number(wantedQuantity),
+            destinationSsuId,
+            allowPartial,
+            deadlineMs,
+            allowedCharacters: chars,
+            allowedTribes: tribes,
+          });
+          break;
+        case "ItemForCoin": {
+          const cap = await getFreshOwnerCap(sourceSsuId);
+          tx = buildCreateItemForCoin({
+            characterId,
+            sourceSsuId,
+            typeId: Number(itemId),
+            quantity: Number(offeredQuantity),
+            ownerCapId: cap.ownerCapId,
+            ownerCapVersion: cap.ownerCapVersion,
+            ownerCapDigest: cap.ownerCapDigest,
+            wantedAmount: Math.round(Number(itemWantedAmount) * 1e9),
+            allowPartial,
+            deadlineMs,
+            allowedCharacters: chars,
+            allowedTribes: tribes,
+          });
+          break;
+        }
+        case "ItemForItem": {
+          const cap = await getFreshOwnerCap(sourceSsuId);
+          tx = buildCreateItemForItem({
+            characterId,
+            sourceSsuId,
+            typeId: Number(itemId),
+            quantity: Number(offeredQuantity),
+            ownerCapId: cap.ownerCapId,
+            ownerCapVersion: cap.ownerCapVersion,
+            ownerCapDigest: cap.ownerCapDigest,
+            wantedTypeId: Number(i4iWantedTypeId),
+            wantedQuantity: Number(i4iWantedQuantity),
+            destinationSsuId: i4iDestinationSsuId,
+            allowPartial,
+            deadlineMs,
+            allowedCharacters: chars,
+            allowedTribes: tribes,
+          });
+          break;
+        }
+        case "Transport":
+          tx = buildCreateTransport({
+            characterId,
+            escrowAmount: Math.round(Number(escrow) * 1e9),
+            itemTypeId: Number(transportItemTypeId),
+            itemQuantity: Number(transportItemQuantity),
+            sourceSsuId: transportSourceSsuId,
+            destinationSsuId,
+            requiredStake: Math.round(Number(requiredStake) * 1e9),
+            deadlineMs,
+            allowedCharacters: chars,
+            allowedTribes: tribes,
+          });
+          break;
+      }
+
+      setCreationPhase("signing");
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const result = await signAndExecute({ transaction: tx as any });
+
+      setCreationPhase("confirming");
       // Wait for the transaction to be indexed before refetching the contract list
       await suiClient.waitForTransaction({ digest: result.digest });
       onCreated?.();
@@ -413,6 +496,8 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Transaction failed";
       setError(msg);
+    } finally {
+      setCreationPhase(null);
     }
   }
 
@@ -433,7 +518,7 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
   })();
 
   return (
-    <Modal title="Create Trustless Contract" onClose={onClose}>
+    <Modal title="Create Trustless Contract" onClose={onClose} disableClose={isBusy}>
       <Label>Contract Type</Label>
       <Select value={variant} onChange={(e) => setVariant(e.target.value as TrustlessContractVariant)}>
         {(Object.keys(VARIANT_DESCRIPTIONS) as TrustlessContractVariant[]).map((v) => (
@@ -651,7 +736,7 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
               <EnableButton
                 key={id}
                 onClick={() => handleEnableExtension(id)}
-                disabled={isEnabling || isPending}
+                disabled={isEnabling || isBusy}
               >
                 {isEnabling ? "Enabling…" : `Enable Contracts on ${label}`}
               </EnableButton>
@@ -660,8 +745,10 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
         </>
       )}
 
-      <SubmitButton $fullWidth onClick={handleCreate} disabled={isPending || isEnabling || ssusNeedingExtension.length > 0}>
-        {isPending ? "Creating…" : "Create Contract"}
+      {creationPhase && <CreationStepper phase={creationPhase} />}
+
+      <SubmitButton $fullWidth onClick={handleCreate} disabled={isBusy || isEnabling || ssusNeedingExtension.length > 0}>
+        {creationPhase ? PHASE_LABELS[creationPhase] + "…" : "Create Contract"}
       </SubmitButton>
     </Modal>
   );
