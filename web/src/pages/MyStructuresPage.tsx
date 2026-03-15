@@ -6,7 +6,7 @@ import { useNetworkNodes } from "../hooks/useNetworkNodes";
 import { useIdentity } from "../hooks/useIdentity";
 import { LoadingSpinner } from "../components/shared/LoadingSpinner";
 import { EmptyState } from "../components/shared/EmptyState";
-import { SsuInventoryDrawer } from "../components/structures/SsuInventoryDrawer";
+import { SsuInventoryPanel } from "../components/structures/SsuInventoryPanel";
 import { NetworkNodeGroup } from "../components/structures/NetworkNodeGroup";
 import { buildOnlineStructure, buildOfflineStructure } from "../lib/sui";
 import { config } from "../config";
@@ -112,14 +112,19 @@ const Grid = styled.div`
   gap: ${({ theme }) => theme.spacing.sm};
 `;
 
-const StructureCard = styled.div<{ $clickable?: boolean }>`
+const StructureCard = styled.div<{ $clickable?: boolean; $expanded?: boolean }>`
   display: flex;
   align-items: center;
   gap: ${({ theme }) => theme.spacing.md};
   padding: ${({ theme }) => theme.spacing.md};
   background: ${({ theme }) => theme.colors.surface.raised};
-  border: 1px solid ${({ theme }) => theme.colors.surface.border};
-  border-radius: ${({ theme }) => theme.radii.md};
+  border: 1px solid
+    ${({ $expanded, theme }) =>
+      $expanded ? theme.colors.primary.subtle : theme.colors.surface.border};
+  border-radius: ${({ $expanded, theme }) =>
+    $expanded
+      ? `${theme.radii.md} ${theme.radii.md} 0 0`
+      : theme.radii.md};
   transition: border-color 0.15s;
   cursor: ${({ $clickable }) => ($clickable ? "pointer" : "default")};
 
@@ -265,7 +270,7 @@ export function MyStructuresPage() {
 
   const [typeFilter, setTypeFilter] = useState<AssemblyTypeFilter>("all");
   const [statusFilter, setStatusFilter] = useState<AssemblyStatus | "all">("all");
-  const [selectedSsu, setSelectedSsu] = useState<AssemblyData | null>(null);
+  const [selectedSsuId, setSelectedSsuId] = useState<string | null>(null);
   const [groupByNode, setGroupByNode] = useState(true);
 
   const filtered = useMemo(
@@ -420,7 +425,8 @@ export function MyStructuresPage() {
                     characterId={characterId}
                     onRefresh={refetch}
                     onRefreshNodes={refetchNodes}
-                    onSelect={setSelectedSsu}
+                    selectedSsuId={selectedSsuId}
+                    onToggleSelect={setSelectedSsuId}
                   />
                 ))}
               </Grid>
@@ -436,14 +442,11 @@ export function MyStructuresPage() {
               characterId={characterId}
               onRefresh={refetch}
               onRefreshNodes={refetchNodes}
-              onSelect={setSelectedSsu}
+              selectedSsuId={selectedSsuId}
+              onToggleSelect={setSelectedSsuId}
             />
           ))}
         </Grid>
-      )}
-
-      {selectedSsu && (
-        <SsuInventoryDrawer ssu={selectedSsu} onClose={() => setSelectedSsu(null)} />
       )}
     </Page>
   );
@@ -458,19 +461,22 @@ function StructureRow({
   characterId,
   onRefresh,
   onRefreshNodes,
-  onSelect,
+  selectedSsuId,
+  onToggleSelect,
 }: {
   structure: AssemblyData;
   characterId: string | null;
   onRefresh: () => void;
   onRefreshNodes: () => void;
-  onSelect: (ssu: AssemblyData) => void;
+  selectedSsuId: string | null;
+  onToggleSelect: (id: string | null) => void;
 }) {
   const { mutateAsync: signAndExecute } = useSignAndExecuteTransaction();
   const [pending, setPending] = useState(false);
   const displayName = structure.name || truncateAddress(structure.id, 10, 6);
   const [iconError, setIconError] = useState(false);
   const isSsu = getTypeCategory(structure.typeId) === "Storage";
+  const isExpanded = isSsu && selectedSsuId === structure.id;
 
   const canOnline =
     structure.status === "Offline" && !!structure.energySourceId && !!characterId;
@@ -505,9 +511,11 @@ function StructureRow({
   }
 
   return (
+    <div>
     <StructureCard
       $clickable={isSsu}
-      onClick={isSsu ? () => onSelect(structure) : undefined}
+      $expanded={isExpanded}
+      onClick={isSsu ? () => onToggleSelect(isExpanded ? null : structure.id) : undefined}
     >
       {!iconError ? (
         <StructureIcon
@@ -565,5 +573,7 @@ function StructureRow({
         </ActionButton>
       )}
     </StructureCard>
+    {isExpanded && <SsuInventoryPanel ssu={structure} />}
+    </div>
   );
 }

@@ -1,17 +1,23 @@
 import styled from "styled-components";
-import { Drawer } from "../shared/Drawer";
 import { LoadingSpinner } from "../shared/LoadingSpinner";
 import { EmptyState } from "../shared/EmptyState";
 import { useSsuInventory } from "../../hooks/useSsuInventory";
 import { useItems } from "../../hooks/useItems";
 import { truncateAddress } from "../../lib/format";
-import { ASSEMBLY_TYPES } from "../../lib/types";
 import type { AssemblyData } from "../../lib/types";
 import type { InventorySlot, InventoryItemEntry } from "../../hooks/useSsuInventory";
 
 // ---------------------------------------------------------------------------
 // Styled components
 // ---------------------------------------------------------------------------
+
+const PanelWrapper = styled.div`
+  background: ${({ theme }) => theme.colors.surface.overlay};
+  border: 1px solid ${({ theme }) => theme.colors.primary.subtle};
+  border-top: none;
+  border-radius: 0 0 ${({ theme }) => theme.radii.md} ${({ theme }) => theme.radii.md};
+  padding: ${({ theme }) => theme.spacing.md} ${({ theme }) => theme.spacing.lg};
+`;
 
 const Section = styled.div`
   margin-bottom: ${({ theme }) => theme.spacing.lg};
@@ -182,21 +188,18 @@ function SlotSection({ slot }: { slot: InventorySlot }) {
 }
 
 // ---------------------------------------------------------------------------
-// Main drawer
+// Main panel
 // ---------------------------------------------------------------------------
 
 interface Props {
   ssu: AssemblyData;
-  onClose: () => void;
 }
 
-export function SsuInventoryDrawer({ ssu, onClose }: Props) {
+export function SsuInventoryPanel({ ssu }: Props) {
   const { slots, isLoading, error } = useSsuInventory(ssu.id, ssu.ownerCapId);
-  const typeLabel = ASSEMBLY_TYPES[ssu.typeId]?.label ?? "Storage Unit";
-  const displayName = ssu.name || truncateAddress(ssu.id, 10, 6);
 
   return (
-    <Drawer title={`${displayName} — ${typeLabel}`} onClose={onClose}>
+    <PanelWrapper>
       {isLoading ? (
         <LoadingSpinner />
       ) : error ? (
@@ -209,6 +212,6 @@ export function SsuInventoryDrawer({ ssu, onClose }: Props) {
       ) : (
         slots.map((slot) => <SlotSection key={slot.key} slot={slot} />)
       )}
-    </Drawer>
+    </PanelWrapper>
   );
 }
