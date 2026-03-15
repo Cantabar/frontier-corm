@@ -16,6 +16,8 @@ import {
 import { ItemPickerField } from "../shared/ItemPickerField";
 import { SsuPickerField } from "../shared/SsuPickerField";
 import { SsuItemPickerField } from "../shared/SsuItemPickerField";
+import { CharacterPickerField } from "../shared/CharacterPickerField";
+import { TribePickerField } from "../shared/TribePickerField";
 
 const Label = styled.label`
   display: block;
@@ -250,8 +252,8 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
   // Common fields
   const [allowPartial, setAllowPartial] = useState(true);
   const [deadlineHours, setDeadlineHours] = useState("48");
-  const [allowedCharacters, setAllowedCharacters] = useState("");
-  const [allowedTribes, setAllowedTribes] = useState("");
+  const [allowedCharacters, setAllowedCharacters] = useState<string[]>([]);
+  const [allowedTribes, setAllowedTribes] = useState<number[]>([]);
 
   // UI state
   const [error, setError] = useState<string | null>(null);
@@ -324,22 +326,14 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
   useEffect(() => { setItemId(""); setOfferedQuantity(""); setAvailableQuantity(0); }, [sourceSsuId]);
   useEffect(() => { setTransportItemTypeId(""); setTransportItemQuantity(""); }, [destinationSsuId]);
 
-  function parseIdList(s: string): string[] {
-    return s.split(",").map((x) => x.trim()).filter(Boolean);
-  }
-
-  function parseTribeList(s: string): number[] {
-    return s.split(",").map((x) => Number(x.trim())).filter((n) => !isNaN(n) && n > 0);
-  }
-
   async function handleCreate() {
     setSubmitted(true);
     if (!characterId || !isValid) return;
     setError(null);
 
     const deadlineMs = Date.now() + Number(deadlineHours) * 3600 * 1000;
-    const chars = parseIdList(allowedCharacters);
-    const tribes = parseTribeList(allowedTribes);
+    const chars = allowedCharacters;
+    const tribes = allowedTribes;
 
     let tx;
     switch (variant) {
@@ -627,11 +621,11 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
         </CheckboxRow>
       </Row>
 
-      <Label>Allowed Characters (comma-separated IDs, optional)</Label>
-      <Input placeholder="0xabc..., 0xdef..." value={allowedCharacters} onChange={(e) => setAllowedCharacters(e.target.value)} />
+      <Label>Allowed Characters (optional)</Label>
+      <CharacterPickerField value={allowedCharacters} onChange={setAllowedCharacters} />
 
-      <Label>Allowed Tribes (comma-separated IDs, optional)</Label>
-      <Input placeholder="1, 2, 3" value={allowedTribes} onChange={(e) => setAllowedTribes(e.target.value)} />
+      <Label>Allowed Tribes (optional)</Label>
+      <TribePickerField value={allowedTribes} onChange={setAllowedTribes} />
 
       {error && <ErrorBanner>{error}</ErrorBanner>}
 
