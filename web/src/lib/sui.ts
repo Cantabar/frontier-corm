@@ -806,6 +806,7 @@ export function buildCreateTransport(params: {
   escrowAmount: number;
   itemTypeId: number;
   itemQuantity: number;
+  sourceSsuId: string;
   destinationSsuId: string;
   requiredStake: number;
   deadlineMs: number;
@@ -822,6 +823,7 @@ export function buildCreateTransport(params: {
       escrow,
       tx.pure.u64(params.itemTypeId),
       tx.pure.u32(params.itemQuantity),
+      tx.pure.id(params.sourceSsuId),
       tx.pure.id(params.destinationSsuId),
       tx.pure.u64(params.requiredStake),
       tx.pure.u64(params.deadlineMs),

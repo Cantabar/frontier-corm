@@ -70,6 +70,7 @@ function parseContractType(raw: Record<string, unknown>): TrustlessContractType 
       variant: "Transport",
       itemTypeId: Number(f.item_type_id ?? 0),
       itemQuantity: Number(f.item_quantity ?? 0),
+      sourceSsuId: String(f.source_ssu_id ?? ""),
       destinationSsuId: String(f.destination_ssu_id ?? ""),
       paymentAmount: String(f.payment_amount ?? "0"),
       requiredStake: String(f.required_stake ?? "0"),

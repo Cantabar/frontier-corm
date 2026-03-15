@@ -104,6 +104,7 @@ public enum ContractType has copy, drop, store {
     Transport {
         item_type_id: u64,
         item_quantity: u32,
+        source_ssu_id: ID,
         destination_ssu_id: ID,
         payment_amount: u64,
         required_stake: u64,
@@ -255,11 +256,12 @@ public fun type_item_for_item(
 public fun type_transport(
     item_type_id: u64,
     item_quantity: u32,
+    source_ssu_id: ID,
     destination_ssu_id: ID,
     payment_amount: u64,
     required_stake: u64,
 ): ContractType {
-    ContractType::Transport { item_type_id, item_quantity, destination_ssu_id, payment_amount, required_stake }
+    ContractType::Transport { item_type_id, item_quantity, source_ssu_id, destination_ssu_id, payment_amount, required_stake }
 }
 
 // === ContractStatus Constructors ===
@@ -575,12 +577,13 @@ public fun create_item_for_item<CE, CF>(
 }
 
 /// Create a Transport contract. Poster locks coin payment, wants items delivered
-/// to a destination SSU. Courier must post a coin stake.
+/// from a source SSU to a destination SSU. Courier must post a coin stake.
 public fun create_transport<CE, CF>(
     character: &Character,
     escrow_coin: Coin<CE>,
     item_type_id: u64,
     item_quantity: u32,
+    source_ssu_id: ID,
     destination_ssu_id: ID,
     required_stake: u64,
     deadline_ms: u64,
@@ -601,6 +604,7 @@ public fun create_transport<CE, CF>(
     let contract_type = ContractType::Transport {
         item_type_id,
         item_quantity,
+        source_ssu_id,
         destination_ssu_id,
         payment_amount,
         required_stake,

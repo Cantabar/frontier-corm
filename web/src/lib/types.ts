@@ -165,7 +165,7 @@ export type TrustlessContractType =
   | { variant: "CoinForItem"; offeredAmount: string; wantedTypeId: number; wantedQuantity: number; destinationSsuId: string }
   | { variant: "ItemForCoin"; offeredTypeId: number; offeredQuantity: number; sourceSsuId: string; wantedAmount: string }
   | { variant: "ItemForItem"; offeredTypeId: number; offeredQuantity: number; sourceSsuId: string; wantedTypeId: number; wantedQuantity: number; destinationSsuId: string }
-  | { variant: "Transport"; itemTypeId: number; itemQuantity: number; destinationSsuId: string; paymentAmount: string; requiredStake: string };
+  | { variant: "Transport"; itemTypeId: number; itemQuantity: number; sourceSsuId: string; destinationSsuId: string; paymentAmount: string; requiredStake: string };
 
 export type TrustlessContractStatus = "Open" | "InProgress";
 

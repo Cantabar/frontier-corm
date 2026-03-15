@@ -288,10 +288,16 @@ export function ContractDetail({ contract: initial }: Props) {
             </div>
           )}
           {c.contractType.variant === "Transport" && (
-            <div>
-              <Label>Destination SSU</Label>
-              <Value>{truncateAddress(c.contractType.destinationSsuId)}</Value>
-            </div>
+            <>
+              <div>
+                <Label>Source SSU (pickup)</Label>
+                <Value>{truncateAddress(c.contractType.sourceSsuId)}</Value>
+              </div>
+              <div>
+                <Label>Destination SSU (delivery)</Label>
+                <Value>{truncateAddress(c.contractType.destinationSsuId)}</Value>
+              </div>
+            </>
           )}
         </DetailGrid>
 

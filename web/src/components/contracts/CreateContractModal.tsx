@@ -240,8 +240,10 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
   const [itemWantedAmount, setItemWantedAmount] = useState("");
 
   // Transport fields
+  const [transportSourceSsuId, setTransportSourceSsuId] = useState("");
   const [transportItemTypeId, setTransportItemTypeId] = useState("");
   const [transportItemQuantity, setTransportItemQuantity] = useState("");
+  const [transportAvailableQuantity, setTransportAvailableQuantity] = useState(0);
   const [requiredStake, setRequiredStake] = useState("");
 
   // ItemForItem extra fields
@@ -278,6 +280,7 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
         if (destinationSsuId) ids.push(destinationSsuId);
         break;
       case "Transport":
+        if (transportSourceSsuId) ids.push(transportSourceSsuId);
         if (destinationSsuId) ids.push(destinationSsuId);
         break;
     }
@@ -286,7 +289,7 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
       const ssu = structures.find((s) => s.id === id);
       return ssu && !(ssu.extension?.includes(TRUSTLESS_EXT) ?? false);
     });
-  }, [variant, sourceSsuId, destinationSsuId, i4iDestinationSsuId, structures]);
+  }, [variant, sourceSsuId, transportSourceSsuId, destinationSsuId, i4iDestinationSsuId, structures]);
 
   /** True when at least one SSU has a *different* extension that will be replaced. */
   const willReplaceExtension = useMemo(
@@ -324,7 +327,7 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
 
   // Reset item selections when the associated SSU changes
   useEffect(() => { setItemId(""); setOfferedQuantity(""); setAvailableQuantity(0); }, [sourceSsuId]);
-  useEffect(() => { setTransportItemTypeId(""); setTransportItemQuantity(""); }, [destinationSsuId]);
+  useEffect(() => { setTransportItemTypeId(""); setTransportItemQuantity(""); setTransportAvailableQuantity(0); }, [transportSourceSsuId]);
 
   async function handleCreate() {
     setSubmitted(true);
@@ -405,6 +408,7 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
           escrowAmount: Math.round(Number(escrow) * 1e9),
           itemTypeId: Number(transportItemTypeId),
           itemQuantity: Number(transportItemQuantity),
+          sourceSsuId: transportSourceSsuId,
           destinationSsuId,
           requiredStake: Math.round(Number(requiredStake) * 1e9),
           deadlineMs,
@@ -437,7 +441,7 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
       case "ItemForItem":
         return !!sourceSsuId && !!itemId && Number(offeredQuantity) > 0 && Number(i4iWantedQuantity) > 0 && !!i4iDestinationSsuId;
       case "Transport":
-        return Number(escrow) > 0 && Number(transportItemQuantity) > 0 && !!destinationSsuId && Number(requiredStake) > 0;
+        return Number(escrow) > 0 && Number(transportItemQuantity) > 0 && !!transportSourceSsuId && !!destinationSsuId && Number(requiredStake) > 0;
     }
   })();
 
@@ -582,26 +586,41 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
 
       {variant === "Transport" && (
         <>
-          <Label>Destination SSU</Label>
-          <SsuPickerField value={destinationSsuId} onChange={setDestinationSsuId} />
+          <Label>Source SSU (pickup)</Label>
+          <SsuPickerField value={transportSourceSsuId} onChange={setTransportSourceSsuId} />
+          {submitted && !transportSourceSsuId && <FieldError>Required</FieldError>}
           <Row>
             <div>
               <Label>Item</Label>
               <SsuItemPickerField
-                ssuId={destinationSsuId}
-                ownerCapId={getOwnerCapId(destinationSsuId)}
+                ssuId={transportSourceSsuId}
+                ownerCapId={getOwnerCapId(transportSourceSsuId)}
                 value={transportItemTypeId}
                 onChange={(entry) => {
                   setTransportItemTypeId(String(entry.typeId));
                   setTransportItemQuantity(String(entry.quantity));
+                  setTransportAvailableQuantity(entry.quantity);
                 }}
               />
             </div>
             <div>
-              <Label>Item Quantity</Label>
-              <Input type="number" value={transportItemQuantity} onChange={(e) => setTransportItemQuantity(e.target.value)} />
+              <Label>Quantity{transportAvailableQuantity > 0 ? ` (max ${transportAvailableQuantity.toLocaleString()})` : ""}</Label>
+              <Input
+                type="number"
+                min="1"
+                max={transportAvailableQuantity || undefined}
+                value={transportItemQuantity}
+                onChange={(e) => setTransportItemQuantity(e.target.value)}
+              />
+              {submitted && !(Number(transportItemQuantity) > 0) && <FieldError>Must be greater than 0</FieldError>}
+              {Number(transportItemQuantity) > transportAvailableQuantity && transportAvailableQuantity > 0 && (
+                <FieldError>Exceeds available ({transportAvailableQuantity.toLocaleString()})</FieldError>
+              )}
             </div>
           </Row>
+          <Label>Destination SSU (delivery)</Label>
+          <SsuPickerField value={destinationSsuId} onChange={setDestinationSsuId} />
+          {submitted && !destinationSsuId && <FieldError>Required</FieldError>}
           <Label>Required Stake (SUI)</Label>
           <Input type="number" placeholder="0.0" value={requiredStake} onChange={(e) => setRequiredStake(e.target.value)} />
         </>
