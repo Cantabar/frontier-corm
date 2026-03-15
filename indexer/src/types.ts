@@ -3,8 +3,8 @@
  *
  * Mirrors the on-chain Move event structs from:
  *   - tribe::tribe (Phase 1)
- *   - contract_board::contract_board (Phase 2)
  *   - forge_planner::forge_planner (Phase 3)
+ *   - trustless_contracts::trustless_contracts (Phase 4)
  *
  * Sui emits event fields as JSON via RPC. Object IDs are hex strings.
  * u64 values arrive as strings from Sui RPC (JSON doesn't support 64-bit ints).
@@ -16,7 +16,6 @@
 
 export const MODULES = {
   tribe: "tribe::tribe",
-  contractBoard: "contract_board::contract_board",
   forgePlanner: "forge_planner::forge_planner",
   trustlessContracts: "trustless_contracts::trustless_contracts",
 } as const;
@@ -74,53 +73,6 @@ export interface TreasurySpendEvent {
   amount: string;
   recipient: string;
 }
-
-// ============================================================
-// Phase 2 — Contract Board Events
-// ============================================================
-
-export interface JobCreatedEvent {
-  job_id: string;
-  poster_id: string;
-  poster_tribe_id: string;
-  completion_type: CompletionTypeJson;
-  reward_amount: string;
-  deadline_ms: string;
-  min_reputation: string;
-}
-
-export interface JobAcceptedEvent {
-  job_id: string;
-  assignee_id: string;
-}
-
-export interface JobCompletedEvent {
-  job_id: string;
-  poster_id: string;
-  assignee_id: string;
-  reward_amount: string;
-  completion_type: CompletionTypeJson;
-  rep_awarded: string;
-}
-
-export interface JobExpiredEvent {
-  job_id: string;
-  poster_id: string;
-  reward_amount: string;
-}
-
-export interface JobCancelledEvent {
-  job_id: string;
-  poster_id: string;
-  reward_amount: string;
-}
-
-/** Sui serialises Move enums with variant-as-key JSON objects. */
-export type CompletionTypeJson =
-  | { Delivery: { storage_unit_id: string; type_id: string; quantity: number } }
-  | { Bounty: { target_character_id: string } }
-  | { Transport: { gate_id: string } }
-  | { Custom: { commitment_hash: number[] } };
 
 // ============================================================
 // Phase 3 — Forge Planner Events
@@ -250,12 +202,6 @@ export const EVENT_TYPES = [
   "TreasuryProposalCreatedEvent",
   "TreasuryProposalVotedEvent",
   "TreasurySpendEvent",
-  // Contract Board
-  "JobCreatedEvent",
-  "JobAcceptedEvent",
-  "JobCompletedEvent",
-  "JobExpiredEvent",
-  "JobCancelledEvent",
   // Forge Planner
   "RecipeRegistryCreatedEvent",
   "RecipeAddedEvent",
@@ -293,7 +239,7 @@ export interface ArchivedEvent {
   id?: number;
   /** Sui event type (fully qualified: package::module::EventName) */
   event_type: string;
-  /** Short event name (e.g. "JobCompletedEvent") */
+  /** Short event name (e.g. "ContractCompletedEvent") */
   event_name: EventTypeName;
   /** Module that emitted the event */
   module: string;
@@ -336,7 +282,6 @@ export interface IndexerConfig {
   /** Package IDs to subscribe to (one per deployed Move package) */
   packageIds: {
     tribe: string;
-    contractBoard: string;
     forgePlanner: string;
     trustlessContracts: string;
   };
@@ -352,7 +297,6 @@ export const DEFAULT_CONFIG: IndexerConfig = {
   suiRpcUrl: process.env.SUI_RPC_URL ?? "http://127.0.0.1:9000",
   packageIds: {
     tribe: process.env.PACKAGE_TRIBE ?? "",
-    contractBoard: process.env.PACKAGE_CONTRACT_BOARD ?? "",
     forgePlanner: process.env.PACKAGE_FORGE_PLANNER ?? "",
     trustlessContracts: process.env.PACKAGE_TRUSTLESS_CONTRACTS ?? "",
   },

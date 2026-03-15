@@ -37,9 +37,8 @@ export const theme = {
     /** Module badge colors — cooler palette coding */
     module: {
       tribe: "#00E5FF",
-      contractBoard: "#7C4DFF",
       forgePlanner: "#69F0AE",
-      trustlessContracts: "#FFD740",
+      trustlessContracts: "#7C4DFF",
     },
     /** Item tier / meta-group badge colors */
     tier: {

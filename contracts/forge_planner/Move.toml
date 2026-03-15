@@ -8,4 +8,3 @@ localnet = "ca6ba8e0"
 [dependencies]
 world = { local = "../../../world-contracts/contracts/world" }
 tribe = { local = "../tribe" }
-contract_board = { local = "../contract_board" }

@@ -200,9 +200,6 @@ export function SettingsPage() {
           <ConfigLabel>Tribe Package</ConfigLabel>
           <ConfigValue>{config.packages.tribe}</ConfigValue>
 
-          <ConfigLabel>Contract Board Package</ConfigLabel>
-          <ConfigValue>{config.packages.contractBoard}</ConfigValue>
-
           <ConfigLabel>Forge Planner Package</ConfigLabel>
           <ConfigValue>{config.packages.forgePlanner}</ConfigValue>
 

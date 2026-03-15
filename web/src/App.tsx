@@ -10,7 +10,6 @@ import { Sidebar } from "./components/layout/Sidebar";
 import { AutoJoinBanner } from "./components/tribe/AutoJoinBanner";
 import { Dashboard } from "./pages/Dashboard";
 import { TribePage } from "./pages/TribePage";
-import { ContractBoard } from "./pages/ContractBoard";
 import { ForgePlanner } from "./pages/ForgePlanner";
 import { EventExplorer } from "./pages/EventExplorer";
 import { TrustlessContracts } from "./pages/TrustlessContracts";
@@ -66,7 +65,6 @@ export default function App() {
               <Route path="/" element={<Dashboard />} />
               <Route path="/tribes" element={<TribeListPage />} />
               <Route path="/tribe/:tribeId" element={<TribePage />} />
-              <Route path="/jobs" element={<ContractBoard />} />
               <Route path="/contracts" element={<TrustlessContracts />} />
               <Route path="/forge" element={<ForgePlanner />} />
               <Route path="/events" element={<EventExplorer />} />

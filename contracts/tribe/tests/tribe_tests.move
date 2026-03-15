@@ -368,7 +368,7 @@ fun rep_update_cap_success() {
         let rep_cap = tribe::issue_rep_update_cap(&tribe, &leader_cap, ts::ctx(&mut ts));
         let member_id_val = object::id(&member);
 
-        // Use it to update rep (simulating contract_board cross-module call)
+        // Use it to update rep (simulating cross-module call)
         tribe::update_reputation_with_cap(&mut tribe, &rep_cap, member_id_val, 50, true);
         assert!(tribe::reputation_of(&tribe, member_id_val) == 50);
 

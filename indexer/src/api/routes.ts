@@ -94,7 +94,7 @@ export function createRouter(pool: pg.Pool): Router {
 
   /**
    * GET /events/object/:objectId
-   * All events for a primary object (job, order, tribe, registry, proposal).
+   * All events for a primary object (contract, order, tribe, registry, proposal).
    */
   router.get("/events/object/:objectId", async (req: Request, res: Response) => {
     const objectId = req.params.objectId as string;
@@ -132,28 +132,6 @@ export function createRouter(pool: pg.Pool): Router {
     const limit = Math.min(Number(req.query.limit) || 50, 200);
     const leaderboard = await getTribeLeaderboard(pool, tribeId, limit);
     res.json({ leaderboard, tribe_id: tribeId });
-  });
-
-  // ---- Jobs (convenience: filtered Contract Board events) ----
-
-  /**
-   * GET /jobs/:tribeId
-   * Job event history for a tribe (created, accepted, completed, etc.)
-   */
-  router.get("/jobs/:tribeId", async (req: Request, res: Response) => {
-    const tribeId = req.params.tribeId as string;
-    const params = parsePagination(req);
-    const jobEventTypes: EventTypeName[] = [
-      "JobCreatedEvent", "JobAcceptedEvent", "JobCompletedEvent",
-      "JobExpiredEvent", "JobCancelledEvent",
-    ];
-
-    // Get all job events for this tribe
-    const events = await getEventsByTribe(pool, tribeId, params);
-    const jobEvents = events.filter((e) =>
-      jobEventTypes.includes(e.event_name as EventTypeName),
-    );
-    res.json({ events: hydrateEvents(jobEvents), tribe_id: tribeId, ...params });
   });
 
   // ---- Manufacturing (convenience: filtered Forge Planner events) ----

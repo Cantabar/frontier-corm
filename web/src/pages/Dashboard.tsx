@@ -215,7 +215,7 @@ export function Dashboard() {
       <SectionLabel>Quick Actions</SectionLabel>
       <QuickActions>
         {tribeId && <ActionLink to={`/tribe/${tribeId}`}>→ Tribe</ActionLink>}
-        <ActionLink to="/contracts">→ Contract Board</ActionLink>
+        <ActionLink to="/contracts">→ Contracts</ActionLink>
         <ActionLink to="/forge">→ Forge Planner</ActionLink>
         <ActionLink to="/events">→ Events</ActionLink>
       </QuickActions>

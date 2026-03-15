@@ -1,12 +1,11 @@
 /**
- * Job Generator — creates Contract Board delivery job parameters from gap analysis.
+ * Job Generator — creates trustless contract delivery parameters from gap analysis.
  *
  * For each missing resource in the shopping list, generates the parameters needed
- * to call `contract_board::create_job` or `create_job_from_treasury` with
- * `CompletionType::Delivery`.
+ * to create a CoinForItem trustless contract for delivery.
  *
- * This is the Forge Planner → Contract Board bridge:
- *   Manufacturing order → recipe resolution → gap analysis → delivery jobs
+ * This is the Forge Planner → Trustless Contracts bridge:
+ *   Manufacturing order → recipe resolution → gap analysis → delivery contracts
  */
 
 import type { GapItem, GapAnalysis } from "./gap-analyzer.js";
@@ -15,7 +14,7 @@ import type { GapItem, GapAnalysis } from "./gap-analyzer.js";
 // Types
 // ============================================================
 
-/** Parameters for a single delivery job on the Contract Board. */
+/** Parameters for a single delivery contract. */
 export interface DeliveryJobParams {
   /** Human-readable description for the job posting */
   description: string;

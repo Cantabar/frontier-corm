@@ -116,8 +116,7 @@ export function Sidebar() {
       )}
       <StyledLink to="/structures">My Structures</StyledLink>
       <SectionLabel>Modules</SectionLabel>
-      <StyledLink to="/jobs">Contract Board</StyledLink>
-      <StyledLink to="/contracts">Trustless Contracts</StyledLink>
+      <StyledLink to="/contracts">Contracts</StyledLink>
       <StyledLink to="/forge">Forge Planner</StyledLink>
       <Spacer />
       <SectionLabel>System</SectionLabel>

@@ -106,16 +106,16 @@ const NavButton = styled.button`
   }
 `;
 
-type ModuleFilter = "all" | "tribe" | "contractBoard" | "forgePlanner";
+type ModuleFilter = "all" | "tribe" | "trustlessContracts" | "forgePlanner";
 
 const MODULE_COLORS: Record<string, string> = {
   tribe: "#00E5FF",
-  contractBoard: "#7C4DFF",
+  trustlessContracts: "#7C4DFF",
   forgePlanner: "#69F0AE",
 };
 
 function moduleOf(eventName: string): string {
-  if (eventName.includes("Job") || eventName.includes("Bounty")) return "contractBoard";
+  if (eventName.includes("Contract") || eventName.includes("Transport")) return "trustlessContracts";
   if (eventName.includes("Recipe") || eventName.includes("Order") || eventName.includes("Manufacturing")) return "forgePlanner";
   return "tribe";
 }
@@ -146,14 +146,14 @@ export function EventExplorer() {
       </Header>
 
       <FilterRow>
-        {(["all", "tribe", "contractBoard", "forgePlanner"] as ModuleFilter[]).map((m) => (
+        {(["all", "tribe", "trustlessContracts", "forgePlanner"] as ModuleFilter[]).map((m) => (
           <FilterChip
             key={m}
             $active={moduleFilter === m}
 $color={m === "all" ? "#F0F4F8" : MODULE_COLORS[m]}
             onClick={() => setModuleFilter(m)}
           >
-            {m === "all" ? "All" : m === "contractBoard" ? "Contracts" : m === "forgePlanner" ? "Forge" : "Tribe"}
+            {m === "all" ? "All" : m === "trustlessContracts" ? "Contracts" : m === "forgePlanner" ? "Forge" : "Tribe"}
           </FilterChip>
         ))}
       </FilterRow>
@@ -172,7 +172,7 @@ $color={m === "all" ? "#F0F4F8" : MODULE_COLORS[m]}
             return (
               <EventRow key={ev.id} onClick={() => setProofEventId(ev.id)}>
 <ModuleBadge $color={MODULE_COLORS[mod] ?? "#78909C"}>
-                  {mod === "contractBoard" ? "BOARD" : mod === "forgePlanner" ? "FORGE" : "TRIBE"}
+                  {mod === "trustlessContracts" ? "CONTRACTS" : mod === "forgePlanner" ? "FORGE" : "TRIBE"}
                 </ModuleBadge>
                 <EventName>{ev.event_name.replace("Event", "")}</EventName>
                 {ev.character_id && <Meta>{truncateAddress(ev.character_id)}</Meta>}

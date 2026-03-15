@@ -151,38 +151,6 @@ function extractDenormalisedFields(
         characterId: null,
       };
 
-    // -- Contract Board events --
-    case "JobCreatedEvent":
-      return {
-        primaryId: str(data.job_id),
-        tribeId: str(data.poster_tribe_id),
-        characterId: str(data.poster_id),
-      };
-    case "JobAcceptedEvent":
-      return {
-        primaryId: str(data.job_id),
-        tribeId: "",  // Not available in this event; join with JobCreatedEvent
-        characterId: str(data.assignee_id),
-      };
-    case "JobCompletedEvent":
-      return {
-        primaryId: str(data.job_id),
-        tribeId: "",  // Not in this event
-        characterId: str(data.assignee_id),
-      };
-    case "JobExpiredEvent":
-      return {
-        primaryId: str(data.job_id),
-        tribeId: "",
-        characterId: str(data.poster_id),
-      };
-    case "JobCancelledEvent":
-      return {
-        primaryId: str(data.job_id),
-        tribeId: "",
-        characterId: str(data.poster_id),
-      };
-
     // -- Forge Planner events --
     case "RecipeRegistryCreatedEvent":
       return {

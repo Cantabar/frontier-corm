@@ -86,33 +86,6 @@ export interface TreasuryProposalData {
 }
 
 // ============================================================
-// Contract Board (Phase 2)
-// ============================================================
-
-export type CompletionType =
-  | { variant: "Delivery"; storageUnitId: string; typeId: number; quantity: number }
-  | { variant: "Bounty"; targetCharacterId: string }
-  | { variant: "Transport"; gateId: string }
-  | { variant: "Custom"; commitmentHash: number[] };
-
-export type JobStatus = "Open" | "Assigned" | "Disputed";
-
-export interface JobPostingData {
-  id: string;
-  posterId: string;
-  posterAddress: string;
-  posterTribeId: string;
-  description: string;
-  completionType: CompletionType;
-  rewardAmount: string;
-  assigneeId?: string;
-  assigneeAddress?: string;
-  deadlineMs: string;
-  status: JobStatus;
-  minReputation: number;
-}
-
-// ============================================================
 // Forge Planner (Phase 3)
 // ============================================================
 
@@ -373,12 +346,6 @@ export type EventTypeName =
   | "TreasuryProposalVotedEvent"
   | "TreasurySpendEvent"
   | "TreasuryWithdrawEvent"
-  // Contract Board
-  | "JobCreatedEvent"
-  | "JobAcceptedEvent"
-  | "JobCompletedEvent"
-  | "JobExpiredEvent"
-  | "JobCancelledEvent"
   // Forge Planner
   | "RecipeRegistryCreatedEvent"
   | "RecipeAddedEvent"

@@ -280,6 +280,15 @@ const Empty = styled.p`
   padding: ${({ theme }) => theme.spacing.lg} 0;
 `;
 
+// ── Facility size rank (Field → Mini → base → Heavy) ──────────
+
+function facilitySize(name: string): number {
+  if (name.startsWith("Field")) return 0;
+  if (name.startsWith("Mini")) return 1;
+  if (name.startsWith("Heavy")) return 3;
+  return 2; // base / unprefixed
+}
+
 // ── Component ──────────────────────────────────────────────────
 
 interface Props {
@@ -330,8 +339,9 @@ export function BlueprintBrowser({ blueprints, onResolve }: Props) {
         if (!arr.includes(f.facilityName)) arr.push(f.facilityName);
       }
     }
-    // Sort names within each family
-    for (const arr of map.values()) arr.sort();
+    // Sort names within each family by structure size
+    for (const arr of map.values())
+      arr.sort((a, b) => facilitySize(a) - facilitySize(b));
     return map;
   }, [blueprints]);
 
