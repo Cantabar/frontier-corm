@@ -33,6 +33,7 @@ const SlotsRow = styled.div`
   gap: ${({ theme }) => theme.spacing.md};
   min-width: min-content;
   align-items: flex-start;
+  padding-bottom: 2px;
 `;
 
 const SlotColumn = styled.div`
