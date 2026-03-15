@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
 import styled from "styled-components";
-import { useSignAndExecuteTransaction } from "@mysten/dapp-kit";
+import { useSignAndExecuteTransaction, useSuiClient } from "@mysten/dapp-kit";
 import { Modal } from "../shared/Modal";
 import { useIdentity } from "../../hooks/useIdentity";
 import { useMyStructures } from "../../hooks/useStructures";
@@ -175,6 +175,7 @@ interface Props {
 export function CreateContractModal({ onClose, onCreated }: Props) {
   const { characterId } = useIdentity();
   const { mutateAsync: signAndExecute, isPending } = useSignAndExecuteTransaction();
+  const suiClient = useSuiClient();
   const { structures, refetch: refetchStructures } = useMyStructures();
 
   const getOwnerCapId = useCallback(
@@ -192,6 +193,29 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
       };
     },
     [structures],
+  );
+
+  /**
+   * Fresh-fetch OwnerCap version & digest from the chain to avoid stale
+   * `Receiving<T>` references (which cause `receive_impl` abort 3).
+   */
+  const getFreshOwnerCap = useCallback(
+    async (ssuId: string) => {
+      const cached = getOwnerCapDetails(ssuId);
+      if (!cached.ownerCapId) return cached;
+      try {
+        const obj = await suiClient.getObject({ id: cached.ownerCapId });
+        return {
+          ownerCapId: cached.ownerCapId,
+          ownerCapVersion: obj.data?.version ?? cached.ownerCapVersion,
+          ownerCapDigest: obj.data?.digest ?? cached.ownerCapDigest,
+        };
+      } catch {
+        // Fall back to cached values if the fetch fails
+        return cached;
+      }
+    },
+    [suiClient, getOwnerCapDetails],
   );
 
   // Contract type selection
@@ -276,18 +300,18 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
     if (!characterId) return;
     setIsEnabling(true);
     setError(null);
-    const cap = getOwnerCapDetails(ssuId);
-    const tx = buildAuthorizeExtension({
-      characterId,
-      structureId: ssuId,
-      ownerCapId: cap.ownerCapId,
-      ownerCapVersion: cap.ownerCapVersion,
-      ownerCapDigest: cap.ownerCapDigest,
-    });
     try {
+      const cap = await getFreshOwnerCap(ssuId);
+      const tx = buildAuthorizeExtension({
+        characterId,
+        structureId: ssuId,
+        ownerCapId: cap.ownerCapId,
+        ownerCapVersion: cap.ownerCapVersion,
+        ownerCapDigest: cap.ownerCapDigest,
+      });
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await signAndExecute({ transaction: tx as any });
-      refetchStructures();
+      await refetchStructures();
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to enable contracts extension";
       setError(msg);
@@ -344,7 +368,7 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
         });
         break;
       case "ItemForCoin": {
-        const cap = getOwnerCapDetails(sourceSsuId);
+        const cap = await getFreshOwnerCap(sourceSsuId);
         tx = buildCreateItemForCoin({
           characterId,
           sourceSsuId,
@@ -362,7 +386,7 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
         break;
       }
       case "ItemForItem": {
-        const cap = getOwnerCapDetails(sourceSsuId);
+        const cap = await getFreshOwnerCap(sourceSsuId);
         tx = buildCreateItemForItem({
           characterId,
           sourceSsuId,
