@@ -1,4 +1,3 @@
-import { useState, useCallback } from "react";
 import styled from "styled-components";
 import { LoadingSpinner } from "../shared/LoadingSpinner";
 import { EmptyState } from "../shared/EmptyState";
@@ -17,33 +16,8 @@ const PanelWrapper = styled.div`
   border: 1px solid ${({ theme }) => theme.colors.primary.subtle};
   border-top: none;
   border-radius: 0 0 ${({ theme }) => theme.radii.md} ${({ theme }) => theme.radii.md};
-  padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.md};
-`;
-
-const HoverBar = styled.div`
-  display: flex;
-  align-items: baseline;
-  gap: ${({ theme }) => theme.spacing.sm};
-  padding: ${({ theme }) => theme.spacing.xs} 0;
-  min-height: 20px;
-  margin-bottom: ${({ theme }) => theme.spacing.xs};
-`;
-
-const HoverName = styled.span`
-  font-size: 12px;
-  font-weight: 600;
-  color: ${({ theme }) => theme.colors.text.primary};
-`;
-
-const HoverMeta = styled.span`
-  font-size: 10px;
-  color: ${({ theme }) => theme.colors.text.muted};
-`;
-
-const HoverHint = styled.span`
-  font-size: 10px;
-  font-style: italic;
-  color: ${({ theme }) => theme.colors.text.disabled};
+  padding: ${({ theme }) => theme.spacing.xl} ${({ theme }) => theme.spacing.md}
+    ${({ theme }) => theme.spacing.sm};
 `;
 
 const ScrollArea = styled.div`
@@ -111,11 +85,13 @@ const ItemTile = styled.div`
   border-radius: ${({ theme }) => theme.radii.sm};
   background: ${({ theme }) => theme.colors.surface.bg};
   cursor: default;
-  transition: outline-color 0.1s;
-  outline: 2px solid transparent;
 
   &:hover {
-    outline-color: ${({ theme }) => theme.colors.primary.main};
+    outline: 2px solid ${({ theme }) => theme.colors.primary.main};
+  }
+
+  &:hover > div:last-child {
+    opacity: 1;
   }
 `;
 
@@ -145,6 +121,33 @@ const QtyBadge = styled.span`
     0 0 3px ${({ theme }) => theme.colors.surface.bg};
 `;
 
+const Tooltip = styled.div`
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: ${({ theme }) => theme.colors.surface.overlay};
+  border: 1px solid ${({ theme }) => theme.colors.surface.border};
+  border-radius: ${({ theme }) => theme.radii.sm};
+  padding: ${({ theme }) => theme.spacing.xs} ${({ theme }) => theme.spacing.sm};
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+  z-index: 10;
+`;
+
+const TooltipName = styled.div`
+  font-size: 12px;
+  font-weight: 600;
+  color: ${({ theme }) => theme.colors.text.primary};
+`;
+
+const TooltipMeta = styled.div`
+  font-size: 10px;
+  color: ${({ theme }) => theme.colors.text.muted};
+`;
+
 const EmptySlotLabel = styled.div`
   font-size: 11px;
   color: ${({ theme }) => theme.colors.text.disabled};
@@ -158,49 +161,29 @@ const ErrorText = styled.div`
 `;
 
 // ---------------------------------------------------------------------------
-// Hover info
-// ---------------------------------------------------------------------------
-
-interface HoveredItem {
-  name: string;
-  typeId: number;
-  volume: number;
-  quantity: number;
-}
-
-// ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
 
-function InventoryItemTile({
-  item,
-  onHover,
-}: {
-  item: InventoryItemEntry;
-  onHover: (info: HoveredItem | null) => void;
-}) {
+function InventoryItemTile({ item }: { item: InventoryItemEntry }) {
   const { getItem } = useItems();
   const info = getItem(item.typeId);
   const name = info?.name ?? `Type ${item.typeId}`;
 
   return (
-    <ItemTile
-      onMouseEnter={() => onHover({ name, typeId: item.typeId, volume: item.volume, quantity: item.quantity })}
-      onMouseLeave={() => onHover(null)}
-    >
+    <ItemTile>
       {info?.icon ? <TileIcon src={`/${info.icon}`} alt={name} /> : <TileIconPlaceholder />}
       <QtyBadge>{item.quantity.toLocaleString()}</QtyBadge>
+      <Tooltip>
+        <TooltipName>{name}</TooltipName>
+        <TooltipMeta>
+          ID {item.typeId} · {item.volume} m³ · ×{item.quantity.toLocaleString()}
+        </TooltipMeta>
+      </Tooltip>
     </ItemTile>
   );
 }
 
-function SlotSection({
-  slot,
-  onHover,
-}: {
-  slot: InventorySlot;
-  onHover: (info: HoveredItem | null) => void;
-}) {
+function SlotSection({ slot }: { slot: InventorySlot }) {
   const label =
     slot.kind === "owner"
       ? "Owner"
@@ -220,7 +203,7 @@ function SlotSection({
       ) : (
         <ItemGrid>
           {slot.items.map((item) => (
-            <InventoryItemTile key={item.typeId} item={item} onHover={onHover} />
+            <InventoryItemTile key={item.typeId} item={item} />
           ))}
         </ItemGrid>
       )}
@@ -238,8 +221,6 @@ interface Props {
 
 export function SsuInventoryPanel({ ssu }: Props) {
   const { slots, isLoading, error } = useSsuInventory(ssu.id, ssu.ownerCapId);
-  const [hovered, setHovered] = useState<HoveredItem | null>(null);
-  const onHover = useCallback((info: HoveredItem | null) => setHovered(info), []);
 
   return (
     <PanelWrapper>
@@ -253,25 +234,11 @@ export function SsuInventoryPanel({ ssu }: Props) {
           description="This SSU has no readable inventory slots."
         />
       ) : (
-        <>
-          <HoverBar>
-            {hovered ? (
-              <>
-                <HoverName>{hovered.name}</HoverName>
-                <HoverMeta>
-                  ID {hovered.typeId} · {hovered.volume} m³ · ×{hovered.quantity.toLocaleString()}
-                </HoverMeta>
-              </>
-            ) : (
-              <HoverHint>Hover an item for details</HoverHint>
-            )}
-          </HoverBar>
-          <ScrollArea>
-            <SlotsRow>
-              {slots.map((slot) => <SlotSection key={slot.key} slot={slot} onHover={onHover} />)}
-            </SlotsRow>
-          </ScrollArea>
-        </>
+        <ScrollArea>
+          <SlotsRow>
+            {slots.map((slot) => <SlotSection key={slot.key} slot={slot} />)}
+          </SlotsRow>
+        </ScrollArea>
       )}
     </PanelWrapper>
   );
