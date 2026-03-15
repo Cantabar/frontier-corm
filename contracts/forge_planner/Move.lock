@@ -16,17 +16,11 @@ use_environment = "localnet"
 manifest_digest = "CC15CB146CA1113370B03476BFF694B88F43F77D8DEE7C23CC0C78AB0634420D"
 deps = { MoveStdlib = "MoveStdlib" }
 
-[pinned.localnet.contract_board]
-source = { local = "../contract_board" }
-use_environment = "localnet"
-manifest_digest = "43D8B12E7F5CEB2F92EC84B7D366D697116F82EF85F5B8162E4ABD3002B23DAB"
-deps = { std = "MoveStdlib", sui = "Sui", tribe = "tribe", world = "world" }
-
 [pinned.localnet.forge_planner]
 source = { root = true }
 use_environment = "localnet"
 manifest_digest = "56B7C4CD70189353F735EB99C0798AC9820000C233A9C35065CD8CE1991F5CEC"
-deps = { contract_board = "contract_board", std = "MoveStdlib", sui = "Sui", tribe = "tribe", world = "world" }
+deps = { std = "MoveStdlib", sui = "Sui", tribe = "tribe", world = "world" }
 
 [pinned.localnet.tribe]
 source = { local = "../tribe" }
@@ -52,17 +46,11 @@ use_environment = "testnet"
 manifest_digest = "7AFB66695545775FBFBB2D3078ADFD084244D5002392E837FDE21D9EA1C6D01C"
 deps = { MoveStdlib = "MoveStdlib" }
 
-[pinned.testnet.contract_board]
-source = { local = "../contract_board" }
-use_environment = "testnet"
-manifest_digest = "D8F7C8BB9D03D51D7DE4E5C208600BD68FD575CB65DB27CBD5154713E7E417DF"
-deps = { std = "MoveStdlib", sui = "Sui", tribe = "tribe", world = "world" }
-
 [pinned.testnet.forge_planner]
 source = { root = true }
 use_environment = "testnet"
 manifest_digest = "93E71BB88C7E8948D2D5452D953C89CE3ABD1AD16553925B9973484933DB2897"
-deps = { contract_board = "contract_board", std = "MoveStdlib", sui = "Sui", tribe = "tribe", world = "world" }
+deps = { std = "MoveStdlib", sui = "Sui", tribe = "tribe", world = "world" }
 
 [pinned.testnet.tribe]
 source = { local = "../tribe" }
