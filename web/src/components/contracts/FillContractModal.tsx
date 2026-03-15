@@ -3,6 +3,7 @@ import styled from "styled-components";
 import { useSignAndExecuteTransaction } from "@mysten/dapp-kit";
 import { Modal } from "../shared/Modal";
 import { useIdentity } from "../../hooks/useIdentity";
+import { useNotifications } from "../../hooks/useNotifications";
 import { formatAmount } from "../../lib/format";
 import type { TrustlessContractData } from "../../lib/types";
 import {
@@ -62,6 +63,7 @@ interface Props {
 export function FillContractModal({ contract, onClose }: Props) {
   const { characterId } = useIdentity();
   const { mutateAsync: signAndExecute, isPending } = useSignAndExecuteTransaction();
+  const { push } = useNotifications();
 
   // Coin fill fields
   const [fillAmount, setFillAmount] = useState("");
@@ -86,54 +88,59 @@ export function FillContractModal({ contract, onClose }: Props) {
   async function handleSubmit() {
     if (!characterId) return;
 
-    if (isCoinFill) {
-      const amount = Math.round(Number(fillAmount) * 1e9);
-      if (variant === "CoinForCoin") {
-        const tx = buildFillWithCoins({
+    try {
+      if (isCoinFill) {
+        const amount = Math.round(Number(fillAmount) * 1e9);
+        if (variant === "CoinForCoin") {
+          const tx = buildFillWithCoins({
+            contractId: contract.id,
+            fillAmount: amount,
+            characterId,
+          });
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await signAndExecute({ transaction: tx as any });
+        } else {
+          // ItemForCoin — filler pays coins to get items
+          const ct = contract.contractType;
+          const sourceSsu = ct.variant === "ItemForCoin" ? ct.sourceSsuId : "";
+          const tx = buildFillItemForCoin({
+            contractId: contract.id,
+            sourceSsuId: sourceSsu,
+            characterId,
+            fillAmount: amount,
+          });
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await signAndExecute({ transaction: tx as any });
+        }
+      } else if (isItemFill) {
+        const tx = buildFillWithItems({
           contractId: contract.id,
-          fillAmount: amount,
-          characterId,
+          destinationSsuId: ssuId,
+          posterCharacterId: contract.posterId,
+          fillerCharacterId: characterId,
+          itemId,
         });
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await signAndExecute({ transaction: tx as any });
-      } else {
-        // ItemForCoin — filler pays coins to get items
+      } else if (isTransportDeliver) {
         const ct = contract.contractType;
-        const sourceSsu = ct.variant === "ItemForCoin" ? ct.sourceSsuId : "";
-        const tx = buildFillItemForCoin({
+        const destSsu = ct.variant === "Transport" ? ct.destinationSsuId : ssuId;
+        const tx = buildDeliverTransport({
           contractId: contract.id,
-          sourceSsuId: sourceSsu,
-          characterId,
-          fillAmount: amount,
+          destinationSsuId: destSsu,
+          courierCharacterId: characterId,
+          posterCharacterId: contract.posterId,
+          itemId,
         });
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await signAndExecute({ transaction: tx as any });
       }
-    } else if (isItemFill) {
-      const tx = buildFillWithItems({
-        contractId: contract.id,
-        destinationSsuId: ssuId,
-        posterCharacterId: contract.posterId,
-        fillerCharacterId: characterId,
-        itemId,
-      });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await signAndExecute({ transaction: tx as any });
-    } else if (isTransportDeliver) {
-      const ct = contract.contractType;
-      const destSsu = ct.variant === "Transport" ? ct.destinationSsuId : ssuId;
-      const tx = buildDeliverTransport({
-        contractId: contract.id,
-        destinationSsuId: destSsu,
-        courierCharacterId: characterId,
-        posterCharacterId: contract.posterId,
-        itemId,
-      });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await signAndExecute({ transaction: tx as any });
-    }
 
-    onClose();
+      push({ level: "info", title: "Contract Filled", message: "Transaction submitted successfully.", source: "fill-contract" });
+      onClose();
+    } catch (err) {
+      push({ level: "error", title: "Fill Failed", message: String(err), source: "fill-contract" });
+    }
   }
 
   const isValid = (() => {
