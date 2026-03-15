@@ -2,9 +2,10 @@ import { useState } from "react";
 import styled from "styled-components";
 import { useSignAndExecuteTransaction } from "@mysten/dapp-kit";
 import type { TrustlessContractData } from "../../lib/types";
-import { truncateAddress, formatAmount, formatDeadline } from "../../lib/format";
+import { truncateAddress, formatAmount, formatDeadline, contractTypeLabel } from "../../lib/format";
 import { CharacterDisplay } from "../shared/CharacterDisplay";
 import { StatusBadge } from "../shared/StatusBadge";
+import { ItemBadge } from "../shared/ItemBadge";
 import { useIdentity } from "../../hooks/useIdentity";
 import { useContractObject } from "../../hooks/useContracts";
 import {
@@ -115,15 +116,6 @@ const ActionRow = styled.div`
 
 // ---------------------------------------------------------------------------
 
-function contractTypeLabel(ct: TrustlessContractData["contractType"]): string {
-  switch (ct.variant) {
-    case "CoinForCoin": return "Coin → Coin";
-    case "CoinForItem": return "Coin → Item";
-    case "ItemForCoin": return "Item → Coin";
-    case "ItemForItem": return "Item → Item";
-    case "Transport": return "Transport";
-  }
-}
 
 function statusVariant(s: TrustlessContractData["status"]): "open" | "in-progress" {
   return s === "InProgress" ? "in-progress" : "open";
@@ -197,7 +189,7 @@ export function ContractDetail({ contract: initial }: Props) {
       <Wrapper>
         <Header>
           <div>
-            <TypeTag>{contractTypeLabel(c.contractType)}</TypeTag>
+            <TypeTag>{contractTypeLabel(c.contractType.variant)}</TypeTag>
             <Title style={{ display: "inline" }}>Contract Details</Title>
           </div>
           <StatusBadge status={statusVariant(c.status)} />
@@ -240,20 +232,80 @@ export function ContractDetail({ contract: initial }: Props) {
               </div>
             </>
           )}
-          {(c.contractType.variant === "CoinForItem" || c.contractType.variant === "ItemForItem") && (
-            <div>
-              <Label>Destination SSU</Label>
-              <Value>{truncateAddress(c.contractType.destinationSsuId)}</Value>
-            </div>
+          {c.contractType.variant === "CoinForItem" && (
+            <>
+              <div>
+                <Label>Wanted Item</Label>
+                <Value><ItemBadge typeId={c.contractType.wantedTypeId} /></Value>
+              </div>
+              <div>
+                <Label>Wanted Quantity</Label>
+                <Value>{c.contractType.wantedQuantity.toLocaleString()}</Value>
+              </div>
+              <div>
+                <Label>Destination SSU</Label>
+                <Value>{truncateAddress(c.contractType.destinationSsuId)}</Value>
+              </div>
+            </>
           )}
-          {(c.contractType.variant === "ItemForCoin" || c.contractType.variant === "ItemForItem") && (
-            <div>
-              <Label>Source SSU</Label>
-              <Value>{truncateAddress(c.contractType.sourceSsuId)}</Value>
-            </div>
+          {c.contractType.variant === "ItemForCoin" && (
+            <>
+              <div>
+                <Label>Offered Item</Label>
+                <Value><ItemBadge typeId={c.contractType.offeredTypeId} /></Value>
+              </div>
+              <div>
+                <Label>Offered Quantity</Label>
+                <Value>{c.contractType.offeredQuantity.toLocaleString()}</Value>
+              </div>
+              <div>
+                <Label>Wanted Amount</Label>
+                <Value>{formatAmount(c.contractType.wantedAmount)} SUI</Value>
+              </div>
+              <div>
+                <Label>Source SSU</Label>
+                <Value>{truncateAddress(c.contractType.sourceSsuId)}</Value>
+              </div>
+            </>
+          )}
+          {c.contractType.variant === "ItemForItem" && (
+            <>
+              <div>
+                <Label>Offered Item</Label>
+                <Value><ItemBadge typeId={c.contractType.offeredTypeId} /></Value>
+              </div>
+              <div>
+                <Label>Offered Quantity</Label>
+                <Value>{c.contractType.offeredQuantity.toLocaleString()}</Value>
+              </div>
+              <div>
+                <Label>Wanted Item</Label>
+                <Value><ItemBadge typeId={c.contractType.wantedTypeId} /></Value>
+              </div>
+              <div>
+                <Label>Wanted Quantity</Label>
+                <Value>{c.contractType.wantedQuantity.toLocaleString()}</Value>
+              </div>
+              <div>
+                <Label>Source SSU</Label>
+                <Value>{truncateAddress(c.contractType.sourceSsuId)}</Value>
+              </div>
+              <div>
+                <Label>Destination SSU</Label>
+                <Value>{truncateAddress(c.contractType.destinationSsuId)}</Value>
+              </div>
+            </>
           )}
           {c.contractType.variant === "Transport" && (
             <>
+              <div>
+                <Label>Item</Label>
+                <Value><ItemBadge typeId={c.contractType.itemTypeId} /></Value>
+              </div>
+              <div>
+                <Label>Item Quantity</Label>
+                <Value>{c.contractType.itemQuantity.toLocaleString()}</Value>
+              </div>
               <div>
                 <Label>Source SSU (pickup)</Label>
                 <Value>{truncateAddress(c.contractType.sourceSsuId)}</Value>

@@ -1,8 +1,10 @@
+import type { ReactNode } from "react";
 import styled from "styled-components";
 import type { TrustlessContractData } from "../../lib/types";
-import { formatAmount, formatDeadline } from "../../lib/format";
+import { formatAmount, formatDeadline, contractTypeLabel } from "../../lib/format";
 import { StatusBadge } from "../shared/StatusBadge";
 import { CharacterDisplay } from "../shared/CharacterDisplay";
+import { ItemBadge } from "../shared/ItemBadge";
 
 const Card = styled.div`
   background: ${({ theme }) => theme.colors.surface.raised};
@@ -81,29 +83,19 @@ const ProgressFill = styled.div<{ $pct: number }>`
 
 // ---------------------------------------------------------------------------
 
-function contractTypeLabel(ct: TrustlessContractData["contractType"]): string {
-  switch (ct.variant) {
-    case "CoinForCoin": return "Coin → Coin";
-    case "CoinForItem": return "Coin → Item";
-    case "ItemForCoin": return "Item → Coin";
-    case "ItemForItem": return "Item → Item";
-    case "Transport": return "Transport";
-  }
-}
-
-function contractSummary(c: TrustlessContractData): string {
+function contractSummary(c: TrustlessContractData): ReactNode {
   const ct = c.contractType;
   switch (ct.variant) {
     case "CoinForCoin":
-      return `Offering ${formatAmount(ct.offeredAmount)} for ${formatAmount(ct.wantedAmount)}`;
+      return <>Offering {formatAmount(ct.offeredAmount)} SUI for {formatAmount(ct.wantedAmount)} SUI</>;
     case "CoinForItem":
-      return `Offering ${formatAmount(ct.offeredAmount)} for ${ct.wantedQuantity} items (type ${ct.wantedTypeId})`;
+      return <>Offering {formatAmount(ct.offeredAmount)} SUI for <ItemBadge typeId={ct.wantedTypeId} showQuantity={ct.wantedQuantity} /></>;
     case "ItemForCoin":
-      return `Offering ${ct.offeredQuantity} items (type ${ct.offeredTypeId}) for ${formatAmount(ct.wantedAmount)}`;
+      return <><ItemBadge typeId={ct.offeredTypeId} showQuantity={ct.offeredQuantity} /> for {formatAmount(ct.wantedAmount)} SUI</>;
     case "ItemForItem":
-      return `Trading ${ct.offeredQuantity} items for ${ct.wantedQuantity} items`;
+      return <><ItemBadge typeId={ct.offeredTypeId} showQuantity={ct.offeredQuantity} /> for <ItemBadge typeId={ct.wantedTypeId} showQuantity={ct.wantedQuantity} /></>;
     case "Transport":
-      return `Deliver ${ct.itemQuantity} items for ${formatAmount(ct.paymentAmount)} (stake: ${formatAmount(ct.requiredStake)})`;
+      return <>Deliver <ItemBadge typeId={ct.itemTypeId} showQuantity={ct.itemQuantity} /> for {formatAmount(ct.paymentAmount)} SUI</>;
   }
 }
 
@@ -126,7 +118,7 @@ export function ContractCard({ contract, onClick }: Props) {
     <Card onClick={onClick}>
       <TopRow>
         <div>
-          <TypeTag>{contractTypeLabel(contract.contractType)}</TypeTag>
+          <TypeTag>{contractTypeLabel(contract.contractType.variant)}</TypeTag>
           {isRestricted && <RestrictedTag>Restricted</RestrictedTag>}
         </div>
         <StatusBadge status={statusVariant(contract.status)} />
