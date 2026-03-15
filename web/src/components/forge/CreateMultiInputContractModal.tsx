@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import styled from "styled-components";
 import { useSignAndExecuteTransaction } from "@mysten/dapp-kit";
+import { useQueryClient } from "@tanstack/react-query";
 import { Modal } from "../shared/Modal";
 import { ItemPickerField } from "../shared/ItemPickerField";
 import { SsuPickerField } from "./SsuPickerField";
@@ -9,6 +10,7 @@ import { PrimaryButton } from "../shared/Button";
 import { useIdentity } from "../../hooks/useIdentity";
 import { useBlueprints } from "../../hooks/useBlueprints";
 import { useMyStructures } from "../../hooks/useStructures";
+import { useNotifications } from "../../hooks/useNotifications";
 import { buildCreateMultiInputContract } from "../../lib/sui";
 import { buildRecipeMap, expandToBomDepth, slotsToArrays, depthLabel } from "../../lib/bom";
 
@@ -111,6 +113,24 @@ const EmptyPreview = styled.div`
   padding: ${({ theme }) => theme.spacing.sm};
 `;
 
+const ErrorBanner = styled.div`
+  font-size: 13px;
+  color: ${({ theme }) => theme.colors.danger};
+  background: ${({ theme }) => theme.colors.danger}11;
+  border: 1px solid ${({ theme }) => theme.colors.danger}44;
+  border-radius: ${({ theme }) => theme.radii.sm};
+  padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.md};
+  margin-bottom: ${({ theme }) => theme.spacing.md};
+  word-break: break-word;
+`;
+
+const ValidationHint = styled.div`
+  font-size: 12px;
+  color: ${({ theme }) => theme.colors.text.muted};
+  text-align: center;
+  margin-top: ${({ theme }) => theme.spacing.xs};
+`;
+
 const BOM_DEPTHS = [0, 1, 2, Infinity];
 
 interface Props {
@@ -121,6 +141,8 @@ export function CreateMultiInputContractModal({ onClose }: Props) {
   const { characterId } = useIdentity();
   const { recipesForOptimizer } = useBlueprints();
   const { structures } = useMyStructures();
+  const { push } = useNotifications();
+  const queryClient = useQueryClient();
   const { mutateAsync: signAndExecute, isPending } = useSignAndExecuteTransaction();
 
   const ssus = useMemo(
@@ -140,6 +162,7 @@ export function CreateMultiInputContractModal({ onClose }: Props) {
   const [destinationSsuId, setDestinationSsuId] = useState<string | null>(null);
   const [bounty, setBounty] = useState("");
   const [deadlineHours, setDeadlineHours] = useState("24");
+  const [error, setError] = useState<string | null>(null);
 
   const slots = useMemo(() => {
     const tid = Number(targetTypeId);
@@ -159,8 +182,22 @@ export function CreateMultiInputContractModal({ onClose }: Props) {
     typeIds.length > 0 &&
     !isPending;
 
+  /** Derive a human-readable hint for the first missing required field. */
+  const validationHint = !characterId
+    ? "Connect your wallet to create an order"
+    : !description.trim()
+      ? "Enter a description"
+      : typeIds.length === 0
+        ? "Pick a target item"
+        : !destinationSsuId
+          ? "Select a destination SSU"
+          : !bounty || Number(bounty) <= 0
+            ? "Enter a bounty amount"
+            : null;
+
   async function handleCreate() {
     if (!canSubmit || !characterId || !destinationSsuId) return;
+    setError(null);
     const deadlineMs = Date.now() + Number(deadlineHours) * 60 * 60 * 1000;
     const tx = buildCreateMultiInputContract({
       characterId,
@@ -173,9 +210,33 @@ export function CreateMultiInputContractModal({ onClose }: Props) {
       allowedCharacters: [],
       allowedTribes: [],
     });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await signAndExecute({ transaction: tx as any });
-    onClose();
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await signAndExecute({ transaction: tx as any });
+
+      // Invalidate contract list so Active Orders refreshes
+      await queryClient.invalidateQueries({
+        predicate: (query) =>
+          Array.isArray(query.queryKey) && query.queryKey[1] === "queryEvents",
+      });
+
+      push({
+        level: "info",
+        title: "Order Created",
+        message: `Manufacturing order "${description.trim()}" has been posted on-chain.`,
+        source: "CreateMultiInputContractModal",
+      });
+      onClose();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Transaction failed";
+      setError(msg);
+      push({
+        level: "error",
+        title: "Create Order Failed",
+        message: msg,
+        source: "CreateMultiInputContractModal",
+      });
+    }
   }
 
   return (
@@ -269,9 +330,15 @@ export function CreateMultiInputContractModal({ onClose }: Props) {
         </PreviewBox>
       </FieldGroup>
 
+      {error && <ErrorBanner>{error}</ErrorBanner>}
+
       <PrimaryButton $fullWidth onClick={handleCreate} disabled={!canSubmit}>
         {isPending ? "Creating…" : "Create Order"}
       </PrimaryButton>
+
+      {!canSubmit && !isPending && validationHint && (
+        <ValidationHint>{validationHint}</ValidationHint>
+      )}
     </Modal>
   );
 }
