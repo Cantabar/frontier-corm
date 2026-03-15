@@ -299,7 +299,8 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
         ownerCapDigest: cap.ownerCapDigest,
       });
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await signAndExecute({ transaction: tx as any });
+      const result = await signAndExecute({ transaction: tx as any });
+      await suiClient.waitForTransaction({ digest: result.digest });
       await refetchStructures();
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to enable contracts extension";
@@ -404,7 +405,9 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
 
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await signAndExecute({ transaction: tx as any });
+      const result = await signAndExecute({ transaction: tx as any });
+      // Wait for the transaction to be indexed before refetching the contract list
+      await suiClient.waitForTransaction({ digest: result.digest });
       onCreated?.();
       onClose();
     } catch (err) {
