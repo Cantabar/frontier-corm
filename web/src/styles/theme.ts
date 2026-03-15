@@ -50,6 +50,9 @@ export const theme = {
       experimental: "#ab47bc",
       exotic: "#ffd740",
     },
+    button: {
+      primaryText: "#0F1318", // dark near-black — readable on cyan (10.8:1 contrast)
+    },
   },
   fonts: {
     body: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
