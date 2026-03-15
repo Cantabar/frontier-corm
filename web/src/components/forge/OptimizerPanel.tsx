@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import styled from "styled-components";
 import { useOptimizer, type ResolvedNode, type GapAnalysis } from "../../hooks/useOptimizer";
 import type { RecipeData } from "../../lib/types";
@@ -204,6 +204,21 @@ export function OptimizerPanel({
     () => structures.filter((s) => s.moveType === "StorageUnit"),
     [structures],
   );
+
+  // Auto-enable SSU inventory when wallet is connected and SSUs are loaded
+  const autoEnabledRef = useRef(false);
+  useEffect(() => {
+    if (
+      !autoEnabledRef.current &&
+      !structuresLoading &&
+      !!address &&
+      ssus.length > 0
+    ) {
+      autoEnabledRef.current = true;
+      setSsuInventoryEnabled(true);
+      setSelectedSsuIds(new Set(ssus.map((s) => s.id)));
+    }
+  }, [address, ssus, structuresLoading]);
 
   // Auto-select all SSUs when first enabling the toggle
   const handleToggle = useCallback(
