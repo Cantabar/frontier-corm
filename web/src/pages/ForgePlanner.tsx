@@ -3,13 +3,17 @@ import styled from "styled-components";
 import { useIdentity } from "../hooks/useIdentity";
 import { useManufacturingHistory } from "../hooks/useOrders";
 import { useBlueprints } from "../hooks/useBlueprints";
+import { useActiveMultiInputContracts, useMultiInputContractObject } from "../hooks/useMultiInputContracts";
 import { BlueprintBrowser } from "../components/forge/BlueprintBrowser";
 import { OptimizerPanel } from "../components/forge/OptimizerPanel";
-import { CreateOrderModal } from "../components/forge/CreateOrderModal";
+import { CreateMultiInputContractModal } from "../components/forge/CreateMultiInputContractModal";
+import { MultiInputContractCard } from "../components/forge/MultiInputContractCard";
+import { MultiInputContractDetail } from "../components/forge/MultiInputContractDetail";
 import { LoadingSpinner } from "../components/shared/LoadingSpinner";
 import { EmptyState } from "../components/shared/EmptyState";
 import { PrimaryButton } from "../components/shared/Button";
 import { timeAgo, truncateAddress } from "../lib/format";
+import type { MultiInputContractData } from "../lib/types";
 
 const Page = styled.div``;
 
@@ -66,14 +70,34 @@ const Meta = styled.span`
   font-size: 12px;
 `;
 
+/** Thin wrapper so each card can independently fetch live fill totals. */
+function ContractCardWithLiveState({
+  contract,
+  onClick,
+}: {
+  contract: MultiInputContractData;
+  onClick: () => void;
+}) {
+  const { contract: live } = useMultiInputContractObject(contract.id);
+  return (
+    <MultiInputContractCard
+      contract={contract}
+      liveFilledTotal={live?.totalFilled}
+      onClick={onClick}
+    />
+  );
+}
+
 export function ForgePlanner() {
-  const { tribeCaps } = useIdentity();
-  const cap = tribeCaps[0] ?? null;
-  const tribeId = cap?.tribeId;
+  const { characterId, tribeCaps } = useIdentity();
+  const tribeId = tribeCaps[0]?.tribeId;
 
   const { blueprints, recipesForOptimizer } = useBlueprints();
   const { data: historyData, isLoading: historyLoading } = useManufacturingHistory(tribeId);
+  const { contracts, isLoading: contractsLoading } = useActiveMultiInputContracts();
+
   const [showCreateOrder, setShowCreateOrder] = useState(false);
+  const [selectedContract, setSelectedContract] = useState<MultiInputContractData | null>(null);
 
   // Optimizer auto-fill: set from BlueprintDetailModal's "Resolve in Optimizer"
   const [optimizerTarget, setOptimizerTarget] = useState<number | null>(null);
@@ -82,14 +106,11 @@ export function ForgePlanner() {
     setOptimizerTarget(outputTypeId);
   }, []);
 
-  // TODO: fetch registry ID from on-chain once deployed
-  const registryId = "";
-
   return (
     <Page>
       <Header>
         <Title>Forge Planner</Title>
-        {cap && tribeId && (
+        {characterId && (
           <PrimaryButton onClick={() => setShowCreateOrder(true)}>+ New Order</PrimaryButton>
         )}
       </Header>
@@ -131,12 +152,33 @@ export function ForgePlanner() {
         </div>
       </Grid>
 
-      {showCreateOrder && cap && tribeId && (
-        <CreateOrderModal
-          tribeId={tribeId}
-          registryId={registryId}
-          cap={cap}
-          onClose={() => setShowCreateOrder(false)}
+      <SectionLabel>Active Orders</SectionLabel>
+      {contractsLoading ? (
+        <LoadingSpinner />
+      ) : contracts.length === 0 ? (
+        <EmptyState
+          title="No active orders"
+          description={characterId ? "Create a new order to get started." : "Connect your wallet to post orders."}
+        />
+      ) : (
+        contracts.map((c) => (
+          <ContractCardWithLiveState
+            key={c.id}
+            contract={c}
+            onClick={() => setSelectedContract(c)}
+          />
+        ))
+      )}
+
+      {showCreateOrder && (
+        <CreateMultiInputContractModal onClose={() => setShowCreateOrder(false)} />
+      )}
+
+      {selectedContract && (
+        <MultiInputContractDetail
+          contract={selectedContract}
+          characterId={characterId}
+          onClose={() => setSelectedContract(null)}
         />
       )}
     </Page>
