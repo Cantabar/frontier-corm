@@ -22,31 +22,34 @@ const PanelWrapper = styled.div`
   padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.md};
 `;
 
-const ScrollArea = styled.div`
-  overflow-x: auto;
-  overflow-y: hidden;
-`;
-
-/** Horizontal strip of inventory slots */
-const SlotsRow = styled.div`
+/** Vertical stack of collapsible inventory sections */
+const SlotsStack = styled.div`
   display: flex;
-  gap: ${({ theme }) => theme.spacing.md};
-  min-width: min-content;
-  align-items: flex-start;
-  padding-bottom: 2px;
-`;
-
-const SlotColumn = styled.div`
-  flex-shrink: 0;
+  flex-direction: column;
 `;
 
 const SlotHeader = styled.div`
   display: flex;
   align-items: center;
   gap: ${({ theme }) => theme.spacing.sm};
-  margin-bottom: ${({ theme }) => theme.spacing.xs};
-  height: 22px;
+  height: 28px;
   line-height: 1;
+  cursor: pointer;
+  user-select: none;
+  padding: ${({ theme }) => theme.spacing.xs} 0;
+  border-bottom: 1px solid ${({ theme }) => theme.colors.surface.border};
+
+  &:hover {
+    color: ${({ theme }) => theme.colors.primary.main};
+  }
+`;
+
+const Chevron = styled.span<{ $open: boolean }>`
+  display: inline-block;
+  font-size: 10px;
+  transition: transform 0.15s;
+  transform: rotate(${({ $open }) => ($open ? "90deg" : "0deg")});
+  color: ${({ theme }) => theme.colors.text.muted};
 `;
 
 const SectionTitle = styled.h3`
@@ -83,6 +86,7 @@ const ItemGrid = styled.div`
   display: flex;
   flex-wrap: wrap;
   gap: ${({ theme }) => theme.spacing.xs};
+  padding: ${({ theme }) => theme.spacing.xs} 0;
 `;
 
 const ItemTile = styled.div`
@@ -177,6 +181,7 @@ function InventoryItemTile({ item }: { item: InventoryItemEntry }) {
 }
 
 function SlotSection({ slot, profile }: { slot: InventorySlot; profile?: CharacterProfile | null }) {
+  const [open, setOpen] = useState(true);
   const pct = slot.maxCapacity > 0 ? (slot.usedCapacity / slot.maxCapacity) * 100 : 0;
 
   const label =
@@ -187,8 +192,9 @@ function SlotSection({ slot, profile }: { slot: InventorySlot; profile?: Charact
         : null;
 
   return (
-    <SlotColumn>
-      <SlotHeader>
+    <div>
+      <SlotHeader onClick={() => setOpen((v) => !v)}>
+        <Chevron $open={open}>▶</Chevron>
         {label ? (
           <SectionTitle>{label}</SectionTitle>
         ) : (
@@ -200,16 +206,18 @@ function SlotSection({ slot, profile }: { slot: InventorySlot; profile?: Charact
         )}
         <CapacityBadge $pct={pct}>{pct.toFixed(0)}%</CapacityBadge>
       </SlotHeader>
-      {slot.items.length === 0 ? (
-        <EmptySlotLabel>Empty</EmptySlotLabel>
-      ) : (
-        <ItemGrid>
-          {slot.items.map((item) => (
-            <InventoryItemTile key={item.typeId} item={item} />
-          ))}
-        </ItemGrid>
+      {open && (
+        slot.items.length === 0 ? (
+          <EmptySlotLabel>Empty</EmptySlotLabel>
+        ) : (
+          <ItemGrid>
+            {slot.items.map((item) => (
+              <InventoryItemTile key={item.typeId} item={item} />
+            ))}
+          </ItemGrid>
+        )
       )}
-    </SlotColumn>
+    </div>
   );
 }
 
@@ -243,17 +251,15 @@ export function SsuInventoryPanel({ ssu }: Props) {
           description="This SSU has no readable inventory slots."
         />
       ) : (
-        <ScrollArea>
-          <SlotsRow>
-            {slots.map((slot) => (
-              <SlotSection
-                key={slot.key}
-                slot={slot}
-                profile={slot.kind === "other" ? profiles.get(slot.key) : undefined}
-              />
-            ))}
-          </SlotsRow>
-        </ScrollArea>
+        <SlotsStack>
+          {slots.map((slot) => (
+            <SlotSection
+              key={slot.key}
+              slot={slot}
+              profile={slot.kind === "other" ? profiles.get(slot.key) : undefined}
+            />
+          ))}
+        </SlotsStack>
       )}
     </PanelWrapper>
   );
