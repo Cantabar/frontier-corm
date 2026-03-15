@@ -16,8 +16,7 @@ const PanelWrapper = styled.div`
   border: 1px solid ${({ theme }) => theme.colors.primary.subtle};
   border-top: none;
   border-radius: 0 0 ${({ theme }) => theme.radii.md} ${({ theme }) => theme.radii.md};
-  padding: ${({ theme }) => theme.spacing.xl} ${({ theme }) => theme.spacing.md}
-    ${({ theme }) => theme.spacing.sm};
+  padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.md};
 `;
 
 const ScrollArea = styled.div`
@@ -135,7 +134,7 @@ const Tooltip = styled.div`
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.12s ease;
-  z-index: 10;
+  z-index: 200;
 `;
 
 const TooltipName = styled.div`
