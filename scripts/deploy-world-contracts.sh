@@ -133,6 +133,10 @@ request_gas 5
 echo "=== Seeding world ==="
 bash "$WORLD_DIR/scripts/seed-world.sh" localnet
 
+# ── Create NWN + empty SSU for Player B (frontier-corm specific) ─────
+echo "=== Seeding Player B NWN + SSU ==="
+(cd "$WORLD_DIR" && NODE_PATH="$WORLD_DIR/node_modules" npx tsx "$PROJECT_ROOT/scripts/seed-player-b-ssu.ts")
+
 # ── Seed all items into SSU (frontier-corm specific) ────────────────
 echo "Requesting additional gas for item seeding..."
 request_gas 5
