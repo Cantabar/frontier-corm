@@ -83,7 +83,12 @@ write_env_var GOVERNOR_PRIVATE_KEY "$ADMIN_PRIVATE_KEY"
 write_env_var SPONSOR_ADDRESSES    "$ADMIN_ADDRESS"
 
 # Generate player keypairs for seeding (idempotent — only if not already set)
-if ! grep -q '^PLAYER_A_PRIVATE_KEY=suiprivkey' "$WORLD_ENV" 2>/dev/null; then
+# Also regenerate if either existing player key collides with the (possibly new) admin key.
+EXISTING_PA=$(grep '^PLAYER_A_PRIVATE_KEY=' "$WORLD_ENV" 2>/dev/null | cut -d= -f2)
+EXISTING_PB=$(grep '^PLAYER_B_PRIVATE_KEY=' "$WORLD_ENV" 2>/dev/null | cut -d= -f2)
+if ! grep -q '^PLAYER_A_PRIVATE_KEY=suiprivkey' "$WORLD_ENV" 2>/dev/null \
+   || [ "$EXISTING_PA" = "$ADMIN_PRIVATE_KEY" ] \
+   || [ "$EXISTING_PB" = "$ADMIN_PRIVATE_KEY" ]; then
   echo "Generating player keypairs for localnet..."
   PLAYER_A_ADDR=$(sui client new-address ed25519 --json 2>/dev/null | jq -r '.address')
   PLAYER_B_ADDR=$(sui client new-address ed25519 --json 2>/dev/null | jq -r '.address')
