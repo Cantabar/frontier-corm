@@ -16,174 +16,191 @@ const PanelWrapper = styled.div`
   border: 1px solid ${({ theme }) => theme.colors.primary.subtle};
   border-top: none;
   border-radius: 0 0 ${({ theme }) => theme.radii.md} ${({ theme }) => theme.radii.md};
-  padding: ${({ theme }) => theme.spacing.md} ${({ theme }) => theme.spacing.lg};
+  padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.md};
+  overflow-x: auto;
 `;
 
-const Section = styled.div`
-  margin-bottom: ${({ theme }) => theme.spacing.lg};
+/** Horizontal strip of inventory slots */
+const SlotsRow = styled.div`
+  display: flex;
+  gap: ${({ theme }) => theme.spacing.md};
+  min-width: min-content;
+`;
 
-  &:last-child {
-    margin-bottom: 0;
-  }
+const SlotColumn = styled.div`
+  flex-shrink: 0;
+`;
+
+const SlotHeader = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.sm};
+  margin-bottom: ${({ theme }) => theme.spacing.xs};
 `;
 
 const SectionTitle = styled.h3`
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: ${({ theme }) => theme.colors.text.muted};
-  margin-bottom: ${({ theme }) => theme.spacing.sm};
+  white-space: nowrap;
 `;
 
-const CapacityBarOuter = styled.div`
-  height: 6px;
+const CapacityBadge = styled.span<{ $pct: number }>`
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 5px;
   border-radius: 3px;
-  background: ${({ theme }) => theme.colors.surface.bg};
-  overflow: hidden;
-  margin-bottom: ${({ theme }) => theme.spacing.xs};
-`;
-
-const CapacityBarInner = styled.div<{ $pct: number }>`
-  height: 100%;
-  width: ${({ $pct }) => Math.min($pct, 100)}%;
-  border-radius: 3px;
+  white-space: nowrap;
   background: ${({ $pct, theme }) =>
     $pct > 90
       ? theme.colors.danger
       : $pct > 70
         ? theme.colors.warning
-        : theme.colors.primary.main};
-  transition: width 0.3s ease;
+        : theme.colors.primary.subtle};
+  color: ${({ $pct, theme }) =>
+    $pct > 90
+      ? theme.colors.text.primary
+      : $pct > 70
+        ? theme.colors.surface.bg
+        : theme.colors.primary.muted};
 `;
 
-const CapacityLabel = styled.div`
-  font-size: 11px;
-  color: ${({ theme }) => theme.colors.text.muted};
-  margin-bottom: ${({ theme }) => theme.spacing.md};
-`;
-
-const ItemList = styled.div`
+/** Wrapping grid of item tiles */
+const ItemGrid = styled.div`
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   gap: ${({ theme }) => theme.spacing.xs};
 `;
 
-const ItemRow = styled.div`
-  display: flex;
-  align-items: center;
-  gap: ${({ theme }) => theme.spacing.sm};
-  padding: ${({ theme }) => theme.spacing.sm};
+const ItemTile = styled.div`
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: ${({ theme }) => theme.radii.sm};
   background: ${({ theme }) => theme.colors.surface.bg};
-  border-radius: ${({ theme }) => theme.radii.sm};
+  cursor: default;
+
+  &:hover > div:last-child {
+    opacity: 1;
+    pointer-events: auto;
+  }
 `;
 
-const ItemIcon = styled.img`
-  width: 28px;
-  height: 28px;
-  border-radius: ${({ theme }) => theme.radii.sm};
+const TileIcon = styled.img`
+  width: 100%;
+  height: 100%;
   object-fit: contain;
-  flex-shrink: 0;
+  border-radius: ${({ theme }) => theme.radii.sm};
 `;
 
-const ItemIconPlaceholder = styled.div`
-  width: 28px;
-  height: 28px;
+const TileIconPlaceholder = styled.div`
+  width: 100%;
+  height: 100%;
   border-radius: ${({ theme }) => theme.radii.sm};
   background: ${({ theme }) => theme.colors.surface.border};
-  flex-shrink: 0;
 `;
 
-const ItemInfo = styled.div`
-  flex: 1;
-  min-width: 0;
+const QtyBadge = styled.span`
+  position: absolute;
+  bottom: 1px;
+  right: 2px;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  color: ${({ theme }) => theme.colors.text.primary};
+  text-shadow: 0 0 3px ${({ theme }) => theme.colors.surface.bg},
+    0 0 3px ${({ theme }) => theme.colors.surface.bg};
 `;
 
-const ItemName = styled.div`
-  font-size: 13px;
+const Tooltip = styled.div`
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: ${({ theme }) => theme.colors.surface.overlay};
+  border: 1px solid ${({ theme }) => theme.colors.surface.border};
+  border-radius: ${({ theme }) => theme.radii.sm};
+  padding: ${({ theme }) => theme.spacing.xs} ${({ theme }) => theme.spacing.sm};
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+  z-index: 10;
+`;
+
+const TooltipName = styled.div`
+  font-size: 12px;
   font-weight: 600;
   color: ${({ theme }) => theme.colors.text.primary};
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 `;
 
-const ItemMeta = styled.div`
-  font-size: 11px;
+const TooltipMeta = styled.div`
+  font-size: 10px;
   color: ${({ theme }) => theme.colors.text.muted};
 `;
 
-const ItemQty = styled.div`
-  font-size: 14px;
-  font-weight: 700;
-  color: ${({ theme }) => theme.colors.text.primary};
-  white-space: nowrap;
+const EmptySlotLabel = styled.div`
+  font-size: 11px;
+  color: ${({ theme }) => theme.colors.text.disabled};
+  padding: ${({ theme }) => theme.spacing.xs} 0;
 `;
 
 const ErrorText = styled.div`
   font-size: 13px;
   color: ${({ theme }) => theme.colors.danger};
-  padding: ${({ theme }) => theme.spacing.md};
+  padding: ${({ theme }) => theme.spacing.sm};
 `;
 
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
 
-function CapacityBar({ used, max }: { used: number; max: number }) {
-  const pct = max > 0 ? (used / max) * 100 : 0;
-  return (
-    <>
-      <CapacityBarOuter>
-        <CapacityBarInner $pct={pct} />
-      </CapacityBarOuter>
-      <CapacityLabel>
-        {used.toLocaleString()} / {max.toLocaleString()} capacity ({pct.toFixed(1)}%)
-      </CapacityLabel>
-    </>
-  );
-}
-
-function InventoryItemRow({ item }: { item: InventoryItemEntry }) {
+function InventoryItemTile({ item }: { item: InventoryItemEntry }) {
   const { getItem } = useItems();
   const info = getItem(item.typeId);
+  const name = info?.name ?? `Type ${item.typeId}`;
 
   return (
-    <ItemRow>
-      {info?.icon ? <ItemIcon src={`/${info.icon}`} alt={info.name} /> : <ItemIconPlaceholder />}
-      <ItemInfo>
-        <ItemName>{info?.name ?? `Type ${item.typeId}`}</ItemName>
-        <ItemMeta>
-          ID {item.typeId} · {item.volume} m³ each
-        </ItemMeta>
-      </ItemInfo>
-      <ItemQty>×{item.quantity.toLocaleString()}</ItemQty>
-    </ItemRow>
+    <ItemTile>
+      {info?.icon ? <TileIcon src={`/${info.icon}`} alt={name} /> : <TileIconPlaceholder />}
+      <QtyBadge>{item.quantity.toLocaleString()}</QtyBadge>
+      <Tooltip>
+        <TooltipName>{name}</TooltipName>
+        <TooltipMeta>
+          ID {item.typeId} · {item.volume} m³ · ×{item.quantity.toLocaleString()}
+        </TooltipMeta>
+      </Tooltip>
+    </ItemTile>
   );
 }
 
 function SlotSection({ slot }: { slot: InventorySlot }) {
   const label =
     slot.kind === "owner"
-      ? "Owner Inventory"
+      ? "Owner"
       : slot.kind === "open"
-        ? "Open Storage"
-        : `Player Inventory (${truncateAddress(slot.key)})`;
+        ? "Open"
+        : truncateAddress(slot.key);
+  const pct = slot.maxCapacity > 0 ? (slot.usedCapacity / slot.maxCapacity) * 100 : 0;
 
   return (
-    <Section>
-      <SectionTitle>{label}</SectionTitle>
-      <CapacityBar used={slot.usedCapacity} max={slot.maxCapacity} />
+    <SlotColumn>
+      <SlotHeader>
+        <SectionTitle>{label}</SectionTitle>
+        <CapacityBadge $pct={pct}>{pct.toFixed(0)}%</CapacityBadge>
+      </SlotHeader>
       {slot.items.length === 0 ? (
-        <EmptyState title="Empty" description="No items in this inventory." />
+        <EmptySlotLabel>Empty</EmptySlotLabel>
       ) : (
-        <ItemList>
+        <ItemGrid>
           {slot.items.map((item) => (
-            <InventoryItemRow key={item.typeId} item={item} />
+            <InventoryItemTile key={item.typeId} item={item} />
           ))}
-        </ItemList>
+        </ItemGrid>
       )}
-    </Section>
+    </SlotColumn>
   );
 }
 
@@ -210,7 +227,9 @@ export function SsuInventoryPanel({ ssu }: Props) {
           description="This SSU has no readable inventory slots."
         />
       ) : (
-        slots.map((slot) => <SlotSection key={slot.key} slot={slot} />)
+        <SlotsRow>
+          {slots.map((slot) => <SlotSection key={slot.key} slot={slot} />)}
+        </SlotsRow>
       )}
     </PanelWrapper>
   );
