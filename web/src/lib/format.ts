@@ -56,6 +56,18 @@ export function generateAvatarColor(id: string): string {
   return `hsl(${h}, 55%, 45%)`;
 }
 
+/** Human-readable label for a trustless contract variant. */
+export function contractTypeLabel(variant: string): string {
+  switch (variant) {
+    case "CoinForCoin": return "Coin → Coin";
+    case "CoinForItem": return "Coin → Item";
+    case "ItemForCoin": return "Item → Coin";
+    case "ItemForItem": return "Item → Item";
+    case "Transport": return "Transport";
+    default: return variant;
+  }
+}
+
 /** Format a deadline timestamp as a countdown string or "Expired". */
 export function formatDeadline(deadlineMs: string): string {
   const deadline = Number(deadlineMs);
