@@ -113,7 +113,7 @@ export function TrustlessContracts() {
       {selected ? (
         <>
           <BackButton onClick={() => setSelected(null)}>← Back to list</BackButton>
-          <ContractDetail contract={selected} />
+          <ContractDetail contract={selected} onStatusChange={() => { setSelected(null); refetch(); }} />
         </>
       ) : (
         <>

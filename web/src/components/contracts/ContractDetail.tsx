@@ -128,9 +128,10 @@ function statusVariant(s: TrustlessContractData["status"]): "open" | "in-progres
 
 interface Props {
   contract: TrustlessContractData;
+  onStatusChange?: () => void;
 }
 
-export function ContractDetail({ contract: initial }: Props) {
+export function ContractDetail({ contract: initial, onStatusChange }: Props) {
   const { characterId } = useIdentity();
   const { mutateAsync: signAndExecute, isPending } = useSignAndExecuteTransaction();
   const queryClient = useQueryClient();
@@ -201,6 +202,9 @@ export function ContractDetail({ contract: initial }: Props) {
       const tx = buildCancelTrustlessContract({ contractId: c.id, characterId });
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await signAndExecute({ transaction: tx as any });
+      push({ level: "info", title: "Contract Cancelled", message: "The contract has been cancelled and escrow returned.", source: "contract-detail" });
+      handleFilled();
+      onStatusChange?.();
     } catch (err) {
       push({ level: "error", title: "Cancel Failed", message: String(err), source: "contract-detail" });
     }
@@ -211,6 +215,9 @@ export function ContractDetail({ contract: initial }: Props) {
       const tx = buildExpireTrustlessContract({ contractId: c.id });
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await signAndExecute({ transaction: tx as any });
+      push({ level: "info", title: "Contract Expired", message: "The contract has been marked as expired.", source: "contract-detail" });
+      handleFilled();
+      onStatusChange?.();
     } catch (err) {
       push({ level: "error", title: "Expire Failed", message: String(err), source: "contract-detail" });
     }
