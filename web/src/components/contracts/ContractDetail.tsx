@@ -164,7 +164,19 @@ export function ContractDetail({ contract: initial }: Props) {
 
   const filled = Number(c.filledQuantity);
   const target = Number(c.targetQuantity);
-  const pct = target > 0 ? Math.min(100, (filled / target) * 100) : 0;
+
+  // For ItemForCoin, track item release progress instead of coins paid
+  const isItemForCoin = c.contractType.variant === "ItemForCoin";
+  const itemsOffered = c.contractType.variant === "ItemForCoin" ? c.contractType.offeredQuantity : 0;
+  const itemsReleased = c.itemsReleased ?? 0;
+  const itemsRemaining = itemsOffered - itemsReleased;
+
+  const pct = (() => {
+    if (isItemForCoin && itemsOffered > 0) {
+      return Math.min(100, (itemsReleased / itemsOffered) * 100);
+    }
+    return target > 0 ? Math.min(100, (filled / target) * 100) : 0;
+  })();
 
   const isRestricted = c.allowedCharacters.length > 0 || c.allowedTribes.length > 0;
 
@@ -334,7 +346,11 @@ export function ContractDetail({ contract: initial }: Props) {
               </div>
               <div>
                 <Label>Offered Quantity</Label>
-                <Value>{c.contractType.offeredQuantity.toLocaleString()}</Value>
+                <Value>
+                  {c.allowPartial
+                    ? `${itemsRemaining.toLocaleString()} remaining / ${c.contractType.offeredQuantity.toLocaleString()} total`
+                    : c.contractType.offeredQuantity.toLocaleString()}
+                </Value>
               </div>
               <div>
                 <Label>Wanted Amount</Label>
@@ -346,8 +362,8 @@ export function ContractDetail({ contract: initial }: Props) {
               </div>
               {c.allowPartial && (
                 <div>
-                  <Label>Filled</Label>
-                  <Value>{formatAmount(c.filledQuantity)} / {formatAmount(c.contractType.wantedAmount)} SUI</Value>
+                  <Label>Items Released</Label>
+                  <Value>{itemsReleased.toLocaleString()} / {c.contractType.offeredQuantity.toLocaleString()}</Value>
                 </div>
               )}
             </>

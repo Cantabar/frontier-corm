@@ -90,8 +90,11 @@ function contractSummary(c: TrustlessContractData): ReactNode {
       return <>Offering {formatAmount(ct.offeredAmount)} SUI for {formatAmount(ct.wantedAmount)} SUI</>;
     case "CoinForItem":
       return <>Offering {formatAmount(ct.offeredAmount)} SUI for <ItemBadge typeId={ct.wantedTypeId} showQuantity={ct.wantedQuantity} /></>;
-    case "ItemForCoin":
-      return <><ItemBadge typeId={ct.offeredTypeId} showQuantity={ct.offeredQuantity} /> for {formatAmount(ct.wantedAmount)} SUI</>;
+    case "ItemForCoin": {
+      const released = c.itemsReleased ?? 0;
+      const remaining = ct.offeredQuantity - released;
+      return <><ItemBadge typeId={ct.offeredTypeId} showQuantity={remaining > 0 && released > 0 ? remaining : ct.offeredQuantity} />{released > 0 ? " remaining" : ""} for {formatAmount(ct.wantedAmount)} SUI</>;
+    }
     case "ItemForItem":
       return <><ItemBadge typeId={ct.offeredTypeId} showQuantity={ct.offeredQuantity} /> for <ItemBadge typeId={ct.wantedTypeId} showQuantity={ct.wantedQuantity} /></>;
     case "Transport":
