@@ -205,7 +205,7 @@ export function ContractDetail({ contract: initial, onStatusChange }: Props) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const result = await signAndExecute({ transaction: tx as any });
       await suiClient.waitForTransaction({ digest: result.digest });
-      push({ level: "info", title: "Contract Cancelled", message: "The contract has been cancelled and escrow returned.", source: "contract-detail" });
+      push({ level: "info", title: "Contract Cancelled", message: "The contract has been cancelled and reward returned from escrow.", source: "contract-detail" });
       handleFilled();
       onStatusChange?.();
     } catch (err) {
@@ -287,8 +287,9 @@ export function ContractDetail({ contract: initial, onStatusChange }: Props) {
 
         <DetailGrid>
           <div>
-            <Label>Escrow</Label>
+            <Label>Reward</Label>
             <Value>{formatAmount(c.escrowAmount)} SUI</Value>
+            <span style={{ fontSize: 11, color: "inherit", opacity: 0.6 }}>Held in escrow</span>
           </div>
           <div>
             <Label>Deadline</Label>

@@ -336,7 +336,7 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
           </>
         )}
         {contract.escrowAmount !== "0" && (
-          <> — Escrow: {formatAmount(contract.escrowAmount)} SUI</>
+          <> — Reward: {formatAmount(contract.escrowAmount)} SUI (held in escrow)</>
         )}
         {variant === "CoinForItem" && contract.contractType.variant === "CoinForItem" && (
           <div>Wanted: <ItemBadge typeId={contract.contractType.wantedTypeId} /></div>
@@ -405,7 +405,7 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
 
       {isCoinFill && isZeroCoinTarget && variant === "CoinForCoin" && (
         <>
-          <Info>No coins required — claim free coins from escrow.</Info>
+          <Info>No coins required — claim free coins from the reward pool.</Info>
           <Label>Amount to Claim (SUI){remaining > 0 ? ` (max ${formatAmount(String(remaining))})` : ""}</Label>
           <Input
             type="number"

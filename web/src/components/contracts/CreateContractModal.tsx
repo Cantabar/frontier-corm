@@ -546,8 +546,9 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
       {/* Type-specific fields */}
       {(variant === "CoinForCoin" || variant === "CoinForItem" || variant === "Transport") && (
         <div>
-          <Label>Escrow Amount (SUI)</Label>
+          <Label>Reward Amount (SUI)</Label>
           <Input type="number" placeholder="0.0" value={escrow} onChange={(e) => setEscrow(e.target.value)} />
+          <Hint>This amount will be held in escrow until the contract is fulfilled or cancelled.</Hint>
           {submitted && !isValidCoinAmount(escrow) && <FieldError>Enter a valid amount</FieldError>}
         </div>
       )}

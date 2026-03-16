@@ -189,7 +189,7 @@ export function DappDeliverModal({ contract, ssuId, inventory, onClose, onSucces
       <Info>
         Remaining: {remaining.toLocaleString()} / {Number(contract.targetQuantity).toLocaleString()}
         {contract.escrowAmount !== "0" && (
-          <> — Escrow: {formatAmount(contract.escrowAmount)} SUI</>
+          <> — Reward: {formatAmount(contract.escrowAmount)} SUI (held in escrow)</>
         )}
       </Info>
 

@@ -130,7 +130,7 @@ export function ContractCard({ contract, onClick }: Props) {
       <Summary>{contractSummary(contract)}</Summary>
       <Meta>
         {contract.escrowAmount !== "0" && (
-          <Amount>{formatAmount(contract.escrowAmount)} SUI escrow</Amount>
+          <Amount>{formatAmount(contract.escrowAmount)} SUI reward</Amount>
         )}
         <span>Poster: <CharacterDisplay characterId={contract.posterId} showPortrait={false} /></span>
         <span>{formatDeadline(contract.deadlineMs)}</span>

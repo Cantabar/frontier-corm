@@ -185,7 +185,7 @@ export function DappContractCard({ contract, canFulfill, onDeliver, onView }: Pr
       <Meta>
         <Reward>{rewardLabel(contract)}</Reward>
         {contract.escrowAmount !== "0" && (
-          <span>{formatAmount(contract.escrowAmount)} SUI escrow</span>
+          <span>{formatAmount(contract.escrowAmount)} SUI reward</span>
         )}
         <span>{formatDeadline(contract.deadlineMs)}</span>
         {contract.allowPartial && <span>Partial OK</span>}
