@@ -133,6 +133,12 @@ sleep 5
 echo "=== Deploying world contracts ==="
 bash "$WORLD_DIR/scripts/deploy-world.sh" localnet
 
+# Let localnet finalize deploy transactions and top up gas so configure
+# doesn't hit object-lock conflicts from still-in-flight deploy txns.
+echo "Waiting for deploy transactions to settle..."
+sleep 5
+request_gas 2
+
 echo "=== Configuring world ==="
 bash "$WORLD_DIR/scripts/configure-world.sh" localnet
 
