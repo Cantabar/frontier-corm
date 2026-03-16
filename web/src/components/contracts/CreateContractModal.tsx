@@ -455,6 +455,7 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
   // The Move contract enforces these same guards at creation time.
   // ---------------------------------------------------------------------------
   const divisibilityError: string | null = useMemo(() => {
+    if (!allowPartial) return null;
     switch (variant) {
       case "CoinForCoin": {
         const e = Math.round(Number(escrow) * 1e9);
@@ -509,7 +510,7 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
         return null;
       }
     }
-  }, [variant, escrow, wantedAmount, wantedQuantity, itemWantedAmount, offeredQuantity, i4iWantedQuantity, transportItemQuantity, requiredStake]);
+  }, [variant, escrow, wantedAmount, wantedQuantity, itemWantedAmount, offeredQuantity, i4iWantedQuantity, transportItemQuantity, requiredStake, allowPartial]);
 
   /** Unit price hint text shown when amounts are valid and non-zero. */
   const unitPriceHint: string | null = useMemo(() => {
