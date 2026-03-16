@@ -1,0 +1,6 @@
+[package]
+name = "corm_auth"
+edition = "2024.beta"
+
+[environments]
+localnet = "5dd031c2"
