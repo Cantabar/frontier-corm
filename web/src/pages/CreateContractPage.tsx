@@ -72,6 +72,7 @@ const PageHeader = styled.div`
   align-items: center;
   gap: ${({ theme }) => theme.spacing.md};
   margin-bottom: ${({ theme }) => theme.spacing.lg};
+  grid-column: 1 / -1;
 `;
 
 const BackButton = styled(SecondaryButton)`
@@ -788,12 +789,12 @@ export function CreateContractPage() {
 
   return (
     <Page>
-      <FormColumn>
       <PageHeader>
         <BackButton onClick={() => navigate("/contracts")} disabled={isBusy}>← Back</BackButton>
         <PageTitle>Create Trustless Contract</PageTitle>
       </PageHeader>
 
+      <FormColumn>
       <FormCard>
         {/* Contract type */}
         <Section>
