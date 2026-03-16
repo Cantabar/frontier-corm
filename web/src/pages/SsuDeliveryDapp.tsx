@@ -8,7 +8,7 @@ import { DappContractCard } from "../components/dapp/DappContractCard";
 import { DappDeliverModal } from "../components/dapp/DappDeliverModal";
 import { LoadingSpinner } from "../components/shared/LoadingSpinner";
 import { EmptyState } from "../components/shared/EmptyState";
-import { truncateAddress } from "../lib/format";
+import { CopyableId } from "../components/shared/CopyableId";
 import type { TrustlessContractData } from "../lib/types";
 
 // ---------------------------------------------------------------------------
@@ -143,7 +143,7 @@ export function SsuDeliveryDapp() {
     <Page>
       <SsuHeader>
         <SsuName>{ssuName}</SsuName>
-        <SsuId>{truncateAddress(ssuId, 10, 8)}</SsuId>
+        <SsuId><CopyableId id={ssuId} startLen={10} endLen={8} /></SsuId>
         <InventorySummary>
           <span>{totalItemCount.toLocaleString()} items</span>
           <span>{uniqueTypes} types</span>

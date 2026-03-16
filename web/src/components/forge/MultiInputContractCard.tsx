@@ -1,6 +1,7 @@
 import styled from "styled-components";
 import type { MultiInputContractData } from "../../lib/types";
-import { formatAmount, formatDeadline, truncateAddress } from "../../lib/format";
+import { formatAmount, formatDeadline } from "../../lib/format";
+import { CopyableId } from "../shared/CopyableId";
 import { CharacterDisplay } from "../shared/CharacterDisplay";
 
 const Card = styled.div`
@@ -112,7 +113,7 @@ export function MultiInputContractCard({ contract, liveFilledTotal, onClick }: P
       </TopRow>
 
       <Description title={contract.description}>
-        {contract.description || truncateAddress(contract.id)}
+        {contract.description || <CopyableId id={contract.id} />}
       </Description>
 
       <Meta>

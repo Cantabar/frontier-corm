@@ -3,7 +3,7 @@ import styled from "styled-components";
 import { useSignAndExecuteTransaction } from "@mysten/dapp-kit";
 import { Modal } from "../shared/Modal";
 import { buildChangeRole } from "../../lib/sui";
-import { truncateAddress } from "../../lib/format";
+import { CopyableId } from "../shared/CopyableId";
 import { PrimaryButton } from "../shared/Button";
 import type { Role } from "../../lib/types";
 
@@ -103,7 +103,7 @@ export function ChangeRoleModal({ tribeId, capId, characterId, currentRole, onCl
   return (
     <Modal title="Change Member Role" onClose={onClose}>
       <CharacterLabel>
-        Character: <code>{truncateAddress(characterId)}</code> · Current role: {currentRole}
+        Character: <CopyableId id={characterId} asCode /> · Current role: {currentRole}
       </CharacterLabel>
 
       <Warning>

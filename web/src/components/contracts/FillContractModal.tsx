@@ -5,7 +5,8 @@ import { Modal } from "../shared/Modal";
 import { useIdentity } from "../../hooks/useIdentity";
 import { useMyStructures } from "../../hooks/useStructures";
 import { useNotifications } from "../../hooks/useNotifications";
-import { formatAmount, truncateAddress } from "../../lib/format";
+import { formatAmount } from "../../lib/format";
+import { CopyableId } from "../shared/CopyableId";
 import type { TrustlessContractData } from "../../lib/types";
 import type { InventoryItemEntry } from "../../hooks/useSsuInventory";
 import {
@@ -349,7 +350,7 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
       {isItemFill && (
         <>
           <Label>Destination SSU</Label>
-          <ReadOnlyField>{truncateAddress(destinationSsuId, 12, 8)}</ReadOnlyField>
+          <ReadOnlyField><CopyableId id={destinationSsuId} startLen={12} endLen={8} /></ReadOnlyField>
 
           <Label>Your Source SSU</Label>
           <SsuPickerField

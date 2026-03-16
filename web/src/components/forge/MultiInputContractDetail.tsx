@@ -7,7 +7,8 @@ import { PrimaryButton, SecondaryButton, DangerButton } from "../shared/Button";
 import { FillSlotModal } from "./FillSlotModal";
 import { useMultiInputContractObject, useMultiInputSlotFills } from "../../hooks/useMultiInputContracts";
 import { buildCancelMultiInputContract, buildExpireMultiInputContract } from "../../lib/sui";
-import { formatAmount, formatDeadline, truncateAddress } from "../../lib/format";
+import { formatAmount, formatDeadline } from "../../lib/format";
+import { CopyableId } from "../shared/CopyableId";
 import type { MultiInputContractData } from "../../lib/types";
 
 const Section = styled.div`
@@ -155,7 +156,7 @@ export function MultiInputContractDetail({ contract, characterId, onClose }: Pro
         disableClose={isPending || showFillModal}
       >
         <DescriptionText>
-          {contract.description || truncateAddress(contract.id)}
+          {contract.description || <CopyableId id={contract.id} />}
         </DescriptionText>
 
         <MetaRow>
@@ -165,7 +166,7 @@ export function MultiInputContractDetail({ contract, characterId, onClose }: Pro
               : `${formatAmount(contract.bountyAmount)} SUI bounty`}
           </BountyAmount>
           <span>{formatDeadline(contract.deadlineMs)}</span>
-          <span>ID: {truncateAddress(contract.id)}</span>
+          <span>ID: <CopyableId id={contract.id} /></span>
         </MetaRow>
 
         <Section>

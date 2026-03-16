@@ -5,7 +5,8 @@ import { Link } from "react-router-dom";
 import { useIdentity } from "../hooks/useIdentity";
 import { useTribe } from "../hooks/useTribe";
 import { getStats, getEvents } from "../lib/indexer";
-import { truncateAddress, timeAgo, formatAmount } from "../lib/format";
+import { timeAgo, formatAmount } from "../lib/format";
+import { CopyableId } from "../components/shared/CopyableId";
 import { LoadingSpinner } from "../components/shared/LoadingSpinner";
 import { useNotifications } from "../hooks/useNotifications";
 import type { ArchivedEvent } from "../lib/types";
@@ -184,12 +185,12 @@ export function Dashboard() {
       <OverviewGrid>
         <OverviewCard>
           <CardLabel>Wallet</CardLabel>
-          <CardValue style={{ fontSize: 14 }}>{truncateAddress(account.address, 8, 6)}</CardValue>
+          <CardValue style={{ fontSize: 14 }}><CopyableId id={account.address} startLen={8} endLen={6} /></CardValue>
         </OverviewCard>
         <OverviewCard>
           <CardLabel>Character</CardLabel>
           <CardValue style={{ fontSize: 14 }}>
-            {characterId ? truncateAddress(characterId) : "—"}
+            {characterId ? <CopyableId id={characterId} /> : "—"}
           </CardValue>
         </OverviewCard>
         <OverviewCard>
@@ -230,7 +231,7 @@ export function Dashboard() {
           {events.map((ev) => (
             <ActivityRow key={ev.id}>
               <EventName>{ev.event_name.replace("Event", "")}</EventName>
-              {ev.character_id && <Meta>{truncateAddress(ev.character_id)}</Meta>}
+              {ev.character_id && <Meta><CopyableId id={ev.character_id} /></Meta>}
               <Meta>{timeAgo(ev.timestamp_ms)}</Meta>
             </ActivityRow>
           ))}

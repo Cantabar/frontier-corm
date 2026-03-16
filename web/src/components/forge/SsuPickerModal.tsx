@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import styled from "styled-components";
 import type { AssemblyData } from "../../lib/types";
 import { ASSEMBLY_TYPES } from "../../lib/types";
-import { truncateAddress } from "../../lib/format";
+import { CopyableId } from "../shared/CopyableId";
 
 // ── Styled components ──────────────────────────────────────────
 
@@ -187,7 +187,7 @@ export function SsuPickerModal({ ssus, onSelect, onClose }: Props) {
                 <StatusDot $online={isOnline} title={ssu.status} />
                 <SsuInfo>
                   <SsuName>{label}</SsuName>
-                  <SsuMeta>{truncateAddress(ssu.id, 8, 6)}</SsuMeta>
+                  <SsuMeta><CopyableId id={ssu.id} startLen={8} endLen={6} /></SsuMeta>
                 </SsuInfo>
               </SsuCard>
             );

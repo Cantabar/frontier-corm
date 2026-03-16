@@ -3,7 +3,7 @@ import styled from "styled-components";
 import { SsuPickerModal } from "./SsuPickerModal";
 import type { AssemblyData } from "../../lib/types";
 import { ASSEMBLY_TYPES } from "../../lib/types";
-import { truncateAddress } from "../../lib/format";
+import { CopyableId } from "../shared/CopyableId";
 
 const Trigger = styled.button`
   width: 100%;
@@ -79,7 +79,7 @@ export function SsuPickerField({ ssus, value, onSelect }: Props) {
                 ASSEMBLY_TYPES[selected.typeId]?.label ||
                 "SSU"}
             </Name>
-            <IdLabel>{truncateAddress(selected.id, 6, 4)}</IdLabel>
+            <IdLabel><CopyableId id={selected.id} /></IdLabel>
           </>
         ) : (
           <Placeholder>Pick a specific SSU…</Placeholder>

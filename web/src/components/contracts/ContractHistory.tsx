@@ -1,6 +1,7 @@
 import styled from "styled-components";
 import { useContractHistory } from "../../hooks/useContracts";
-import { truncateAddress, timeAgo } from "../../lib/format";
+import { timeAgo } from "../../lib/format";
+import { CopyableId } from "../shared/CopyableId";
 import { StatusBadge } from "../shared/StatusBadge";
 import { EmptyState } from "../shared/EmptyState";
 import { LoadingSpinner } from "../shared/LoadingSpinner";
@@ -65,7 +66,7 @@ export function ContractHistory() {
       </HeaderRow>
       {events.map((ev) => (
         <Row key={ev.id}>
-          <Cell>{ev.primary_id ? truncateAddress(ev.primary_id) : "—"}</Cell>
+          <Cell>{ev.primary_id ? <CopyableId id={ev.primary_id} /> : "—"}</Cell>
           <Cell>
             <StatusBadge status={eventStatusVariant(ev.event_name)} />
           </Cell>

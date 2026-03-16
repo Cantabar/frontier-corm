@@ -11,6 +11,7 @@ import { NetworkNodeGroup } from "../components/structures/NetworkNodeGroup";
 import { buildOnlineStructure, buildOfflineStructure } from "../lib/sui";
 import { config } from "../config";
 import { truncateAddress } from "../lib/format";
+import { CopyableId } from "../components/shared/CopyableId";
 import { ASSEMBLY_TYPES } from "../lib/types";
 import type { AssemblyData, AssemblyTypeFilter, AssemblyStatus } from "../lib/types";
 
@@ -530,7 +531,7 @@ function StructureRow({
       <StructureInfo>
         <StructureName>{displayName}</StructureName>
         <StructureMeta>
-          <code>{truncateAddress(structure.id)}</code>
+          <CopyableId id={structure.id} asCode />
           {structure.description && ` · ${structure.description}`}
         </StructureMeta>
       </StructureInfo>

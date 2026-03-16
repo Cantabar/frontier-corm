@@ -1,6 +1,6 @@
 import { useState } from "react";
 import styled from "styled-components";
-import { truncateAddress } from "../../lib/format";
+import { CopyableId } from "../shared/CopyableId";
 import type { AssemblyStatus, NetworkNodeData } from "../../lib/types";
 
 // ---------------------------------------------------------------------------
@@ -177,7 +177,7 @@ export function NetworkNodeGroup({
     );
   }
 
-  const displayName = node.name || truncateAddress(node.id, 10, 6);
+  const displayName = node.name || null;
   const accent = accentColorForStatus(node.status);
   const fuelPct =
     node.fuelMaxCapacity > 0
@@ -194,7 +194,7 @@ export function NetworkNodeGroup({
     <GroupContainer $accentColor={accent}>
       <GroupHeader onClick={() => setOpen((o) => !o)}>
         <StatusDot $status={node.status} />
-        <NodeName>{displayName}</NodeName>
+        <NodeName>{displayName ?? <CopyableId id={node.id} startLen={10} endLen={6} />}</NodeName>
         <NodeMeta>{node.status}</NodeMeta>
         <NodeMeta>·</NodeMeta>
         <BarGroup>

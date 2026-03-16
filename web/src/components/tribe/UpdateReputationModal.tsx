@@ -3,7 +3,7 @@ import styled from "styled-components";
 import { useSignAndExecuteTransaction } from "@mysten/dapp-kit";
 import { Modal } from "../shared/Modal";
 import { buildUpdateReputation } from "../../lib/sui";
-import { truncateAddress } from "../../lib/format";
+import { CopyableId } from "../shared/CopyableId";
 import { PrimaryButton } from "../shared/Button";
 
 const Label = styled.label`
@@ -94,7 +94,7 @@ export function UpdateReputationModal({ tribeId, capId, characterId, currentRepu
   return (
     <Modal title="Update Reputation" onClose={onClose}>
       <CharacterLabel>
-        Character: <code>{truncateAddress(characterId)}</code> · Current score: {currentReputation}
+        Character: <CopyableId id={characterId} asCode /> · Current score: {currentReputation}
       </CharacterLabel>
 
       <Label>Direction</Label>

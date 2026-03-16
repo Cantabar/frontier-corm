@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import styled from "styled-components";
 import type { AssemblyData } from "../../lib/types";
 import { ASSEMBLY_TYPES } from "../../lib/types";
-import { truncateAddress } from "../../lib/format";
+import { CopyableId } from "../shared/CopyableId";
 import { SsuPickerField } from "./SsuPickerField";
 
 // ---------------------------------------------------------------------------
@@ -240,7 +240,7 @@ export function SsuInventoryToggle({
                       checked={isChecked}
                       onChange={() => toggleSsu(ssu.id)}
                     />
-                    {label} — {truncateAddress(ssu.id, 8, 6)}
+                    {label} — <CopyableId id={ssu.id} startLen={8} endLen={6} />
                   </SsuRow>
                 );
               })

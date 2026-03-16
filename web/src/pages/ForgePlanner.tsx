@@ -14,7 +14,8 @@ import { MultiInputContractDetail } from "../components/forge/MultiInputContract
 import { LoadingSpinner } from "../components/shared/LoadingSpinner";
 import { EmptyState } from "../components/shared/EmptyState";
 import { PrimaryButton } from "../components/shared/Button";
-import { timeAgo, truncateAddress } from "../lib/format";
+import { timeAgo } from "../lib/format";
+import { CopyableId } from "../components/shared/CopyableId";
 import type { MultiInputContractData } from "../lib/types";
 
 // ── Page-level tab type ────────────────────────────────────────
@@ -231,7 +232,7 @@ export function ForgePlanner() {
                 <div>
                   <EventName>{ev.event_name.replace("Event", "")}</EventName>
                   {ev.character_id && (
-                    <Meta> · {truncateAddress(ev.character_id)}</Meta>
+                    <Meta> · <CopyableId id={ev.character_id} /></Meta>
                   )}
                 </div>
                 <Meta>{timeAgo(ev.timestamp_ms)}</Meta>

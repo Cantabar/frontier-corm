@@ -2,7 +2,8 @@ import { useState } from "react";
 import styled from "styled-components";
 import { useCurrentAccount, useSignAndExecuteTransaction } from "@mysten/dapp-kit";
 import type { TribeData, TribeCapData, TreasuryProposalData } from "../../lib/types";
-import { formatAmount, truncateAddress, formatDeadline } from "../../lib/format";
+import { formatAmount, formatDeadline } from "../../lib/format";
+import { CopyableId } from "../shared/CopyableId";
 import { parseCoinSymbol, isNativeSui } from "../../lib/coinUtils";
 import { useCoinObjectIds } from "../../hooks/useCoinTypes";
 import { buildDepositToTreasury, buildWithdrawFromTreasury, buildProposeTreasurySpend, buildVoteOnProposal, buildExecuteProposal } from "../../lib/sui";
@@ -249,7 +250,7 @@ export function TreasuryPanel({ tribe, cap, proposals }: Props) {
             .map((p) => (
               <ProposalCard key={p.id}>
                 <ProposalMeta>
-                  To {truncateAddress(p.recipient)} · {formatDeadline(p.deadlineMs)} ·{" "}
+                  To <CopyableId id={p.recipient} /> · {formatDeadline(p.deadlineMs)} ·{" "}
                   {p.voteCount} vote{p.voteCount !== 1 && "s"}
                 </ProposalMeta>
                 <ProposalAmount>{formatAmount(p.amount)} {coinSymbol}</ProposalAmount>

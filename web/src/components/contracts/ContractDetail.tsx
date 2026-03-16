@@ -3,7 +3,8 @@ import styled from "styled-components";
 import { useSuiClient, useSignAndExecuteTransaction } from "@mysten/dapp-kit";
 import { useQueryClient } from "@tanstack/react-query";
 import type { TrustlessContractData } from "../../lib/types";
-import { truncateAddress, formatAmount, formatDeadline, contractTypeLabel } from "../../lib/format";
+import { formatAmount, formatDeadline, contractTypeLabel } from "../../lib/format";
+import { CopyableId } from "../shared/CopyableId";
 import { CharacterDisplay } from "../shared/CharacterDisplay";
 import { StatusBadge } from "../shared/StatusBadge";
 import { ItemBadge } from "../shared/ItemBadge";
@@ -343,7 +344,7 @@ export function ContractDetail({ contract: initial, onStatusChange }: Props) {
               </div>
               <div>
                 <Label>Destination SSU</Label>
-                <Value>{truncateAddress(c.contractType.destinationSsuId)}</Value>
+                <Value><CopyableId id={c.contractType.destinationSsuId} /></Value>
               </div>
               {c.allowPartial && (
                 <div>
@@ -373,7 +374,7 @@ export function ContractDetail({ contract: initial, onStatusChange }: Props) {
               </div>
               <div>
                 <Label>Source SSU</Label>
-                <Value>{truncateAddress(c.contractType.sourceSsuId)}</Value>
+                <Value><CopyableId id={c.contractType.sourceSsuId} /></Value>
               </div>
               {c.allowPartial && (
                 <div>
@@ -403,11 +404,11 @@ export function ContractDetail({ contract: initial, onStatusChange }: Props) {
               </div>
               <div>
                 <Label>Source SSU</Label>
-                <Value>{truncateAddress(c.contractType.sourceSsuId)}</Value>
+                <Value><CopyableId id={c.contractType.sourceSsuId} /></Value>
               </div>
               <div>
                 <Label>Destination SSU</Label>
-                <Value>{truncateAddress(c.contractType.destinationSsuId)}</Value>
+                <Value><CopyableId id={c.contractType.destinationSsuId} /></Value>
               </div>
               {c.allowPartial && (
                 <div>
@@ -429,11 +430,11 @@ export function ContractDetail({ contract: initial, onStatusChange }: Props) {
               </div>
               <div>
                 <Label>Source SSU (pickup)</Label>
-                <Value>{truncateAddress(c.contractType.sourceSsuId)}</Value>
+                <Value><CopyableId id={c.contractType.sourceSsuId} /></Value>
               </div>
               <div>
                 <Label>Destination SSU (delivery)</Label>
-                <Value>{truncateAddress(c.contractType.destinationSsuId)}</Value>
+                <Value><CopyableId id={c.contractType.destinationSsuId} /></Value>
               </div>
               {c.allowPartial && (
                 <div>
@@ -461,7 +462,9 @@ export function ContractDetail({ contract: initial, onStatusChange }: Props) {
           <AccessSection>
             <strong>Access Restricted</strong>
             {c.allowedCharacters.length > 0 && (
-              <div>Characters: {c.allowedCharacters.map((a) => truncateAddress(a)).join(", ")}</div>
+              <div>Characters: {c.allowedCharacters.map((a, i) => (
+                <span key={a}>{i > 0 && ", "}<CopyableId id={a} /></span>
+              ))}</div>
             )}
             {c.allowedTribes.length > 0 && (
               <div>Tribes: {c.allowedTribes.join(", ")}</div>

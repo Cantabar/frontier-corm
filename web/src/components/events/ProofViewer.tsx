@@ -1,7 +1,8 @@
 import styled from "styled-components";
 import { useQuery } from "@tanstack/react-query";
 import { getEventProof } from "../../lib/indexer";
-import { truncateAddress, timeAgo } from "../../lib/format";
+import { timeAgo } from "../../lib/format";
+import { CopyableId } from "../shared/CopyableId";
 import { LoadingSpinner } from "../shared/LoadingSpinner";
 
 const Wrapper = styled.div`
@@ -89,7 +90,7 @@ style={{ background: "none", border: "none", color: "#78909C", cursor: "pointer"
       </Field>
       <Field>
         <FieldLabel>Tx Digest</FieldLabel>
-        <FieldValue>{truncateAddress(data.proof.tx_digest, 10, 6)}</FieldValue>
+        <FieldValue><CopyableId id={data.proof.tx_digest} startLen={10} endLen={6} /></FieldValue>
       </Field>
       <Field>
         <FieldLabel>Event Seq</FieldLabel>

@@ -2,7 +2,8 @@ import { useState } from "react";
 import styled from "styled-components";
 import { useQuery } from "@tanstack/react-query";
 import { getEvents } from "../lib/indexer";
-import { timeAgo, truncateAddress } from "../lib/format";
+import { timeAgo } from "../lib/format";
+import { CopyableId } from "../components/shared/CopyableId";
 import { ProofViewer } from "../components/events/ProofViewer";
 import { LoadingSpinner } from "../components/shared/LoadingSpinner";
 import { EmptyState } from "../components/shared/EmptyState";
@@ -175,7 +176,7 @@ $color={m === "all" ? "#F0F4F8" : MODULE_COLORS[m]}
                   {mod === "trustlessContracts" ? "CONTRACTS" : mod === "forgePlanner" ? "FORGE" : "TRIBE"}
                 </ModuleBadge>
                 <EventName>{ev.event_name.replace("Event", "")}</EventName>
-                {ev.character_id && <Meta>{truncateAddress(ev.character_id)}</Meta>}
+                {ev.character_id && <Meta><CopyableId id={ev.character_id} /></Meta>}
                 <Meta>{timeAgo(ev.timestamp_ms)}</Meta>
               </EventRow>
             );

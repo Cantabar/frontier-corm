@@ -8,8 +8,8 @@ import { useTribe } from "../hooks/useTribe";
 import { CreateTribeModal } from "../components/tribe/CreateTribeModal";
 import { LoadingSpinner } from "../components/shared/LoadingSpinner";
 import { EmptyState } from "../components/shared/EmptyState";
-import { truncateAddress } from "../lib/format";
 import { buildLookupTribeByGameId } from "../lib/sui";
+import { CopyableId } from "../components/shared/CopyableId";
 import { config } from "../config";
 import { PrimaryButton } from "../components/shared/Button";
 import type { TribeListItem } from "../lib/types";
@@ -377,10 +377,10 @@ export function TribeListPage() {
                 </Td>
                 <Td>—</Td>
                 <Td>
-                  <code>{optimistic.leaderCharacterId ? truncateAddress(optimistic.leaderCharacterId) : "—"}</code>
+                  {optimistic.leaderCharacterId ? <CopyableId id={optimistic.leaderCharacterId} asCode /> : "—"}
                 </Td>
                 <Td>
-                  <code>{truncateAddress(optimistic.id)}</code>
+                  <CopyableId id={optimistic.id} asCode />
                 </Td>
               </tr>
             )}
@@ -411,14 +411,14 @@ export function TribeListPage() {
                   <Td>{t.characterCount > 0 ? t.characterCount : "—"}</Td>
                   <Td>
                     {oc?.leaderCharacterId ? (
-                      <code>{truncateAddress(oc.leaderCharacterId)}</code>
+                      <CopyableId id={oc.leaderCharacterId} asCode />
                     ) : (
                       "—"
                     )}
                   </Td>
                   <Td>
                     {oc ? (
-                      <code>{truncateAddress(oc.id)}</code>
+                      <CopyableId id={oc.id} asCode />
                     ) : inGameTribeId === t.inGameTribeId ? (
                       <SmallButton
                         onClick={() => setShowCreate(true)}
