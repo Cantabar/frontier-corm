@@ -4,6 +4,7 @@ import { useIdentity } from "../hooks/useIdentity";
 import { useManufacturingHistory } from "../hooks/useOrders";
 import { useBlueprints } from "../hooks/useBlueprints";
 import { useActiveMultiInputContracts, useMultiInputContractObject } from "../hooks/useMultiInputContracts";
+import { canViewContract } from "../lib/contractVisibility";
 import { BlueprintBrowser } from "../components/forge/BlueprintBrowser";
 import { OptimizerPanel } from "../components/forge/OptimizerPanel";
 import { BuildQueuePanel } from "../components/forge/BuildQueuePanel";
@@ -134,12 +135,13 @@ function ContractCardWithLiveState({
 // ── Page component ─────────────────────────────────────────────
 
 export function ForgePlanner() {
-  const { characterId, tribeCaps } = useIdentity();
+  const { characterId, inGameTribeId, tribeCaps } = useIdentity();
   const tribeId = tribeCaps[0]?.tribeId;
 
   const { blueprints, recipesForOptimizer } = useBlueprints();
   const { data: historyData, isLoading: historyLoading } = useManufacturingHistory(tribeId);
-  const { contracts, isLoading: contractsLoading } = useActiveMultiInputContracts();
+  const { contracts: allContracts, isLoading: contractsLoading } = useActiveMultiInputContracts();
+  const contracts = allContracts.filter((c) => canViewContract(c, { characterId, inGameTribeId }));
 
   const [activeTab, setActiveTab] = useState<PageTab>("blueprints");
   const [showCreateOrder, setShowCreateOrder] = useState(false);

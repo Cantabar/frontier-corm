@@ -6,6 +6,7 @@ import { ContractCard } from "../components/contracts/ContractCard";
 import { ContractDetail } from "../components/contracts/ContractDetail";
 import { CreateContractModal } from "../components/contracts/CreateContractModal";
 import { ContractHistory } from "../components/contracts/ContractHistory";
+import { canViewContract } from "../lib/contractVisibility";
 import { LoadingSpinner } from "../components/shared/LoadingSpinner";
 import { EmptyState } from "../components/shared/EmptyState";
 import { PrimaryButton, SecondaryButton } from "../components/shared/Button";
@@ -85,7 +86,7 @@ const SectionLabel = styled.h2`
 type StatusTab = "all" | "Open" | "InProgress" | "Completed";
 
 export function TrustlessContracts() {
-  const { characterId } = useIdentity();
+  const { characterId, inGameTribeId } = useIdentity();
   const { contracts, isLoading, refetch } = useActiveContracts();
 
   const [statusTab, setStatusTab] = useState<StatusTab>("all");
@@ -94,6 +95,7 @@ export function TrustlessContracts() {
   const [showCreate, setShowCreate] = useState(false);
 
   const filtered = contracts.filter((c) => {
+    if (!canViewContract(c, { characterId, inGameTribeId })) return false;
     if (statusTab !== "all" && c.status !== statusTab) return false;
     if (typeFilter !== "all" && c.contractType.variant !== typeFilter) return false;
     return true;
