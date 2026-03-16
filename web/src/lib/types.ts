@@ -167,7 +167,7 @@ export type TrustlessContractType =
   | { variant: "ItemForItem"; offeredTypeId: number; offeredQuantity: number; sourceSsuId: string; wantedTypeId: number; wantedQuantity: number; destinationSsuId: string }
   | { variant: "Transport"; itemTypeId: number; itemQuantity: number; sourceSsuId: string; destinationSsuId: string; paymentAmount: string; requiredStake: string };
 
-export type TrustlessContractStatus = "Open" | "InProgress";
+export type TrustlessContractStatus = "Open" | "InProgress" | "Completed";
 
 export interface TrustlessContractData {
   id: string;

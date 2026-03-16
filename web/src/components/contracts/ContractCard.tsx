@@ -99,7 +99,8 @@ function contractSummary(c: TrustlessContractData): ReactNode {
   }
 }
 
-function statusVariant(s: TrustlessContractData["status"]): "open" | "in-progress" {
+function statusVariant(s: TrustlessContractData["status"]): "open" | "in-progress" | "completed" {
+  if (s === "Completed") return "completed";
   return s === "InProgress" ? "in-progress" : "open";
 }
 

@@ -16,6 +16,8 @@ import {
   buildAcceptTransport,
   buildCancelTrustlessContract,
   buildExpireTrustlessContract,
+  buildCleanupCompletedContract,
+  buildCleanupCompletedItemContract,
 } from "../../lib/sui";
 import { FillContractModal } from "./FillContractModal";
 import { PrimaryButton, SecondaryButton as SharedSecondary, DangerButton as SharedDanger } from "../shared/Button";
@@ -119,7 +121,8 @@ const ActionRow = styled.div`
 // ---------------------------------------------------------------------------
 
 
-function statusVariant(s: TrustlessContractData["status"]): "open" | "in-progress" {
+function statusVariant(s: TrustlessContractData["status"]): "open" | "in-progress" | "completed" {
+  if (s === "Completed") return "completed";
   return s === "InProgress" ? "in-progress" : "open";
 }
 
@@ -154,6 +157,7 @@ export function ContractDetail({ contract: initial }: Props) {
 
   const isPoster = characterId === c.posterId;
   const isCourier = c.courierId != null && characterId === c.courierId;
+  const isCompleted = c.status === "Completed";
   const isOpen = c.status === "Open";
   const isInProgress = c.status === "InProgress";
   const isExpired = Number(c.deadlineMs) < Date.now();
@@ -166,17 +170,18 @@ export function ContractDetail({ contract: initial }: Props) {
 
   // Determine which fill actions are available
   const canFillCoins =
-    !isPoster && isOpen && !isExpired &&
+    !isPoster && isOpen && !isCompleted && !isExpired &&
     (c.contractType.variant === "CoinForCoin" || c.contractType.variant === "ItemForCoin");
   const canFillItems =
-    !isPoster && isOpen && !isExpired &&
+    !isPoster && isOpen && !isCompleted && !isExpired &&
     (c.contractType.variant === "CoinForItem" || c.contractType.variant === "ItemForItem");
   const canAcceptTransport =
-    !isPoster && isOpen && !isExpired && c.contractType.variant === "Transport";
+    !isPoster && isOpen && !isCompleted && !isExpired && c.contractType.variant === "Transport";
   const canDeliver =
-    isCourier && isInProgress && !isExpired && c.contractType.variant === "Transport";
-  const canCancel = isPoster && isOpen;
-  const canExpire = isExpired;
+    isCourier && isInProgress && !isCompleted && !isExpired && c.contractType.variant === "Transport";
+  const canCancel = isPoster && isOpen && !isCompleted;
+  const canExpire = isExpired && !isCompleted;
+  const canCleanup = isCompleted;
 
   async function handleCancel() {
     if (!characterId) return;
@@ -196,6 +201,33 @@ export function ContractDetail({ contract: initial }: Props) {
       await signAndExecute({ transaction: tx as any });
     } catch (err) {
       push({ level: "error", title: "Expire Failed", message: String(err), source: "contract-detail" });
+    }
+  }
+
+  async function handleCleanup() {
+    try {
+      const isItemContract =
+        c.contractType.variant === "ItemForCoin" || c.contractType.variant === "ItemForItem";
+      if (isItemContract) {
+        const sourceSsuId =
+          c.contractType.variant === "ItemForCoin" ? c.contractType.sourceSsuId :
+          c.contractType.variant === "ItemForItem" ? c.contractType.sourceSsuId : "";
+        const tx = buildCleanupCompletedItemContract({
+          contractId: c.id,
+          posterCharacterId: c.posterId,
+          sourceSsuId,
+        });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await signAndExecute({ transaction: tx as any });
+      } else {
+        const tx = buildCleanupCompletedContract({ contractId: c.id });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await signAndExecute({ transaction: tx as any });
+      }
+      push({ level: "info", title: "Contract Cleaned Up", message: "On-chain object deleted.", source: "contract-detail" });
+      handleFilled();
+    } catch (err) {
+      push({ level: "error", title: "Cleanup Failed", message: String(err), source: "contract-detail" });
     }
   }
 
@@ -435,6 +467,11 @@ export function ContractDetail({ contract: initial }: Props) {
           {canExpire && (
             <SharedSecondary onClick={handleExpire} disabled={isPending}>
               {isPending ? "Expiring…" : "Expire"}
+            </SharedSecondary>
+          )}
+          {canCleanup && (
+            <SharedSecondary onClick={handleCleanup} disabled={isPending}>
+              {isPending ? "Cleaning up…" : "Cleanup"}
             </SharedSecondary>
           )}
         </ActionRow>

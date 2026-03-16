@@ -85,8 +85,10 @@ function parseContractType(raw: Record<string, unknown>): TrustlessContractType 
 function parseStatus(raw: unknown): TrustlessContractStatus {
   if (typeof raw === "object" && raw !== null) {
     const variant = (raw as Record<string, unknown>).variant as string | undefined;
+    if (variant === "Completed" || "Completed" in raw) return "Completed";
     if (variant === "InProgress" || "InProgress" in raw) return "InProgress";
   }
+  if (raw === "Completed") return "Completed";
   if (raw === "InProgress") return "InProgress";
   return "Open";
 }
@@ -115,6 +117,16 @@ function eventToContract(ev: { parsedJson?: unknown; id: { txDigest: string } })
 
 function objectToContract(objectId: string, fields: Record<string, unknown>): TrustlessContractData {
   const ct = (fields.contract_type as Record<string, unknown>) ?? {};
+  let status = parseStatus(fields.status);
+
+  // Infer Completed for pre-upgrade contracts that were fully filled
+  // but still have status Open (before the Completed variant existed)
+  const filled = BigInt(String(fields.filled_quantity ?? "0"));
+  const target = BigInt(String(fields.target_quantity ?? "0"));
+  if (status === "Open" && target > 0n && filled >= target) {
+    status = "Completed";
+  }
+
   return {
     id: objectId,
     posterId: String(fields.poster_id ?? ""),
@@ -127,7 +139,7 @@ function objectToContract(objectId: string, fields: Record<string, unknown>): Tr
     requireStake: Boolean(fields.require_stake),
     stakeAmount: String(fields.stake_amount ?? "0"),
     deadlineMs: String(fields.deadline_ms ?? "0"),
-    status: parseStatus(fields.status),
+    status,
     courierId: fields.courier_id ? String(fields.courier_id) : undefined,
     courierAddress: fields.courier_address ? String(fields.courier_address) : undefined,
     allowedCharacters: (fields.allowed_characters as string[]) ?? [],
@@ -181,10 +193,13 @@ export function useActiveContracts() {
         if (fields) liveMap.set(obj.data.objectId, fields);
       }
     }
-    return eventContracts.map((ec) => {
-      const fields = liveMap.get(ec.id);
-      return fields ? objectToContract(ec.id, fields) : ec;
-    });
+    return eventContracts
+      .map((ec) => {
+        const fields = liveMap.get(ec.id);
+        return fields ? objectToContract(ec.id, fields) : ec;
+      })
+      // Exclude contracts whose objects were deleted (cleaned up)
+      .filter((ec) => liveMap.has(ec.id));
   }, [eventContracts, liveObjects]);
 
   return { contracts, isLoading: eventsLoading || objectsLoading, error, refetch };

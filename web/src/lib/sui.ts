@@ -1050,6 +1050,40 @@ export function buildExpireTrustlessContract(params: {
   return tx;
 }
 
+// --- Cleanup ---
+
+export function buildCleanupCompletedContract(params: {
+  contractId: string;
+}): Transaction {
+  const tx = new Transaction();
+  tx.moveCall({
+    target: tcTarget("cleanup_completed_contract"),
+    typeArguments: tcTypes(),
+    arguments: [
+      tx.object(params.contractId),
+    ],
+  });
+  return tx;
+}
+
+export function buildCleanupCompletedItemContract(params: {
+  contractId: string;
+  posterCharacterId: string;
+  sourceSsuId: string;
+}): Transaction {
+  const tx = new Transaction();
+  tx.moveCall({
+    target: tcTarget("cleanup_completed_item_contract"),
+    typeArguments: tcTypes(),
+    arguments: [
+      tx.object(params.contractId),
+      tx.object(params.posterCharacterId),
+      tx.object(params.sourceSsuId),
+    ],
+  });
+  return tx;
+}
+
 // ============================================================
 // SSU Extension Authorization
 // ============================================================

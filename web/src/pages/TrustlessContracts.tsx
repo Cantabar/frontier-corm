@@ -82,7 +82,7 @@ const SectionLabel = styled.h2`
 
 // ---------------------------------------------------------------------------
 
-type StatusTab = "all" | "Open" | "InProgress";
+type StatusTab = "all" | "Open" | "InProgress" | "Completed";
 
 export function TrustlessContracts() {
   const { characterId } = useIdentity();
@@ -116,7 +116,7 @@ export function TrustlessContracts() {
       ) : (
         <>
           <FilterRow>
-            {(["all", "Open", "InProgress"] as StatusTab[]).map((t) => (
+            {(["all", "Open", "InProgress", "Completed"] as StatusTab[]).map((t) => (
               <Tab key={t} $active={statusTab === t} onClick={() => setStatusTab(t)}>
                 {t === "all" ? "All" : t === "InProgress" ? "In Progress" : t}
               </Tab>
