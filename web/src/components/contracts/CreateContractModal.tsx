@@ -21,6 +21,8 @@ import { SsuItemPickerField } from "../shared/SsuItemPickerField";
 import { CharacterPickerField } from "../shared/CharacterPickerField";
 import { TribePickerField } from "../shared/TribePickerField";
 import { PrimaryButton } from "../shared/Button";
+import { toBaseUnits, fromBaseUnits } from "../../lib/coinUtils";
+import { useEscrowCoinDecimals, useFillCoinDecimals } from "../../hooks/useCoinDecimals";
 
 // ---------------------------------------------------------------------------
 // Creation-phase steps (shared stepper)
@@ -174,6 +176,8 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
   const { mutateAsync: signAndExecute, isPending } = useSignAndExecuteTransaction();
   const suiClient = useSuiClient();
   const { structures, refetch: refetchStructures } = useMyStructures();
+  const { decimals: ceDecimals, symbol: ceSymbol } = useEscrowCoinDecimals();
+  const { decimals: cfDecimals, symbol: cfSymbol } = useFillCoinDecimals();
 
   const getOwnerCapId = useCallback(
     (ssuId: string) => structures.find((s) => s.id === ssuId)?.ownerCapId ?? "",
@@ -355,8 +359,8 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
         case "CoinForCoin":
           tx = buildCreateCoinForCoin({
             characterId,
-            escrowAmount: Math.round(Number(escrow) * 1e9),
-            wantedAmount: Math.round(Number(wantedAmount) * 1e9),
+            escrowAmount: toBaseUnits(escrow, ceDecimals),
+            wantedAmount: toBaseUnits(wantedAmount, cfDecimals),
             allowPartial,
             deadlineMs,
             allowedCharacters: chars,
@@ -366,7 +370,7 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
         case "CoinForItem":
           tx = buildCreateCoinForItem({
             characterId,
-            escrowAmount: Math.round(Number(escrow) * 1e9),
+            escrowAmount: toBaseUnits(escrow, ceDecimals),
             wantedTypeId: Number(wantedTypeId),
             wantedQuantity: Number(wantedQuantity),
             destinationSsuId,
@@ -387,7 +391,7 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
             ownerCapId: cap.ownerCapId,
             ownerCapVersion: cap.ownerCapVersion,
             ownerCapDigest: cap.ownerCapDigest,
-            wantedAmount: Math.round(Number(itemWantedAmount) * 1e9),
+            wantedAmount: toBaseUnits(itemWantedAmount, cfDecimals),
             allowPartial,
             deadlineMs,
             allowedCharacters: chars,
@@ -419,12 +423,12 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
         case "Transport":
           tx = buildCreateTransport({
             characterId,
-            escrowAmount: Math.round(Number(escrow) * 1e9),
+            escrowAmount: toBaseUnits(escrow, ceDecimals),
             itemTypeId: Number(transportItemTypeId),
             itemQuantity: Number(transportItemQuantity),
             sourceSsuId: transportSourceSsuId,
             destinationSsuId,
-            requiredStake: Math.round(Number(requiredStake) * 1e9),
+            requiredStake: toBaseUnits(requiredStake, ceDecimals),
             useOwnerInventory: structures.some((s) => s.id === destinationSsuId),
             deadlineMs,
             allowedCharacters: chars,
@@ -458,32 +462,32 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
     if (!allowPartial) return null;
     switch (variant) {
       case "CoinForCoin": {
-        const e = Math.round(Number(escrow) * 1e9);
-        const w = Math.round(Number(wantedAmount) * 1e9);
+        const e = toBaseUnits(escrow, ceDecimals);
+        const w = toBaseUnits(wantedAmount, cfDecimals);
         if (e > 0 && w > 0 && e % w !== 0) {
           const unitDown = Math.floor(e / w) * w;
           const unitUp = (Math.floor(e / w) + 1) * w;
-          return `Reward must be evenly divisible by wanted amount. Nearest valid rewards: ${(unitDown / 1e9).toFixed(9).replace(/\.?0+$/, "")} or ${(unitUp / 1e9).toFixed(9).replace(/\.?0+$/, "")} SUI`;
+          return `Reward must be evenly divisible by wanted amount. Nearest valid rewards: ${fromBaseUnits(unitDown, ceDecimals).toFixed(ceDecimals).replace(/\.?0+$/, "")} or ${fromBaseUnits(unitUp, ceDecimals).toFixed(ceDecimals).replace(/\.?0+$/, "")} ${ceSymbol}`;
         }
         return null;
       }
       case "CoinForItem": {
-        const e = Math.round(Number(escrow) * 1e9);
+        const e = toBaseUnits(escrow, ceDecimals);
         const q = Number(wantedQuantity);
         if (e > 0 && q > 0 && e % q !== 0) {
           const unitDown = Math.floor(e / q) * q;
           const unitUp = (Math.floor(e / q) + 1) * q;
-          return `Reward must be evenly divisible by wanted quantity (${q}). Nearest valid rewards: ${(unitDown / 1e9).toFixed(9).replace(/\.?0+$/, "")} or ${(unitUp / 1e9).toFixed(9).replace(/\.?0+$/, "")} SUI`;
+          return `Reward must be evenly divisible by wanted quantity (${q}). Nearest valid rewards: ${fromBaseUnits(unitDown, ceDecimals).toFixed(ceDecimals).replace(/\.?0+$/, "")} or ${fromBaseUnits(unitUp, ceDecimals).toFixed(ceDecimals).replace(/\.?0+$/, "")} ${ceSymbol}`;
         }
         return null;
       }
       case "ItemForCoin": {
-        const w = Math.round(Number(itemWantedAmount) * 1e9);
+        const w = toBaseUnits(itemWantedAmount, cfDecimals);
         const q = Number(offeredQuantity);
         if (w > 0 && q > 0 && w % q !== 0) {
           const unitDown = Math.floor(w / q) * q;
           const unitUp = (Math.floor(w / q) + 1) * q;
-          return `Wanted amount must be evenly divisible by offered quantity (${q}). Nearest valid amounts: ${(unitDown / 1e9).toFixed(9).replace(/\.?0+$/, "")} or ${(unitUp / 1e9).toFixed(9).replace(/\.?0+$/, "")} SUI`;
+          return `Wanted amount must be evenly divisible by offered quantity (${q}). Nearest valid amounts: ${fromBaseUnits(unitDown, cfDecimals).toFixed(cfDecimals).replace(/\.?0+$/, "")} or ${fromBaseUnits(unitUp, cfDecimals).toFixed(cfDecimals).replace(/\.?0+$/, "")} ${cfSymbol}`;
         }
         return null;
       }
@@ -498,8 +502,8 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
         return null;
       }
       case "Transport": {
-        const p = Math.round(Number(escrow) * 1e9);
-        const s = Math.round(Number(requiredStake) * 1e9);
+        const p = toBaseUnits(escrow, ceDecimals);
+        const s = toBaseUnits(requiredStake, ceDecimals);
         const q = Number(transportItemQuantity);
         if (q > 0) {
           if (p > 0 && p % q !== 0)
@@ -510,7 +514,7 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
         return null;
       }
     }
-  }, [variant, escrow, wantedAmount, wantedQuantity, itemWantedAmount, offeredQuantity, i4iWantedQuantity, transportItemQuantity, requiredStake, allowPartial]);
+  }, [variant, escrow, wantedAmount, wantedQuantity, itemWantedAmount, offeredQuantity, i4iWantedQuantity, transportItemQuantity, requiredStake, allowPartial, ceDecimals, cfDecimals, ceSymbol, cfSymbol]);
 
   /** Unit price hint text shown when amounts are valid and non-zero. */
   const unitPriceHint: string | null = useMemo(() => {
@@ -519,19 +523,19 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
       case "CoinForCoin": {
         const e = Number(escrow);
         const w = Number(wantedAmount);
-        if (e > 0 && w > 0) return `Rate: ${(e / w).toFixed(4).replace(/\.?0+$/, "")} SUI reward per 1 SUI filled`;
+        if (e > 0 && w > 0) return `Rate: ${(e / w).toFixed(4).replace(/\.?0+$/, "")} ${ceSymbol} reward per 1 ${cfSymbol} filled`;
         return null;
       }
       case "CoinForItem": {
         const e = Number(escrow);
         const q = Number(wantedQuantity);
-        if (e > 0 && q > 0) return `Rate: ${(e / q).toFixed(4).replace(/\.?0+$/, "")} SUI per item`;
+        if (e > 0 && q > 0) return `Rate: ${(e / q).toFixed(4).replace(/\.?0+$/, "")} ${ceSymbol} per item`;
         return null;
       }
       case "ItemForCoin": {
         const w = Number(itemWantedAmount);
         const q = Number(offeredQuantity);
-        if (w > 0 && q > 0) return `Rate: ${(w / q).toFixed(4).replace(/\.?0+$/, "")} SUI per item`;
+        if (w > 0 && q > 0) return `Rate: ${(w / q).toFixed(4).replace(/\.?0+$/, "")} ${cfSymbol} per item`;
         return null;
       }
       case "ItemForItem": {
@@ -543,7 +547,7 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
       case "Transport": {
         const p = Number(escrow);
         const q = Number(transportItemQuantity);
-        if (p > 0 && q > 0) return `Rate: ${(p / q).toFixed(4).replace(/\.?0+$/, "")} SUI per item delivered`;
+        if (p > 0 && q > 0) return `Rate: ${(p / q).toFixed(4).replace(/\.?0+$/, "")} ${ceSymbol} per item delivered`;
         return null;
       }
     }
@@ -581,7 +585,7 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
       {/* Type-specific fields */}
       {(variant === "CoinForCoin" || variant === "CoinForItem" || variant === "Transport") && (
         <div>
-          <Label>Reward Amount (SUI)</Label>
+          <Label>Reward Amount ({ceSymbol})</Label>
           <Input type="number" placeholder="0.0" value={escrow} onChange={(e) => setEscrow(e.target.value)} />
           <Hint>This amount will be held in escrow until the contract is fulfilled or cancelled.</Hint>
           {submitted && !isValidCoinAmount(escrow) && <FieldError>Enter a valid amount</FieldError>}
@@ -590,7 +594,7 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
 
       {variant === "CoinForCoin" && (
         <div>
-          <Label>Wanted Amount (SUI)</Label>
+          <Label>Wanted Amount ({cfSymbol})</Label>
           <Input type="number" placeholder="0.0" value={wantedAmount} onChange={(e) => setWantedAmount(e.target.value)} />
           {submitted && !isValidCoinAmount(wantedAmount) && <FieldError>Enter a valid amount</FieldError>}
         </div>
@@ -652,7 +656,7 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
               )}
             </div>
           </Row>
-          <Label>Wanted Amount (SUI)</Label>
+          <Label>Wanted Amount ({cfSymbol})</Label>
           <Input type="number" placeholder="0.0" value={itemWantedAmount} onChange={(e) => setItemWantedAmount(e.target.value)} />
           {submitted && !isValidCoinAmount(itemWantedAmount) && <FieldError>Enter a valid amount</FieldError>}
           {itemWantedAmount === "0" && <Hint>Items will be offered for free &mdash; fillers can claim without paying.</Hint>}
@@ -752,7 +756,7 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
           <Label>Destination SSU (delivery)</Label>
           <SsuPickerField value={destinationSsuId} onChange={(id) => setDestinationSsuId(id)} />
           {submitted && !destinationSsuId && <FieldError>Required</FieldError>}
-          <Label>Required Stake (SUI)</Label>
+          <Label>Required Stake ({ceSymbol})</Label>
           <Input type="number" placeholder="0.0" value={requiredStake} onChange={(e) => setRequiredStake(e.target.value)} />
           {submitted && !(Number(requiredStake) > 0) && <FieldError>Must be greater than 0</FieldError>}
         </>

@@ -22,6 +22,8 @@ import { CharacterPickerField } from "../components/shared/CharacterPickerField"
 import { TribePickerField } from "../components/shared/TribePickerField";
 import { ItemBadge } from "../components/shared/ItemBadge";
 import { PrimaryButton, SecondaryButton } from "../components/shared/Button";
+import { toBaseUnits, fromBaseUnits } from "../lib/coinUtils";
+import { useEscrowCoinDecimals, useFillCoinDecimals } from "../hooks/useCoinDecimals";
 
 // ---------------------------------------------------------------------------
 // Creation-phase tracking
@@ -407,12 +409,10 @@ const VARIANT_DESCRIPTIONS: Record<TrustlessContractVariant, string> = {
   Transport: "Pay for item delivery to an SSU (courier stakes collateral)",
 };
 
-const SUI_MIST = 1_000_000_000n;
-
-function parseSuiToMist(value: string): bigint | null {
+function parseToBaseUnits(value: string, decimals: number): bigint | null {
   const amount = Number(value);
   if (!Number.isFinite(amount) || amount <= 0) return null;
-  return BigInt(Math.round(amount * 1e9));
+  return BigInt(toBaseUnits(value, decimals));
 }
 
 function parsePositiveInteger(value: string): bigint | null {
@@ -432,6 +432,8 @@ export function CreateContractPage() {
   const suiClient = useSuiClient();
   const { structures, refetch: refetchStructures } = useMyStructures();
   const { refetch: refetchContracts } = useActiveContracts();
+  const { decimals: ceDecimals, symbol: ceSymbol } = useEscrowCoinDecimals();
+  const { decimals: cfDecimals, symbol: cfSymbol } = useFillCoinDecimals();
 
   const getOwnerCapId = useCallback(
     (ssuId: string) => structures.find((s) => s.id === ssuId)?.ownerCapId ?? "",
@@ -521,32 +523,32 @@ export function CreateContractPage() {
     if (!allowPartial) return null;
     switch (variant) {
       case "CoinForCoin": {
-        const e = Math.round(Number(escrow) * 1e9);
-        const w = Math.round(Number(wantedAmount) * 1e9);
+        const e = toBaseUnits(escrow, ceDecimals);
+        const w = toBaseUnits(wantedAmount, cfDecimals);
         if (e > 0 && w > 0 && e % w !== 0) {
           const unitDown = Math.floor(e / w) * w;
           const unitUp = (Math.floor(e / w) + 1) * w;
-          return `Reward must be evenly divisible by wanted amount. Nearest valid rewards: ${(unitDown / 1e9).toFixed(9).replace(/\.?0+$/, "")} or ${(unitUp / 1e9).toFixed(9).replace(/\.?0+$/, "")} SUI`;
+          return `Reward must be evenly divisible by wanted amount. Nearest valid rewards: ${fromBaseUnits(unitDown, ceDecimals).toFixed(ceDecimals).replace(/\.?0+$/, "")} or ${fromBaseUnits(unitUp, ceDecimals).toFixed(ceDecimals).replace(/\.?0+$/, "")} ${ceSymbol}`;
         }
         return null;
       }
       case "CoinForItem": {
-        const e = Math.round(Number(escrow) * 1e9);
+        const e = toBaseUnits(escrow, ceDecimals);
         const q = Number(wantedQuantity);
         if (e > 0 && q > 0 && e % q !== 0) {
           const unitDown = Math.floor(e / q) * q;
           const unitUp = (Math.floor(e / q) + 1) * q;
-          return `Reward must be evenly divisible by wanted quantity (${q}). Nearest valid rewards: ${(unitDown / 1e9).toFixed(9).replace(/\.?0+$/, "")} or ${(unitUp / 1e9).toFixed(9).replace(/\.?0+$/, "")} SUI`;
+          return `Reward must be evenly divisible by wanted quantity (${q}). Nearest valid rewards: ${fromBaseUnits(unitDown, ceDecimals).toFixed(ceDecimals).replace(/\.?0+$/, "")} or ${fromBaseUnits(unitUp, ceDecimals).toFixed(ceDecimals).replace(/\.?0+$/, "")} ${ceSymbol}`;
         }
         return null;
       }
       case "ItemForCoin": {
-        const w = Math.round(Number(itemWantedAmount) * 1e9);
+        const w = toBaseUnits(itemWantedAmount, cfDecimals);
         const q = Number(offeredQuantity);
         if (w > 0 && q > 0 && w % q !== 0) {
           const unitDown = Math.floor(w / q) * q;
           const unitUp = (Math.floor(w / q) + 1) * q;
-          return `Wanted amount must be evenly divisible by offered quantity (${q}). Nearest valid amounts: ${(unitDown / 1e9).toFixed(9).replace(/\.?0+$/, "")} or ${(unitUp / 1e9).toFixed(9).replace(/\.?0+$/, "")} SUI`;
+          return `Wanted amount must be evenly divisible by offered quantity (${q}). Nearest valid amounts: ${fromBaseUnits(unitDown, cfDecimals).toFixed(cfDecimals).replace(/\.?0+$/, "")} or ${fromBaseUnits(unitUp, cfDecimals).toFixed(cfDecimals).replace(/\.?0+$/, "")} ${cfSymbol}`;
         }
         return null;
       }
@@ -561,8 +563,8 @@ export function CreateContractPage() {
         return null;
       }
       case "Transport": {
-        const p = Math.round(Number(escrow) * 1e9);
-        const s = Math.round(Number(requiredStake) * 1e9);
+        const p = toBaseUnits(escrow, ceDecimals);
+        const s = toBaseUnits(requiredStake, ceDecimals);
         const q = Number(transportItemQuantity);
         if (q > 0) {
           if (p > 0 && p % q !== 0)
@@ -573,44 +575,46 @@ export function CreateContractPage() {
         return null;
       }
     }
-  }, [variant, escrow, wantedAmount, wantedQuantity, itemWantedAmount, offeredQuantity, i4iWantedQuantity, transportItemQuantity, requiredStake, allowPartial]);
+  }, [variant, escrow, wantedAmount, wantedQuantity, itemWantedAmount, offeredQuantity, i4iWantedQuantity, transportItemQuantity, requiredStake, allowPartial, ceDecimals, cfDecimals, ceSymbol, cfSymbol]);
 
   /** Two-part rate hint: ratio + plain-language explanation. */
   const unitPriceHint: { ratio: string; detail: string } | null = useMemo(() => {
     if (divisibilityError) return null;
     switch (variant) {
       case "CoinForCoin": {
-        const rewardMist = parseSuiToMist(escrow);
-        const fillMist = parseSuiToMist(wantedAmount);
-        if (rewardMist && fillMist) {
-          const rate = formatRate(rewardMist, fillMist);
+        const rewardBase = parseToBaseUnits(escrow, ceDecimals);
+        const fillBase = parseToBaseUnits(wantedAmount, cfDecimals);
+        if (rewardBase && fillBase) {
+          const rate = formatRate(rewardBase, fillBase);
           return {
             ratio: `Exchange rate: ${rate} : 1 (reward : fill)`,
-            detail: `For every 1 SUI a filler sends, they receive ${rate} SUI from escrow`,
+            detail: `For every 1 ${cfSymbol} a filler sends, they receive ${rate} ${ceSymbol} from escrow`,
           };
         }
         return null;
       }
       case "CoinForItem": {
-        const rewardMist = parseSuiToMist(escrow);
+        const rewardBase = parseToBaseUnits(escrow, ceDecimals);
         const wantedQty = parsePositiveInteger(wantedQuantity);
-        if (rewardMist && wantedQty) {
-          const rate = formatRate(rewardMist, wantedQty * SUI_MIST);
+        if (rewardBase && wantedQty) {
+          const oneUnit = BigInt(10 ** ceDecimals);
+          const rate = formatRate(rewardBase, wantedQty * oneUnit);
           return {
-            ratio: `Exchange rate: ${rate} : 1 (SUI reward : item)`,
-            detail: `For every 1 item delivered, ${rate} SUI is paid from escrow`,
+            ratio: `Exchange rate: ${rate} : 1 (${ceSymbol} reward : item)`,
+            detail: `For every 1 item delivered, ${rate} ${ceSymbol} is paid from escrow`,
           };
         }
         return null;
       }
       case "ItemForCoin": {
-        const wantedMist = parseSuiToMist(itemWantedAmount);
+        const wantedBase = parseToBaseUnits(itemWantedAmount, cfDecimals);
         const offeredQty = parsePositiveInteger(offeredQuantity);
-        if (wantedMist && offeredQty) {
-          const rate = formatRate(wantedMist, offeredQty * SUI_MIST);
+        if (wantedBase && offeredQty) {
+          const oneUnit = BigInt(10 ** cfDecimals);
+          const rate = formatRate(wantedBase, offeredQty * oneUnit);
           return {
-            ratio: `Exchange rate: ${rate} : 1 (SUI : item)`,
-            detail: `For every 1 item purchased, the filler pays ${rate} SUI`,
+            ratio: `Exchange rate: ${rate} : 1 (${cfSymbol} : item)`,
+            detail: `For every 1 item purchased, the filler pays ${rate} ${cfSymbol}`,
           };
         }
         return null;
@@ -628,13 +632,14 @@ export function CreateContractPage() {
         return null;
       }
       case "Transport": {
-        const rewardMist = parseSuiToMist(escrow);
+        const rewardBase = parseToBaseUnits(escrow, ceDecimals);
         const itemQty = parsePositiveInteger(transportItemQuantity);
-        if (rewardMist && itemQty) {
-          const rate = formatRate(rewardMist, itemQty * SUI_MIST);
+        if (rewardBase && itemQty) {
+          const oneUnit = BigInt(10 ** ceDecimals);
+          const rate = formatRate(rewardBase, itemQty * oneUnit);
           return {
-            ratio: `Exchange rate: ${rate} : 1 (SUI : delivered item)`,
-            detail: `For every 1 item delivered, ${rate} SUI is paid`,
+            ratio: `Exchange rate: ${rate} : 1 (${ceSymbol} : delivered item)`,
+            detail: `For every 1 item delivered, ${rate} ${ceSymbol} is paid`,
           };
         }
         return null;
@@ -734,8 +739,8 @@ export function CreateContractPage() {
         case "CoinForCoin":
           tx = buildCreateCoinForCoin({
             characterId,
-            escrowAmount: Math.round(Number(escrow) * 1e9),
-            wantedAmount: Math.round(Number(wantedAmount) * 1e9),
+            escrowAmount: toBaseUnits(escrow, ceDecimals),
+            wantedAmount: toBaseUnits(wantedAmount, cfDecimals),
             allowPartial,
             deadlineMs,
             allowedCharacters: chars,
@@ -745,7 +750,7 @@ export function CreateContractPage() {
         case "CoinForItem":
           tx = buildCreateCoinForItem({
             characterId,
-            escrowAmount: Math.round(Number(escrow) * 1e9),
+            escrowAmount: toBaseUnits(escrow, ceDecimals),
             wantedTypeId: Number(wantedTypeId),
             wantedQuantity: Number(wantedQuantity),
             destinationSsuId,
@@ -766,7 +771,7 @@ export function CreateContractPage() {
             ownerCapId: cap.ownerCapId,
             ownerCapVersion: cap.ownerCapVersion,
             ownerCapDigest: cap.ownerCapDigest,
-            wantedAmount: Math.round(Number(itemWantedAmount) * 1e9),
+            wantedAmount: toBaseUnits(itemWantedAmount, cfDecimals),
             allowPartial,
             deadlineMs,
             allowedCharacters: chars,
@@ -798,12 +803,12 @@ export function CreateContractPage() {
         case "Transport":
           tx = buildCreateTransport({
             characterId,
-            escrowAmount: Math.round(Number(escrow) * 1e9),
+            escrowAmount: toBaseUnits(escrow, ceDecimals),
             itemTypeId: Number(transportItemTypeId),
             itemQuantity: Number(transportItemQuantity),
             sourceSsuId: transportSourceSsuId,
             destinationSsuId,
-            requiredStake: Math.round(Number(requiredStake) * 1e9),
+            requiredStake: toBaseUnits(requiredStake, ceDecimals),
             useOwnerInventory: structures.some((s) => s.id === destinationSsuId),
             deadlineMs,
             allowedCharacters: chars,
@@ -851,23 +856,23 @@ export function CreateContractPage() {
       case "CoinForCoin": {
         const e = Number(escrow) || 0;
         const w = Number(wantedAmount) || 0;
-        return { offering: `${e} SUI`, wanting: `${w} SUI` };
+        return { offering: `${e} ${ceSymbol}`, wanting: `${w} ${cfSymbol}` };
       }
       case "CoinForItem": {
         const e = Number(escrow) || 0;
-        return { offering: `${e} SUI`, wantedTypeId: Number(wantedTypeId) || 0, wantedQty: Number(wantedQuantity) || 0 };
+        return { offering: `${e} ${ceSymbol}`, wantedTypeId: Number(wantedTypeId) || 0, wantedQty: Number(wantedQuantity) || 0 };
       }
       case "ItemForCoin": {
         const qty = Number(offeredQuantity) || 0;
         const want = Number(itemWantedAmount) || 0;
         const perUnit = qty > 0 && want > 0 ? (want / qty).toFixed(4) : null;
-        return { offeredTypeId: Number(itemId) || 0, offeredQty: qty, wanting: `${want} SUI`, perUnit };
+        return { offeredTypeId: Number(itemId) || 0, offeredQty: qty, wanting: `${want} ${cfSymbol}`, perUnit };
       }
       case "ItemForItem":
         return { offeredTypeId: Number(itemId) || 0, offeredQty: Number(offeredQuantity) || 0, wantedTypeId: Number(i4iWantedTypeId) || 0, wantedQty: Number(i4iWantedQuantity) || 0 };
       case "Transport": {
         const e = Number(escrow) || 0;
-        return { offering: `${e} SUI`, itemTypeId: Number(transportItemTypeId) || 0, itemQty: Number(transportItemQuantity) || 0 };
+        return { offering: `${e} ${ceSymbol}`, itemTypeId: Number(transportItemTypeId) || 0, itemQty: Number(transportItemQuantity) || 0 };
       }
     }
   }, [variant, escrow, wantedAmount, wantedTypeId, wantedQuantity, itemId, offeredQuantity, itemWantedAmount, i4iWantedTypeId, i4iWantedQuantity, transportItemTypeId, transportItemQuantity]);
@@ -924,7 +929,7 @@ export function CreateContractPage() {
       }
       case "ItemForCoin": {
         const s = p as { offeredTypeId: number; offeredQty: number; wanting: string; perUnit: string | null };
-        return <>{s.offeredTypeId ? <ItemBadge typeId={s.offeredTypeId} showQuantity={s.offeredQty || undefined} /> : "…"} for {s.wanting}{s.perUnit && <> ({s.perUnit} SUI/item)</>}</>;
+        return <>{s.offeredTypeId ? <ItemBadge typeId={s.offeredTypeId} showQuantity={s.offeredQty || undefined} /> : "…"} for {s.wanting}{s.perUnit && <> ({s.perUnit} {cfSymbol}/item)</>}</>;
       }
       case "ItemForItem": {
         const s = p as { offeredTypeId: number; offeredQty: number; wantedTypeId: number; wantedQty: number };
@@ -965,7 +970,7 @@ export function CreateContractPage() {
 
           {(variant === "CoinForCoin" || variant === "CoinForItem" || variant === "Transport") && (
             <div>
-              <Label>Reward Amount (SUI)</Label>
+              <Label>Reward Amount ({ceSymbol})</Label>
               <Input type="number" placeholder="0.0" value={escrow} onChange={(e) => setEscrow(e.target.value)} />
               <Hint>This amount will be held in escrow until the contract is fulfilled or cancelled.</Hint>
               {submitted && !isValidCoinAmount(escrow) && <FieldError>Enter a valid amount</FieldError>}
@@ -974,7 +979,7 @@ export function CreateContractPage() {
 
           {variant === "CoinForCoin" && (
             <div>
-              <Label>Wanted Amount (SUI)</Label>
+              <Label>Wanted Amount ({cfSymbol})</Label>
               <Input type="number" placeholder="0.0" value={wantedAmount} onChange={(e) => setWantedAmount(e.target.value)} />
               {submitted && !isValidCoinAmount(wantedAmount) && <FieldError>Enter a valid amount</FieldError>}
             </div>
@@ -1041,14 +1046,14 @@ export function CreateContractPage() {
                   )}
                 </div>
               </Row>
-              <Label>Wanted Amount (SUI)</Label>
+              <Label>Wanted Amount ({cfSymbol})</Label>
               <Input type="number" placeholder="0.0" value={itemWantedAmount} onChange={(e) => setItemWantedAmount(e.target.value)} />
               {submitted && !isValidCoinAmount(itemWantedAmount) && <FieldError>Enter a valid amount</FieldError>}
               {itemWantedAmount === "0" && <Hint>Items will be offered for free &mdash; fillers can claim without paying.</Hint>}
               {Number(offeredQuantity) > 0 && Number(itemWantedAmount) > 0 && (
                 <Hint>
-                  Price per item: {(Number(itemWantedAmount) / Number(offeredQuantity)).toFixed(4)} SUI
-                  &nbsp;·&nbsp; Total for {Number(offeredQuantity).toLocaleString()} items: {itemWantedAmount} SUI
+                  Price per item: {(Number(itemWantedAmount) / Number(offeredQuantity)).toFixed(4)} {cfSymbol}
+                  &nbsp;·&nbsp; Total for {Number(offeredQuantity).toLocaleString()} items: {itemWantedAmount} {cfSymbol}
                 </Hint>
               )}
             </>
@@ -1147,7 +1152,7 @@ export function CreateContractPage() {
               <Label>Destination SSU (delivery)</Label>
               <SsuPickerField value={destinationSsuId} onChange={(id) => setDestinationSsuId(id)} />
               {submitted && !destinationSsuId && <FieldError>Required</FieldError>}
-              <Label>Required Stake (SUI)</Label>
+              <Label>Required Stake ({ceSymbol})</Label>
               <Input type="number" placeholder="0.0" value={requiredStake} onChange={(e) => setRequiredStake(e.target.value)} />
               {submitted && !(Number(requiredStake) > 0) && <FieldError>Must be greater than 0</FieldError>}
             </>
@@ -1230,7 +1235,7 @@ export function CreateContractPage() {
           <PreviewMeta>
             {(variant === "CoinForCoin" || variant === "CoinForItem" || variant === "Transport") && Number(escrow) > 0 && (
               <PreviewAmount>
-                {formatAmount(String(Math.round(Number(escrow) * 1e9)))} SUI reward
+                {formatAmount(String(toBaseUnits(escrow, ceDecimals)), ceDecimals)} {ceSymbol} reward
               </PreviewAmount>
             )}
             <span>{Number(deadlineHours) > 0 ? `${deadlineHours}h deadline` : "No deadline"}</span>
