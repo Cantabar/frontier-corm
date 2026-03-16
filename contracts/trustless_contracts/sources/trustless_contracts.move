@@ -301,7 +301,8 @@ public fun create_coin_for_coin<CE, CF>(
     // At least one side must be non-zero; a 0/0 contract is meaningless.
     assert!(offered_amount > 0 || wanted_amount > 0, EWantedAmountZero);
     // Divisibility guard: ensure clean unit price exists (no rounding dust).
-    if (offered_amount > 0 && wanted_amount > 0) {
+    // Only needed when partial fills are allowed; full fills drain everything.
+    if (allow_partial && offered_amount > 0 && wanted_amount > 0) {
         assert!(offered_amount % wanted_amount == 0, ENotDivisible);
     };
 
@@ -385,7 +386,10 @@ public fun create_coin_for_item<CE, CF>(
 
     let offered_amount = escrow_coin.value();
     // Divisibility guard: escrow must divide evenly by wanted quantity.
-    assert!(offered_amount % (wanted_quantity as u64) == 0, ENotDivisible);
+    // Only needed when partial fills are allowed; full fills drain everything.
+    if (allow_partial) {
+        assert!(offered_amount % (wanted_quantity as u64) == 0, ENotDivisible);
+    };
 
     let poster_id = character.id();
     let poster_address = character.character_address();
@@ -469,7 +473,8 @@ public fun create_item_for_coin<CE, CF>(
     let offered_type_id = inventory::type_id(&item);
     let offered_quantity = inventory::quantity(&item);
     // Divisibility guard: wanted coins must divide evenly by offered item count.
-    if (wanted_amount > 0) {
+    // Only needed when partial fills are allowed; full fills drain everything.
+    if (allow_partial && wanted_amount > 0) {
         assert!(wanted_amount % (offered_quantity as u64) == 0, ENotDivisible);
     };
 
@@ -564,7 +569,10 @@ public fun create_item_for_item<CE, CF>(
     assert!(inventory::quantity(&item) > 0, EZeroQuantity);
     assert!(wanted_quantity > 0, EZeroQuantity);
     // Divisibility guard: offered items must divide evenly by wanted items.
-    assert!((inventory::quantity(&item) as u64) % (wanted_quantity as u64) == 0, ENotDivisible);
+    // Only needed when partial fills are allowed; full fills release everything.
+    if (allow_partial) {
+        assert!((inventory::quantity(&item) as u64) % (wanted_quantity as u64) == 0, ENotDivisible);
+    };
 
     let poster_id = character.id();
     let poster_address = character.character_address();
@@ -986,11 +994,13 @@ public fun fill_item_for_coin<CE, CF>(
     contract.filled_quantity = contract.filled_quantity + fill_amount;
 
     // Calculate item release using exact division (no rounding dust).
-    // Divisibility enforced at creation: wanted_amount % offered_quantity == 0.
+    // Divisibility enforced at creation when allow_partial is true.
     let (offered_type_id, offered_quantity) = get_offered_item_info(&contract.contract_type);
     let coins_per_item = contract.target_quantity / (offered_quantity as u64);
-    // Validate fill is a multiple of the per-item cost
-    assert!(fill_amount % coins_per_item == 0, EFillNotMultiple);
+    // Validate fill is a multiple of the per-item cost (only relevant for partial fills)
+    if (contract.allow_partial) {
+        assert!(fill_amount % coins_per_item == 0, EFillNotMultiple);
+    };
 
     let is_final = (contract.filled_quantity == contract.target_quantity);
     let items_to_release = if (is_final) {

@@ -2090,3 +2090,109 @@ fun test_fill_coin_for_item_to_owner_inventory() {
 
     ts::end(ts);
 }
+
+// =========================================================================
+// Divisibility skipped when allow_partial = false — CoinForCoin
+// =========================================================================
+
+#[test]
+fun test_non_divisible_coin_for_coin_no_partial() {
+    let mut ts = ts::begin(@0x0);
+    let (poster_id, filler_id) = setup_characters(&mut ts);
+
+    // 1000 % 300 != 0 — would abort with partial, but succeeds with no-partial
+    ts::next_tx(&mut ts, user_a());
+    {
+        let poster = ts::take_shared_by_id<Character>(&ts, poster_id);
+        let escrow = coin::mint_for_testing<ESCROW>(1000, ts::ctx(&mut ts));
+        let clock = clock::create_for_testing(ts::ctx(&mut ts));
+
+        trustless_contracts::create_coin_for_coin<ESCROW, FILL>(
+            &poster, escrow, 300, false, FAR_FUTURE_MS,
+            vector[], vector[], &clock, ts::ctx(&mut ts),
+        );
+
+        clock.destroy_for_testing();
+        ts::return_shared(poster);
+    };
+
+    // Verify contract was created
+    ts::next_tx(&mut ts, user_a());
+    {
+        let contract = ts::take_shared<Contract<ESCROW, FILL>>(&ts);
+        assert!(trustless_contracts::contract_escrow_amount(&contract) == 1000);
+        assert!(trustless_contracts::contract_target_quantity(&contract) == 300);
+        assert!(trustless_contracts::contract_allow_partial(&contract) == false);
+        ts::return_shared(contract);
+    };
+
+    // Full fill succeeds — filler pays 300, gets all 1000 escrow
+    ts::next_tx(&mut ts, user_b());
+    {
+        let mut contract = ts::take_shared<Contract<ESCROW, FILL>>(&ts);
+        let filler = ts::take_shared_by_id<Character>(&ts, filler_id);
+        let fill_coin = coin::mint_for_testing<FILL>(300, ts::ctx(&mut ts));
+        let clock = clock::create_for_testing(ts::ctx(&mut ts));
+
+        trustless_contracts::fill_with_coins(
+            &mut contract, fill_coin, &filler, &clock, ts::ctx(&mut ts),
+        );
+
+        assert!(trustless_contracts::contract_filled_quantity(&contract) == 300);
+        assert!(trustless_contracts::contract_escrow_balance(&contract) == 0);
+        assert!(trustless_contracts::contract_status(&contract) == trustless_contracts::status_completed());
+
+        clock.destroy_for_testing();
+        ts::return_shared(contract);
+        ts::return_shared(filler);
+    };
+
+    // Verify filler got all escrow
+    ts::next_tx(&mut ts, user_b());
+    {
+        let payout = ts::take_from_sender<Coin<ESCROW>>(&ts);
+        assert!(payout.value() == 1000);
+        ts::return_to_sender(&ts, payout);
+    };
+
+    ts::end(ts);
+}
+
+// =========================================================================
+// Divisibility skipped when allow_partial = false — CoinForItem
+// =========================================================================
+
+#[test]
+fun test_non_divisible_coin_for_item_no_partial() {
+    let mut ts = ts::begin(@0x0);
+    let (poster_id, _) = setup_characters(&mut ts);
+    let dest_ssu_id = object::id_from_address(@0x42);
+
+    // 1000 % 3 != 0 — would abort with partial, but succeeds with no-partial
+    ts::next_tx(&mut ts, user_a());
+    {
+        let poster = ts::take_shared_by_id<Character>(&ts, poster_id);
+        let escrow = coin::mint_for_testing<ESCROW>(1000, ts::ctx(&mut ts));
+        let clock = clock::create_for_testing(ts::ctx(&mut ts));
+
+        trustless_contracts::create_coin_for_item<ESCROW, FILL>(
+            &poster, escrow, 88069, 3, dest_ssu_id, false, false, FAR_FUTURE_MS,
+            vector[], vector[], &clock, ts::ctx(&mut ts),
+        );
+
+        clock.destroy_for_testing();
+        ts::return_shared(poster);
+    };
+
+    // Verify contract was created
+    ts::next_tx(&mut ts, user_a());
+    {
+        let contract = ts::take_shared<Contract<ESCROW, FILL>>(&ts);
+        assert!(trustless_contracts::contract_escrow_amount(&contract) == 1000);
+        assert!(trustless_contracts::contract_target_quantity(&contract) == 3);
+        assert!(trustless_contracts::contract_allow_partial(&contract) == false);
+        ts::return_shared(contract);
+    };
+
+    ts::end(ts);
+}
