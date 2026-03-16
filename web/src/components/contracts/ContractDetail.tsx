@@ -370,8 +370,16 @@ export function ContractDetail({ contract: initial, onStatusChange }: Props) {
                 </Value>
               </div>
               <div>
-                <Label>Wanted Amount</Label>
+                <Label>Total Price</Label>
                 <Value>{formatAmount(c.contractType.wantedAmount)} SUI</Value>
+              </div>
+              <div>
+                <Label>Price per Item</Label>
+                <Value>
+                  {c.contractType.offeredQuantity > 0
+                    ? `${formatAmount(String(Math.round(Number(c.contractType.wantedAmount) / c.contractType.offeredQuantity)))} SUI`
+                    : "—"}
+                </Value>
               </div>
               <div>
                 <Label>Source SSU</Label>

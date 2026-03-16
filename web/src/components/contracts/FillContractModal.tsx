@@ -91,6 +91,35 @@ const RequirementNote = styled.div`
   opacity: 0.7;
 `;
 
+const CostCallout = styled.div`
+  background: ${({ theme }) => theme.colors.primary.subtle};
+  border: 1px solid ${({ theme }) => theme.colors.primary.main};
+  border-radius: ${({ theme }) => theme.radii.sm};
+  padding: ${({ theme }) => theme.spacing.md};
+  margin-bottom: ${({ theme }) => theme.spacing.md};
+  text-align: center;
+`;
+
+const CostLabel = styled.div`
+  font-size: 11px;
+  color: ${({ theme }) => theme.colors.text.muted};
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 2px;
+`;
+
+const CostValue = styled.div`
+  font-size: 20px;
+  font-weight: 700;
+  color: ${({ theme }) => theme.colors.text.primary};
+`;
+
+const CostBreakdown = styled.div`
+  font-size: 12px;
+  color: ${({ theme }) => theme.colors.text.muted};
+  margin-top: 4px;
+`;
+
 // ---------------------------------------------------------------------------
 
 const FILL_STEPS = [
@@ -119,6 +148,9 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
 
   // Coin fill fields
   const [fillAmount, setFillAmount] = useState("");
+
+  // ItemForCoin item-quantity fill field
+  const [fillItemQty, setFillItemQty] = useState("");
 
   // Free-claim quantity field
   const [claimQuantity, setClaimQuantity] = useState("");
@@ -166,6 +198,7 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
     : (characterOwnerCapId ?? "");
 
   const variant = contract.contractType.variant;
+  const isItemForCoin = variant === "ItemForCoin";
 
   const isCoinFill = variant === "CoinForCoin" || variant === "ItemForCoin";
 
@@ -199,11 +232,33 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
     return undefined;
   })();
 
+  // Per-unit price for ItemForCoin (in MIST)
+  const perUnitPriceMist = useMemo(() => {
+    if (!isItemForCoin || contract.contractType.variant !== "ItemForCoin") return 0;
+    const { wantedAmount, offeredQuantity } = contract.contractType;
+    if (offeredQuantity === 0) return 0;
+    return Number(wantedAmount) / offeredQuantity;
+  }, [contract, isItemForCoin]);
+
+  // Total cost for the selected item quantity (in MIST)
+  const fillItemCostMist = useMemo(() => {
+    const qty = Number(fillItemQty) || 0;
+    if (!isItemForCoin || qty <= 0 || perUnitPriceMist <= 0) return 0;
+    const ct = contract.contractType;
+    if (ct.variant !== "ItemForCoin") return 0;
+    // Use integer math to avoid rounding issues: ceil(qty * wantedAmount / offeredQuantity)
+    const total = BigInt(qty) * BigInt(ct.wantedAmount);
+    const divisor = BigInt(ct.offeredQuantity);
+    // Ceiling division
+    return Number((total + divisor - 1n) / divisor);
+  }, [fillItemQty, isItemForCoin, perUnitPriceMist, contract]);
+
   // Full-fill SUI amount for non-partial coin fills (human-readable)
   const requiredFillSui = useMemo(() => {
     if (contract.allowPartial) return "";
     const ct = contract.contractType;
     if (ct.variant === "CoinForCoin") return (Number(ct.wantedAmount) / 1e9).toString();
+    // ItemForCoin: no longer used for display, but keep for CoinForCoin compat
     if (ct.variant === "ItemForCoin") return (Number(ct.wantedAmount) / 1e9).toString();
     return "";
   }, [contract]);
@@ -217,12 +272,19 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
     return 0;
   }, [contract]);
 
-  // Auto-set fillAmount for non-partial coin fills
+  // Auto-set fillAmount for non-partial coin fills (CoinForCoin only now)
   useEffect(() => {
-    if (!contract.allowPartial && requiredFillSui) {
+    if (!contract.allowPartial && requiredFillSui && !isItemForCoin) {
       setFillAmount(requiredFillSui);
     }
-  }, [contract.allowPartial, requiredFillSui]);
+  }, [contract.allowPartial, requiredFillSui, isItemForCoin]);
+
+  // Auto-set fillItemQty for non-partial ItemForCoin fills
+  useEffect(() => {
+    if (!contract.allowPartial && isItemForCoin && remaining > 0) {
+      setFillItemQty(String(remaining));
+    }
+  }, [contract.allowPartial, isItemForCoin, remaining]);
 
   // For item-fill contracts, lock the source to the destination SSU.
   // The filler's items must already be in their player inventory on that SSU.
@@ -288,7 +350,7 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
           result = await signAndExecute({ transaction: tx as any });
         } else {
           // ItemForCoin — filler pays coins to get items
-          const amount = Math.round(Number(fillAmount) * 1e9);
+          const amount = fillItemCostMist;
           const ct = contract.contractType;
           const sourceSsu = ct.variant === "ItemForCoin" ? ct.sourceSsuId : "";
           const tx = buildFillItemForCoin({
@@ -378,6 +440,7 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
     if (!characterId) return false;
     if (isCoinFill) {
       if (isZeroCoinTarget && (variant === "ItemForCoin" || variant === "CoinForCoin")) return Number(claimQuantity) > 0;
+      if (isItemForCoin) return Number(fillItemQty) > 0 && Number(fillItemQty) <= remaining;
       return Number(fillAmount) > 0;
     }
     if (isItemFill) return !!sourceSsuId && !!selectedTypeId && selectedQty > 0;
@@ -388,18 +451,22 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
   return (
     <Modal title={modalTitle()} onClose={onClose} disableClose={isBusy}>
       <Info>
-        {variant === "ItemForCoin" && contract.contractType.variant === "ItemForCoin" ? (
+        {isItemForCoin && contract.contractType.variant === "ItemForCoin" ? (
           <>
             Items remaining: {remaining.toLocaleString()} / {contract.contractType.offeredQuantity.toLocaleString()}
             <div>Item: <ItemBadge typeId={contract.contractType.offeredTypeId} /></div>
-            <div>Price: {formatAmount(contract.contractType.wantedAmount)} SUI</div>
+            <div>Price per item: {formatAmount(String(Math.round(perUnitPriceMist)))} SUI</div>
+            <div>Total price (all items): {formatAmount(contract.contractType.wantedAmount)} SUI</div>
+            {contract.escrowAmount !== "0" && (
+              <div>Escrow held: {formatAmount(contract.escrowAmount)} SUI</div>
+            )}
           </>
         ) : (
           <>
             Remaining: {remaining.toLocaleString()} / {Number(contract.targetQuantity).toLocaleString()}
           </>
         )}
-        {contract.escrowAmount !== "0" && (
+        {!isItemForCoin && contract.escrowAmount !== "0" && (
           <> — Reward: {formatAmount(contract.escrowAmount)} SUI (held in escrow)</>
         )}
         {variant === "CoinForItem" && contract.contractType.variant === "CoinForItem" && (
@@ -418,8 +485,8 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
           {variant === "CoinForCoin" && contract.contractType.variant === "CoinForCoin" && (
             <>Pay <strong>{formatAmount(contract.contractType.wantedAmount)} SUI</strong> to receive <strong>{formatAmount(contract.contractType.offeredAmount)} SUI</strong></>
           )}
-          {variant === "ItemForCoin" && contract.contractType.variant === "ItemForCoin" && (
-            <>Pay <strong>{formatAmount(contract.contractType.wantedAmount)} SUI</strong> to receive <strong>{contract.contractType.offeredQuantity.toLocaleString()}</strong> × <ItemBadge typeId={contract.contractType.offeredTypeId} /></>
+          {isItemForCoin && contract.contractType.variant === "ItemForCoin" && (
+            <>Pay <strong>{formatAmount(contract.contractType.wantedAmount)} SUI</strong> ({formatAmount(String(Math.round(perUnitPriceMist)))} SUI/item) to receive <strong>{contract.contractType.offeredQuantity.toLocaleString()}</strong> × <ItemBadge typeId={contract.contractType.offeredTypeId} /></>
           )}
           {variant === "CoinForItem" && contract.contractType.variant === "CoinForItem" && (
             <>Deliver <strong>{contract.contractType.wantedQuantity.toLocaleString()}</strong> × <ItemBadge typeId={contract.contractType.wantedTypeId} /> to receive <strong>{formatAmount(contract.contractType.offeredAmount)} SUI</strong></>
@@ -434,7 +501,7 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
         </RequirementBox>
       )}
 
-      {isCoinFill && !isZeroCoinTarget && (
+      {isCoinFill && !isZeroCoinTarget && !isItemForCoin && (
         <>
           <Label>Fill Amount (SUI)</Label>
           {contract.allowPartial ? (
@@ -447,6 +514,35 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
             />
           ) : (
             <ReadOnlyField>{requiredFillSui} SUI</ReadOnlyField>
+          )}
+        </>
+      )}
+
+      {isItemForCoin && !isZeroCoinTarget && (
+        <>
+          <Label>Item Quantity{remaining > 0 ? ` (max ${remaining.toLocaleString()})` : ""}</Label>
+          {contract.allowPartial ? (
+            <Input
+              type="number"
+              min="1"
+              max={remaining || undefined}
+              placeholder="1"
+              value={fillItemQty}
+              onChange={(e) => setFillItemQty(e.target.value)}
+              autoFocus
+            />
+          ) : (
+            <ReadOnlyField>{remaining.toLocaleString()} items</ReadOnlyField>
+          )}
+
+          {Number(fillItemQty) > 0 && fillItemCostMist > 0 && (
+            <CostCallout>
+              <CostLabel>Total Cost</CostLabel>
+              <CostValue>{formatAmount(String(fillItemCostMist))} SUI</CostValue>
+              <CostBreakdown>
+                {Number(fillItemQty).toLocaleString()} × {formatAmount(String(Math.round(perUnitPriceMist)))} SUI per item
+              </CostBreakdown>
+            </CostCallout>
           )}
         </>
       )}
