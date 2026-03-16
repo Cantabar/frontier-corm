@@ -3,11 +3,11 @@ import styled from "styled-components";
 import { useSignAndExecuteTransaction } from "@mysten/dapp-kit";
 import { Modal } from "../shared/Modal";
 import { ItemBadge } from "../shared/ItemBadge";
-import { SsuPickerField } from "./SsuPickerField";
+import { SsuPickerField } from "../shared/SsuPickerField";
 import { PrimaryButton } from "../shared/Button";
 import { useIdentity } from "../../hooks/useIdentity";
 import { useMyStructures } from "../../hooks/useStructures";
-import { buildFillMultiInputSlot } from "../../lib/sui";
+import { buildFillMultiInputSlot, type ItemAccessMode } from "../../lib/sui";
 import type { MultiInputContractData, MultiInputSlot } from "../../lib/types";
 
 const Label = styled.label`
@@ -86,14 +86,14 @@ interface Props {
 }
 
 export function FillSlotModal({ contract, posterCharId, onClose }: Props) {
-  const { characterId } = useIdentity();
+  const {
+    characterId,
+    characterOwnerCapId,
+    characterOwnerCapVersion,
+    characterOwnerCapDigest,
+  } = useIdentity();
   const { structures } = useMyStructures();
   const { mutateAsync: signAndExecute, isPending } = useSignAndExecuteTransaction();
-
-  const ssus = useMemo(
-    () => structures.filter((s) => s.moveType === "StorageUnit"),
-    [structures],
-  );
 
   // Pick the first unfilled slot by default
   const firstOpenSlot =
@@ -103,9 +103,10 @@ export function FillSlotModal({ contract, posterCharId, onClose }: Props) {
     firstOpenSlot?.typeId ?? null,
   );
   const [quantity, setQuantity] = useState("1");
-  const [sourceSsuId, setSourceSsuId] = useState<string | null>(null);
+  const [sourceSsuId, setSourceSsuId] = useState("");
+  const [sourceSsuOwned, setSourceSsuOwned] = useState(true);
 
-  const selectedSsu = ssus.find((s) => s.id === sourceSsuId);
+  const selectedSsu = structures.find((s) => s.id === sourceSsuId);
   const selectedSlot: MultiInputSlot | undefined = contract.slots.find(
     (s) => s.typeId === selectedTypeId,
   );
@@ -113,11 +114,31 @@ export function FillSlotModal({ contract, posterCharId, onClose }: Props) {
     ? Math.max(0, selectedSlot.required - selectedSlot.filled)
     : 0;
 
+  const accessMode: ItemAccessMode | null = useMemo(() => {
+    if (sourceSsuOwned && selectedSsu) {
+      return {
+        mode: "ssuOwner",
+        ownerCapId: selectedSsu.ownerCapId,
+        ownerCapVersion: selectedSsu.ownerCapVersion,
+        ownerCapDigest: selectedSsu.ownerCapDigest,
+      };
+    }
+    if (!sourceSsuOwned && characterOwnerCapId && characterOwnerCapVersion && characterOwnerCapDigest) {
+      return {
+        mode: "character",
+        ownerCapId: characterOwnerCapId,
+        ownerCapVersion: characterOwnerCapVersion,
+        ownerCapDigest: characterOwnerCapDigest,
+      };
+    }
+    return null;
+  }, [sourceSsuOwned, selectedSsu, characterOwnerCapId, characterOwnerCapVersion, characterOwnerCapDigest]);
+
   async function handleFill() {
     if (
       !characterId ||
       !sourceSsuId ||
-      !selectedSsu ||
+      !accessMode ||
       selectedTypeId === null ||
       Number(quantity) <= 0
     )
@@ -129,9 +150,7 @@ export function FillSlotModal({ contract, posterCharId, onClose }: Props) {
       posterCharId,
       fillerCharId: characterId,
       fillerSsuId: sourceSsuId,
-      fillerOwnerCapId: selectedSsu.ownerCapId,
-      fillerOwnerCapVersion: selectedSsu.ownerCapVersion,
-      fillerOwnerCapDigest: selectedSsu.ownerCapDigest,
+      access: accessMode,
       typeId: selectedTypeId,
       quantity: Number(quantity),
     });
@@ -181,7 +200,15 @@ export function FillSlotModal({ contract, posterCharId, onClose }: Props) {
 
       <FieldGroup>
         <Label>Source SSU</Label>
-        <SsuPickerField ssus={ssus} value={sourceSsuId} onSelect={setSourceSsuId} />
+        <SsuPickerField
+          value={sourceSsuId}
+          onChange={(id, owned) => {
+            setSourceSsuId(id);
+            setSourceSsuOwned(owned);
+          }}
+          placeholder="Select source SSU…"
+          allowManualEntry
+        />
       </FieldGroup>
 
       <PrimaryButton
@@ -190,6 +217,7 @@ export function FillSlotModal({ contract, posterCharId, onClose }: Props) {
         disabled={
           !characterId ||
           !sourceSsuId ||
+          !accessMode ||
           selectedTypeId === null ||
           remaining <= 0 ||
           Number(quantity) <= 0 ||

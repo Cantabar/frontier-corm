@@ -17,6 +17,7 @@ import {
   buildClaimFreeItems,
   buildClaimFreeCoins,
   buildDeliverTransport,
+  type ItemAccessMode,
 } from "../../lib/sui";
 import { SsuPickerField } from "../shared/SsuPickerField";
 import { SsuItemPickerField } from "../shared/SsuItemPickerField";
@@ -97,7 +98,12 @@ interface Props {
 }
 
 export function FillContractModal({ contract, onClose, onFilled }: Props) {
-  const { characterId } = useIdentity();
+  const {
+    characterId,
+    characterOwnerCapId,
+    characterOwnerCapVersion,
+    characterOwnerCapDigest,
+  } = useIdentity();
   const suiClient = useSuiClient();
   const { mutateAsync: signAndExecute, isPending } = useSignAndExecuteTransaction();
   const { push } = useNotifications();
@@ -111,6 +117,7 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
 
   // Item fill fields (CoinForItem / ItemForItem)
   const [sourceSsuId, setSourceSsuId] = useState("");
+  const [sourceSsuOwned, setSourceSsuOwned] = useState(true);
   const [selectedTypeId, setSelectedTypeId] = useState("");
   const [selectedQty, setSelectedQty] = useState(0);
 
@@ -122,6 +129,33 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
     () => structures.find((s) => s.id === sourceSsuId),
     [structures, sourceSsuId],
   );
+
+  // Build the access mode based on whether the source SSU is owned or not
+  const accessMode: ItemAccessMode | null = useMemo(() => {
+    if (sourceSsuOwned && sourceSsu) {
+      return {
+        mode: "ssuOwner",
+        ownerCapId: sourceSsu.ownerCapId,
+        ownerCapVersion: sourceSsu.ownerCapVersion,
+        ownerCapDigest: sourceSsu.ownerCapDigest,
+      };
+    }
+    if (!sourceSsuOwned && characterOwnerCapId && characterOwnerCapVersion && characterOwnerCapDigest) {
+      return {
+        mode: "character",
+        ownerCapId: characterOwnerCapId,
+        ownerCapVersion: characterOwnerCapVersion,
+        ownerCapDigest: characterOwnerCapDigest,
+      };
+    }
+    return null;
+  }, [sourceSsuOwned, sourceSsu, characterOwnerCapId, characterOwnerCapVersion, characterOwnerCapDigest]);
+
+  // Inventory display key: for owned SSUs use the SSU's ownerCapId,
+  // for non-owned SSUs use the Character's ownerCapId (player inventory slot key)
+  const inventoryCapId = sourceSsuOwned
+    ? (sourceSsu?.ownerCapId ?? "")
+    : (characterOwnerCapId ?? "");
 
   const variant = contract.contractType.variant;
 
@@ -249,22 +283,17 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           result = await signAndExecute({ transaction: tx as any });
         }
-      } else if (isItemFill && sourceSsu) {
-        const capParams = {
-          fillerSsuId: sourceSsuId,
-          fillerOwnerCapId: sourceSsu.ownerCapId,
-          fillerOwnerCapVersion: sourceSsu.ownerCapVersion,
-          fillerOwnerCapDigest: sourceSsu.ownerCapDigest,
-          typeId: Number(selectedTypeId),
-          quantity: selectedQty,
-        };
+    } else if (isItemFill && accessMode) {
         if (variant === "CoinForItem") {
           const tx = buildFillCoinForItemComposite({
             contractId: contract.id,
             destinationSsuId,
             posterCharacterId: contract.posterId,
             fillerCharacterId: characterId,
-            ...capParams,
+            fillerSsuId: sourceSsuId,
+            access: accessMode,
+            typeId: Number(selectedTypeId),
+            quantity: selectedQty,
           });
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           result = await signAndExecute({ transaction: tx as any });
@@ -278,7 +307,10 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
             destinationSsuId,
             posterCharacterId: contract.posterId,
             fillerCharacterId: characterId,
-            ...capParams,
+            fillerSsuId: sourceSsuId,
+            access: accessMode,
+            typeId: Number(selectedTypeId),
+            quantity: selectedQty,
           });
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           result = await signAndExecute({ transaction: tx as any });
@@ -426,18 +458,20 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
           <Label>Your Source SSU</Label>
           <SsuPickerField
             value={sourceSsuId}
-            onChange={(id) => {
+            onChange={(id, owned) => {
               setSourceSsuId(id);
+              setSourceSsuOwned(owned);
               setSelectedTypeId("");
               setSelectedQty(0);
             }}
             placeholder="Select one of your SSUs…"
+            allowManualEntry
           />
 
           <Label>Item</Label>
           <SsuItemPickerField
             ssuId={sourceSsuId}
-            ownerCapId={sourceSsu?.ownerCapId ?? ""}
+            ownerCapId={inventoryCapId}
             value={selectedTypeId}
             onChange={handleItemSelected}
             filterTypeId={wantedTypeId}
