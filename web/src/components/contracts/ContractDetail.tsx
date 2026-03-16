@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import styled from "styled-components";
-import { useSignAndExecuteTransaction } from "@mysten/dapp-kit";
+import { useSuiClient, useSignAndExecuteTransaction } from "@mysten/dapp-kit";
 import { useQueryClient } from "@tanstack/react-query";
 import type { TrustlessContractData } from "../../lib/types";
 import { truncateAddress, formatAmount, formatDeadline, contractTypeLabel } from "../../lib/format";
@@ -133,6 +133,7 @@ interface Props {
 
 export function ContractDetail({ contract: initial, onStatusChange }: Props) {
   const { characterId } = useIdentity();
+  const suiClient = useSuiClient();
   const { mutateAsync: signAndExecute, isPending } = useSignAndExecuteTransaction();
   const queryClient = useQueryClient();
   const { push } = useNotifications();
@@ -201,7 +202,8 @@ export function ContractDetail({ contract: initial, onStatusChange }: Props) {
     try {
       const tx = buildCancelTrustlessContract({ contractId: c.id, characterId });
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await signAndExecute({ transaction: tx as any });
+      const result = await signAndExecute({ transaction: tx as any });
+      await suiClient.waitForTransaction({ digest: result.digest });
       push({ level: "info", title: "Contract Cancelled", message: "The contract has been cancelled and escrow returned.", source: "contract-detail" });
       handleFilled();
       onStatusChange?.();
@@ -214,7 +216,8 @@ export function ContractDetail({ contract: initial, onStatusChange }: Props) {
     try {
       const tx = buildExpireTrustlessContract({ contractId: c.id });
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await signAndExecute({ transaction: tx as any });
+      const result = await signAndExecute({ transaction: tx as any });
+      await suiClient.waitForTransaction({ digest: result.digest });
       push({ level: "info", title: "Contract Expired", message: "The contract has been marked as expired.", source: "contract-detail" });
       handleFilled();
       onStatusChange?.();
@@ -225,6 +228,7 @@ export function ContractDetail({ contract: initial, onStatusChange }: Props) {
 
   async function handleCleanup() {
     try {
+      let result;
       const isItemContract =
         c.contractType.variant === "ItemForCoin" || c.contractType.variant === "ItemForItem";
       if (isItemContract) {
@@ -237,12 +241,13 @@ export function ContractDetail({ contract: initial, onStatusChange }: Props) {
           sourceSsuId,
         });
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await signAndExecute({ transaction: tx as any });
+        result = await signAndExecute({ transaction: tx as any });
       } else {
         const tx = buildCleanupCompletedContract({ contractId: c.id });
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await signAndExecute({ transaction: tx as any });
+        result = await signAndExecute({ transaction: tx as any });
       }
+      await suiClient.waitForTransaction({ digest: result.digest });
       push({ level: "info", title: "Contract Cleaned Up", message: "On-chain object deleted.", source: "contract-detail" });
       handleFilled();
     } catch (err) {
@@ -259,7 +264,10 @@ export function ContractDetail({ contract: initial, onStatusChange }: Props) {
         characterId,
       });
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await signAndExecute({ transaction: tx as any });
+      const result = await signAndExecute({ transaction: tx as any });
+      await suiClient.waitForTransaction({ digest: result.digest });
+      handleFilled();
+      onStatusChange?.();
     } catch (err) {
       push({ level: "error", title: "Accept Transport Failed", message: String(err), source: "contract-detail" });
     }

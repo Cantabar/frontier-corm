@@ -1,6 +1,6 @@
 import { useState } from "react";
 import styled from "styled-components";
-import { useSignAndExecuteTransaction } from "@mysten/dapp-kit";
+import { useSuiClient, useSignAndExecuteTransaction } from "@mysten/dapp-kit";
 import { Modal } from "../shared/Modal";
 import { useIdentity } from "../../hooks/useIdentity";
 import { useNotifications } from "../../hooks/useNotifications";
@@ -65,6 +65,7 @@ interface Props {
 
 export function FillContractModal({ contract, onClose, onFilled }: Props) {
   const { characterId } = useIdentity();
+  const suiClient = useSuiClient();
   const { mutateAsync: signAndExecute, isPending } = useSignAndExecuteTransaction();
   const { push } = useNotifications();
 
@@ -106,6 +107,7 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
     if (!characterId) return;
 
     try {
+      let result;
       if (isCoinFill) {
         if (isZeroCoinTarget && variant === "CoinForCoin") {
           // Free coin claim — no fill coin, just specify amount
@@ -115,7 +117,7 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
             claimAmount: Math.round(Number(claimQuantity) * 1e9),
           });
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await signAndExecute({ transaction: tx as any });
+          result = await signAndExecute({ transaction: tx as any });
         } else if (isZeroCoinTarget && variant === "ItemForCoin") {
           // Free item claim — no coins, just specify quantity
           const ct = contract.contractType;
@@ -127,7 +129,7 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
             quantity: Number(claimQuantity),
           });
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await signAndExecute({ transaction: tx as any });
+          result = await signAndExecute({ transaction: tx as any });
         } else if (variant === "CoinForCoin") {
           const amount = Math.round(Number(fillAmount) * 1e9);
           const tx = buildFillWithCoins({
@@ -136,7 +138,7 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
             characterId,
           });
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await signAndExecute({ transaction: tx as any });
+          result = await signAndExecute({ transaction: tx as any });
         } else {
           // ItemForCoin — filler pays coins to get items
           const amount = Math.round(Number(fillAmount) * 1e9);
@@ -150,7 +152,7 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
             fillAmount: amount,
           });
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await signAndExecute({ transaction: tx as any });
+          result = await signAndExecute({ transaction: tx as any });
         }
       } else if (isItemFill) {
         const tx = buildFillWithItems({
@@ -161,7 +163,7 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
           itemId,
         });
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await signAndExecute({ transaction: tx as any });
+        result = await signAndExecute({ transaction: tx as any });
       } else if (isTransportDeliver) {
         const ct = contract.contractType;
         const destSsu = ct.variant === "Transport" ? ct.destinationSsuId : ssuId;
@@ -173,7 +175,12 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
           itemId,
         });
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await signAndExecute({ transaction: tx as any });
+        result = await signAndExecute({ transaction: tx as any });
+      }
+
+      // Wait for the transaction to be indexed before refreshing UI
+      if (result) {
+        await suiClient.waitForTransaction({ digest: result.digest });
       }
 
       push({ level: "info", title: "Contract Filled", message: "Transaction submitted successfully.", source: "fill-contract" });

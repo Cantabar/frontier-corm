@@ -10,7 +10,7 @@ import { canViewContract } from "../lib/contractVisibility";
 import { LoadingSpinner } from "../components/shared/LoadingSpinner";
 import { EmptyState } from "../components/shared/EmptyState";
 import { PrimaryButton, SecondaryButton } from "../components/shared/Button";
-import type { TrustlessContractData, TrustlessContractVariant } from "../lib/types";
+import type { TrustlessContractVariant } from "../lib/types";
 
 const Page = styled.div``;
 
@@ -91,7 +91,7 @@ export function TrustlessContracts() {
 
   const [statusTab, setStatusTab] = useState<StatusTab>("all");
   const [typeFilter, setTypeFilter] = useState<TrustlessContractVariant | "all">("all");
-  const [selected, setSelected] = useState<TrustlessContractData | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
 
   const filtered = contracts.filter((c) => {
@@ -110,10 +110,10 @@ export function TrustlessContracts() {
         {characterId && <PrimaryButton onClick={() => setShowCreate(true)}>+ Create Contract</PrimaryButton>}
       </Header>
 
-      {selected ? (
+      {selectedId && contracts.find((c) => c.id === selectedId) ? (
         <>
-          <BackButton onClick={() => setSelected(null)}>← Back to list</BackButton>
-          <ContractDetail contract={selected} onStatusChange={() => { setSelected(null); refetch(); }} />
+          <BackButton onClick={() => setSelectedId(null)}>← Back to list</BackButton>
+          <ContractDetail contract={contracts.find((c) => c.id === selectedId)!} onStatusChange={() => { setSelectedId(null); refetch(); }} />
         </>
       ) : (
         <>
@@ -144,7 +144,7 @@ export function TrustlessContracts() {
           ) : (
             <Grid>
               {filtered.map((c) => (
-                <ContractCard key={c.id} contract={c} onClick={() => setSelected(c)} />
+                <ContractCard key={c.id} contract={c} onClick={() => setSelectedId(c.id)} />
               ))}
             </Grid>
           )}
