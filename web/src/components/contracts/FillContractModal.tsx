@@ -505,7 +505,7 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
           </>
         ) : (
           <>
-            Remaining: {remaining.toLocaleString()} / {Number(contract.targetQuantity).toLocaleString()}
+            Remaining: {isCoinForCoin ? formatAmount(String(remaining)) : remaining.toLocaleString()} / {isCoinForCoin ? formatAmount(contract.targetQuantity) : Number(contract.targetQuantity).toLocaleString()}{isCoinForCoin ? " SUI" : ""}
             {isCoinForItem && c4iUnitPrice > 0 && (
               <div>Unit price: {formatAmount(String(Math.round(c4iUnitPrice)))} SUI per item</div>
             )}
