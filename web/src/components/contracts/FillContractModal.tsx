@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import styled from "styled-components";
 import { useSuiClient, useSignAndExecuteTransaction } from "@mysten/dapp-kit";
 import { Modal } from "../shared/Modal";
@@ -71,6 +71,23 @@ const SubmitButton = styled(PrimaryButton)`
   font-size: 14px;
 `;
 
+const RequirementBox = styled.div`
+  background: ${({ theme }) => theme.colors.surface.bg};
+  border: 1px solid ${({ theme }) => theme.colors.primary.subtle};
+  border-radius: ${({ theme }) => theme.radii.sm};
+  padding: ${({ theme }) => theme.spacing.md};
+  margin-bottom: ${({ theme }) => theme.spacing.md};
+  font-size: 13px;
+  color: ${({ theme }) => theme.colors.text.primary};
+  line-height: 1.6;
+`;
+
+const RequirementNote = styled.div`
+  margin-top: 4px;
+  font-size: 11px;
+  opacity: 0.7;
+`;
+
 // ---------------------------------------------------------------------------
 
 interface Props {
@@ -140,10 +157,39 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
     return undefined;
   })();
 
+  // Full-fill SUI amount for non-partial coin fills (human-readable)
+  const requiredFillSui = useMemo(() => {
+    if (contract.allowPartial) return "";
+    const ct = contract.contractType;
+    if (ct.variant === "CoinForCoin") return (Number(ct.wantedAmount) / 1e9).toString();
+    if (ct.variant === "ItemForCoin") return (Number(ct.wantedAmount) / 1e9).toString();
+    return "";
+  }, [contract]);
+
+  // Required item quantity for non-partial item fills
+  const requiredItemQty = useMemo(() => {
+    if (contract.allowPartial) return 0;
+    const ct = contract.contractType;
+    if (ct.variant === "CoinForItem") return ct.wantedQuantity;
+    if (ct.variant === "ItemForItem") return ct.wantedQuantity;
+    return 0;
+  }, [contract]);
+
+  // Auto-set fillAmount for non-partial coin fills
+  useEffect(() => {
+    if (!contract.allowPartial && requiredFillSui) {
+      setFillAmount(requiredFillSui);
+    }
+  }, [contract.allowPartial, requiredFillSui]);
+
   function handleItemSelected(entry: InventoryItemEntry) {
     setSelectedTypeId(String(entry.typeId));
-    // Default to min(available, remaining)
-    setSelectedQty(Math.min(entry.quantity, Math.max(remaining, 0)));
+    if (!contract.allowPartial && requiredItemQty > 0) {
+      setSelectedQty(requiredItemQty);
+    } else {
+      // Default to min(available, remaining)
+      setSelectedQty(Math.min(entry.quantity, Math.max(remaining, 0)));
+    }
   }
 
   function modalTitle(): string {
@@ -303,16 +349,41 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
         )}
       </Info>
 
+      {!contract.allowPartial && !isZeroCoinTarget && (
+        <RequirementBox>
+          {variant === "CoinForCoin" && contract.contractType.variant === "CoinForCoin" && (
+            <>Pay <strong>{formatAmount(contract.contractType.wantedAmount)} SUI</strong> to receive <strong>{formatAmount(contract.contractType.offeredAmount)} SUI</strong></>
+          )}
+          {variant === "ItemForCoin" && contract.contractType.variant === "ItemForCoin" && (
+            <>Pay <strong>{formatAmount(contract.contractType.wantedAmount)} SUI</strong> to receive <strong>{contract.contractType.offeredQuantity.toLocaleString()}</strong> × <ItemBadge typeId={contract.contractType.offeredTypeId} /></>
+          )}
+          {variant === "CoinForItem" && contract.contractType.variant === "CoinForItem" && (
+            <>Deliver <strong>{contract.contractType.wantedQuantity.toLocaleString()}</strong> × <ItemBadge typeId={contract.contractType.wantedTypeId} /> to receive <strong>{formatAmount(contract.contractType.offeredAmount)} SUI</strong></>
+          )}
+          {variant === "ItemForItem" && contract.contractType.variant === "ItemForItem" && (
+            <>Deliver <strong>{contract.contractType.wantedQuantity.toLocaleString()}</strong> × <ItemBadge typeId={contract.contractType.wantedTypeId} /> to receive <strong>{contract.contractType.offeredQuantity.toLocaleString()}</strong> × <ItemBadge typeId={contract.contractType.offeredTypeId} /></>
+          )}
+          {variant === "Transport" && contract.contractType.variant === "Transport" && (
+            <>Deliver <strong>{contract.contractType.itemQuantity.toLocaleString()}</strong> × <ItemBadge typeId={contract.contractType.itemTypeId} /> from source to destination</>
+          )}
+          <RequirementNote>This contract requires a full fill — partial fills are not accepted.</RequirementNote>
+        </RequirementBox>
+      )}
+
       {isCoinFill && !isZeroCoinTarget && (
         <>
           <Label>Fill Amount (SUI)</Label>
-          <Input
-            type="number"
-            placeholder="0.0"
-            value={fillAmount}
-            onChange={(e) => setFillAmount(e.target.value)}
-            autoFocus
-          />
+          {contract.allowPartial ? (
+            <Input
+              type="number"
+              placeholder="0.0"
+              value={fillAmount}
+              onChange={(e) => setFillAmount(e.target.value)}
+              autoFocus
+            />
+          ) : (
+            <ReadOnlyField>{requiredFillSui} SUI</ReadOnlyField>
+          )}
         </>
       )}
 
@@ -373,16 +444,25 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
             placeholder="Select matching item…"
           />
 
-          {selectedQty > 0 && contract.allowPartial && (
+          {selectedQty > 0 && (
             <>
-              <Label>Quantity (max {Math.min(selectedQty, Math.max(remaining, 0)).toLocaleString()})</Label>
-              <Input
-                type="number"
-                min="1"
-                max={Math.min(selectedQty, Math.max(remaining, 0)) || undefined}
-                value={selectedQty}
-                onChange={(e) => setSelectedQty(Math.max(1, Number(e.target.value)))}
-              />
+              {contract.allowPartial ? (
+                <>
+                  <Label>Quantity (max {Math.min(selectedQty, Math.max(remaining, 0)).toLocaleString()})</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max={Math.min(selectedQty, Math.max(remaining, 0)) || undefined}
+                    value={selectedQty}
+                    onChange={(e) => setSelectedQty(Math.max(1, Number(e.target.value)))}
+                  />
+                </>
+              ) : (
+                <>
+                  <Label>Required Quantity</Label>
+                  <ReadOnlyField>{requiredItemQty.toLocaleString()}</ReadOnlyField>
+                </>
+              )}
             </>
           )}
         </>
