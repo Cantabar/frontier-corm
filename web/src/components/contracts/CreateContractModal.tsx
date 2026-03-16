@@ -550,6 +550,12 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
           <Input type="number" placeholder="0.0" value={itemWantedAmount} onChange={(e) => setItemWantedAmount(e.target.value)} />
           {submitted && !isValidCoinAmount(itemWantedAmount) && <FieldError>Enter a valid amount</FieldError>}
           {itemWantedAmount === "0" && <Hint>Items will be offered for free &mdash; fillers can claim without paying.</Hint>}
+          {Number(offeredQuantity) > 0 && Number(itemWantedAmount) > 0 && (
+            <Hint>
+              Price per item: {(Number(itemWantedAmount) / Number(offeredQuantity)).toFixed(4)} SUI
+              &nbsp;·&nbsp; Total for {Number(offeredQuantity).toLocaleString()} items: {itemWantedAmount} SUI
+            </Hint>
+          )}
         </>
       )}
 

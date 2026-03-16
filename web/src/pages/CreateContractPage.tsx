@@ -711,8 +711,12 @@ export function CreateContractPage() {
         const e = Number(escrow) || 0;
         return { offering: `${e} SUI`, wantedTypeId: Number(wantedTypeId) || 0, wantedQty: Number(wantedQuantity) || 0 };
       }
-      case "ItemForCoin":
-        return { offeredTypeId: Number(itemId) || 0, offeredQty: Number(offeredQuantity) || 0, wanting: `${Number(itemWantedAmount) || 0} SUI` };
+      case "ItemForCoin": {
+        const qty = Number(offeredQuantity) || 0;
+        const want = Number(itemWantedAmount) || 0;
+        const perUnit = qty > 0 && want > 0 ? (want / qty).toFixed(4) : null;
+        return { offeredTypeId: Number(itemId) || 0, offeredQty: qty, wanting: `${want} SUI`, perUnit };
+      }
       case "ItemForItem":
         return { offeredTypeId: Number(itemId) || 0, offeredQty: Number(offeredQuantity) || 0, wantedTypeId: Number(i4iWantedTypeId) || 0, wantedQty: Number(i4iWantedQuantity) || 0 };
       case "Transport": {
@@ -773,8 +777,8 @@ export function CreateContractPage() {
         return <>Offering {s.offering} for {s.wantedTypeId ? <ItemBadge typeId={s.wantedTypeId} showQuantity={s.wantedQty || undefined} /> : "…"}</>;
       }
       case "ItemForCoin": {
-        const s = p as { offeredTypeId: number; offeredQty: number; wanting: string };
-        return <>{s.offeredTypeId ? <ItemBadge typeId={s.offeredTypeId} showQuantity={s.offeredQty || undefined} /> : "…"} for {s.wanting}</>;
+        const s = p as { offeredTypeId: number; offeredQty: number; wanting: string; perUnit: string | null };
+        return <>{s.offeredTypeId ? <ItemBadge typeId={s.offeredTypeId} showQuantity={s.offeredQty || undefined} /> : "…"} for {s.wanting}{s.perUnit && <> ({s.perUnit} SUI/item)</>}</>;
       }
       case "ItemForItem": {
         const s = p as { offeredTypeId: number; offeredQty: number; wantedTypeId: number; wantedQty: number };
@@ -886,6 +890,12 @@ export function CreateContractPage() {
               <Input type="number" placeholder="0.0" value={itemWantedAmount} onChange={(e) => setItemWantedAmount(e.target.value)} />
               {submitted && !isValidCoinAmount(itemWantedAmount) && <FieldError>Enter a valid amount</FieldError>}
               {itemWantedAmount === "0" && <Hint>Items will be offered for free &mdash; fillers can claim without paying.</Hint>}
+              {Number(offeredQuantity) > 0 && Number(itemWantedAmount) > 0 && (
+                <Hint>
+                  Price per item: {(Number(itemWantedAmount) / Number(offeredQuantity)).toFixed(4)} SUI
+                  &nbsp;·&nbsp; Total for {Number(offeredQuantity).toLocaleString()} items: {itemWantedAmount} SUI
+                </Hint>
+              )}
             </>
           )}
 
