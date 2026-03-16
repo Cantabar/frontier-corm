@@ -77,6 +77,9 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
 
   const isCoinFill = variant === "CoinForCoin" || variant === "ItemForCoin";
 
+  // When the contract wants 0 coins the filler just needs to claim it.
+  const isZeroCoinTarget = isCoinFill && contract.targetQuantity === "0";
+
   // For ItemForCoin the filler cares about items remaining, not coins.
   const remaining = (() => {
     if (variant === "ItemForCoin" && contract.contractType.variant === "ItemForCoin") {
@@ -156,7 +159,7 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
 
   const isValid = (() => {
     if (!characterId) return false;
-    if (isCoinFill) return Number(fillAmount) > 0;
+    if (isCoinFill) return isZeroCoinTarget || Number(fillAmount) > 0;
     if (isItemFill) return !!ssuId && !!itemId;
     if (isTransportDeliver) return !!itemId;
     return false;
@@ -190,7 +193,7 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
         )}
       </Info>
 
-      {isCoinFill && (
+      {isCoinFill && !isZeroCoinTarget && (
         <>
           <Label>Fill Amount (SUI)</Label>
           <Input
@@ -201,6 +204,10 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
             autoFocus
           />
         </>
+      )}
+
+      {isCoinFill && isZeroCoinTarget && (
+        <Info>No coins required — claim this contract for free.</Info>
       )}
 
       {isItemFill && (
