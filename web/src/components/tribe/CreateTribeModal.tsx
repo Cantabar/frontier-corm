@@ -5,12 +5,15 @@ import { useSignAndExecuteTransaction, useSuiClient } from "@mysten/dapp-kit";
 import { useQueryClient } from "@tanstack/react-query";
 import { Modal } from "../shared/Modal";
 import { CoinTypeSelector } from "../shared/CoinTypeSelector";
+import { LoadingSpinner } from "../shared/LoadingSpinner";
 import { buildCreateTribe } from "../../lib/sui";
 import { useIdentity } from "../../hooks/useIdentity";
 import { useNotifications } from "../../hooks/useNotifications";
 import { config } from "../../config";
 import { PrimaryButton } from "../shared/Button";
 import type { TribeListItem } from "../../lib/types";
+
+type CreationStep = "idle" | "signing" | "confirming" | "indexing" | "done";
 
 const Label = styled.label`
   display: block;
@@ -80,6 +83,25 @@ const SubmitButton = styled(PrimaryButton)`
   font-size: 14px;
 `;
 
+const ProgressWrapper = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.md};
+  padding: ${({ theme }) => theme.spacing.xl} 0;
+`;
+
+const ProgressLabel = styled.div`
+  font-size: 14px;
+  font-weight: 600;
+  color: ${({ theme }) => theme.colors.text.primary};
+`;
+
+const ProgressStep = styled.div`
+  font-size: 12px;
+  color: ${({ theme }) => theme.colors.text.muted};
+`;
+
 interface Props {
   onClose: () => void;
   onCreated?: (tribe: TribeListItem) => void;
@@ -109,6 +131,7 @@ export function CreateTribeModal({ onClose, onCreated }: Props) {
   const [threshold, setThreshold] = useState("50");
   const [selectedCoinType, setSelectedCoinType] = useState(config.coinType);
   const [error, setError] = useState<string | null>(null);
+  const [step, setStep] = useState<CreationStep>("idle");
 
   const misconfigured =
     config.tribeRegistryId === "0x0" || config.packages.tribe === "0x0";
@@ -123,6 +146,7 @@ export function CreateTribeModal({ onClose, onCreated }: Props) {
       return;
     }
     setError(null);
+    setStep("signing");
     const tx = buildCreateTribe({
       registryId: config.tribeRegistryId,
       characterId,
@@ -137,6 +161,8 @@ export function CreateTribeModal({ onClose, onCreated }: Props) {
         { transaction: tx as any },
         { onSuccess: () => {} },
       );
+
+      setStep("confirming");
 
       // Parse the created Tribe object ID from the transaction response
       let tribeObjectId: string | null = null;
@@ -160,6 +186,8 @@ export function CreateTribeModal({ onClose, onCreated }: Props) {
         });
       }
 
+      setStep("indexing");
+
       // Wait for the transaction to be indexed so refetches return the new TribeCap
       if (txResult.digest) {
         await client.waitForTransaction({ digest: txResult.digest });
@@ -174,6 +202,8 @@ export function CreateTribeModal({ onClose, onCreated }: Props) {
             Array.isArray(query.queryKey) && query.queryKey[1] === "getOwnedObjects",
         }),
       ]);
+
+      setStep("done");
 
       push({
         level: "info",
@@ -191,6 +221,7 @@ export function CreateTribeModal({ onClose, onCreated }: Props) {
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Transaction failed";
+      setStep("idle");
       setError(msg);
       push({
         level: "error",
@@ -201,59 +232,87 @@ export function CreateTribeModal({ onClose, onCreated }: Props) {
     }
   }
 
-  // -- Form view --
+  const busy = step !== "idle";
+
+  const stepLabels: Record<CreationStep, string> = {
+    idle: "",
+    signing: "Waiting for wallet approval…",
+    confirming: "Confirming transaction…",
+    indexing: "Syncing tribe data…",
+    done: "Done!",
+  };
+
+  const stepNumber: Record<CreationStep, number> = {
+    idle: 0,
+    signing: 1,
+    confirming: 2,
+    indexing: 3,
+    done: 3,
+  };
+
+  // -- View --
   return (
-    <Modal title="Create Tribe" onClose={onClose}>
-      {hasTribe ? (
-        <InfoRow>
-          <InfoLabel>In-Game Tribe ID</InfoLabel>
-          #{inGameTribeId}
-        </InfoRow>
+    <Modal title="Create Tribe" onClose={onClose} disableClose={busy}>
+      {busy ? (
+        <ProgressWrapper>
+          <LoadingSpinner />
+          <ProgressLabel>{stepLabels[step]}</ProgressLabel>
+          <ProgressStep>Step {stepNumber[step]} of 3</ProgressStep>
+        </ProgressWrapper>
       ) : (
-        <Warning>
-          Your Character has no in-game tribe assignment. You must belong to a tribe in-game before
-          creating one on-chain.
-        </Warning>
+        <>
+          {hasTribe ? (
+            <InfoRow>
+              <InfoLabel>In-Game Tribe ID</InfoLabel>
+              #{inGameTribeId}
+            </InfoRow>
+          ) : (
+            <Warning>
+              Your Character has no in-game tribe assignment. You must belong to a tribe in-game before
+              creating one on-chain.
+            </Warning>
+          )}
+
+          <Label>Tribe Name</Label>
+          <Input
+            placeholder="e.g. Frontier Syndicate"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            autoFocus
+            disabled={!hasTribe}
+          />
+
+          <Label>Vote Threshold (%)</Label>
+          <Input
+            type="number"
+            min={1}
+            max={100}
+            value={threshold}
+            onChange={(e) => setThreshold(e.target.value)}
+          />
+          <HelpText>Percentage of members needed to pass a treasury proposal</HelpText>
+
+          <CoinTypeSelector value={selectedCoinType} onChange={setSelectedCoinType} />
+
+          {error && (
+            <div style={{
+              background: "rgba(255,82,82,0.13)",
+              border: "1px solid #FF5252",
+              borderRadius: 4,
+              padding: "8px 16px",
+              color: "#FF5252",
+              fontSize: 13,
+              marginBottom: 16,
+            }}>
+              {error}
+            </div>
+          )}
+
+          <SubmitButton $fullWidth onClick={handleCreate} disabled={!name || !characterId || !hasTribe || isPending || misconfigured || !selectedCoinType}>
+            {isPending ? "Creating…" : misconfigured ? "Tribe contracts not configured" : "Create Tribe"}
+          </SubmitButton>
+        </>
       )}
-
-      <Label>Tribe Name</Label>
-      <Input
-        placeholder="e.g. Frontier Syndicate"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        autoFocus
-        disabled={!hasTribe}
-      />
-
-      <Label>Vote Threshold (%)</Label>
-      <Input
-        type="number"
-        min={1}
-        max={100}
-        value={threshold}
-        onChange={(e) => setThreshold(e.target.value)}
-      />
-      <HelpText>Percentage of members needed to pass a treasury proposal</HelpText>
-
-      <CoinTypeSelector value={selectedCoinType} onChange={setSelectedCoinType} />
-
-      {error && (
-        <div style={{
-          background: "rgba(255,82,82,0.13)",
-          border: "1px solid #FF5252",
-          borderRadius: 4,
-          padding: "8px 16px",
-          color: "#FF5252",
-          fontSize: 13,
-          marginBottom: 16,
-        }}>
-          {error}
-        </div>
-      )}
-
-      <SubmitButton $fullWidth onClick={handleCreate} disabled={!name || !characterId || !hasTribe || isPending || misconfigured || !selectedCoinType}>
-        {isPending ? "Creating…" : misconfigured ? "Tribe contracts not configured" : "Create Tribe"}
-      </SubmitButton>
     </Modal>
   );
 }
