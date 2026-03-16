@@ -11,6 +11,7 @@ import {
   buildFillWithItems,
   buildFillItemForCoin,
   buildClaimFreeItems,
+  buildClaimFreeCoins,
   buildDeliverTransport,
 } from "../../lib/sui";
 import { SsuPickerField } from "../shared/SsuPickerField";
@@ -106,8 +107,17 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
 
     try {
       if (isCoinFill) {
-        if (isZeroCoinTarget && variant === "ItemForCoin") {
-          // Free claim — no coins, just specify quantity
+        if (isZeroCoinTarget && variant === "CoinForCoin") {
+          // Free coin claim — no fill coin, just specify amount
+          const tx = buildClaimFreeCoins({
+            contractId: contract.id,
+            fillerCharacterId: characterId,
+            claimAmount: Math.round(Number(claimQuantity) * 1e9),
+          });
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await signAndExecute({ transaction: tx as any });
+        } else if (isZeroCoinTarget && variant === "ItemForCoin") {
+          // Free item claim — no coins, just specify quantity
           const ct = contract.contractType;
           const sourceSsu = ct.variant === "ItemForCoin" ? ct.sourceSsuId : "";
           const tx = buildClaimFreeItems({
@@ -177,8 +187,8 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
   const isValid = (() => {
     if (!characterId) return false;
     if (isCoinFill) {
-      if (isZeroCoinTarget && variant === "ItemForCoin") return Number(claimQuantity) > 0;
-      return isZeroCoinTarget || Number(fillAmount) > 0;
+      if (isZeroCoinTarget && (variant === "ItemForCoin" || variant === "CoinForCoin")) return Number(claimQuantity) > 0;
+      return Number(fillAmount) > 0;
     }
     if (isItemFill) return !!ssuId && !!itemId;
     if (isTransportDeliver) return !!itemId;
@@ -242,8 +252,19 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
         </>
       )}
 
-      {isCoinFill && isZeroCoinTarget && variant !== "ItemForCoin" && (
-        <Info>No coins required — claim this contract for free.</Info>
+      {isCoinFill && isZeroCoinTarget && variant === "CoinForCoin" && (
+        <>
+          <Info>No coins required — claim free coins from escrow.</Info>
+          <Label>Amount to Claim (SUI){remaining > 0 ? ` (max ${formatAmount(String(remaining))})` : ""}</Label>
+          <Input
+            type="number"
+            min="0"
+            placeholder="0.0"
+            value={claimQuantity}
+            onChange={(e) => setClaimQuantity(e.target.value)}
+            autoFocus
+          />
+        </>
       )}
 
       {isItemFill && (

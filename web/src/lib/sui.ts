@@ -993,6 +993,25 @@ export function buildClaimFreeItems(params: {
   return tx;
 }
 
+export function buildClaimFreeCoins(params: {
+  contractId: string;
+  fillerCharacterId: string;
+  claimAmount: number;
+}): Transaction {
+  const tx = new Transaction();
+  tx.moveCall({
+    target: tcTarget("claim_free_coins"),
+    typeArguments: tcTypes(),
+    arguments: [
+      tx.object(params.contractId),
+      tx.object(params.fillerCharacterId),
+      tx.pure.u64(params.claimAmount),
+      tx.object(SUI_CLOCK),
+    ],
+  });
+  return tx;
+}
+
 // --- Transport ---
 
 export function buildAcceptTransport(params: {

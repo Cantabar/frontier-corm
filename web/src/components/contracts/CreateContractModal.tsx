@@ -506,7 +506,8 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
     if (!characterId) return false;
     switch (variant) {
       case "CoinForCoin":
-        return isValidCoinAmount(escrow) && isValidCoinAmount(wantedAmount);
+        return isValidCoinAmount(escrow) && isValidCoinAmount(wantedAmount)
+          && (Number(escrow) > 0 || Number(wantedAmount) > 0);
       case "CoinForItem":
         return isValidCoinAmount(escrow) && Number(wantedQuantity) > 0 && !!destinationSsuId;
       case "ItemForCoin":
