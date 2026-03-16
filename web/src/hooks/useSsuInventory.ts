@@ -14,6 +14,7 @@
 
 import { useSuiClient } from "@mysten/dapp-kit";
 import { useQuery } from "@tanstack/react-query";
+import { blake2b } from "@noble/hashes/blake2b";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -45,6 +46,31 @@ export interface SsuInventoryResult {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * Compute the deterministic open-storage key for an SSU, matching the on-chain
+ * `open_storage_key_from_id` function in storage_unit.move:
+ *   blake2b256(bcs(storage_unit_id) ++ "open_inventory")
+ */
+function computeOpenStorageKey(ssuId: string): string {
+  // BCS serialization of a Move ID/address is the raw 32 bytes (no length prefix).
+  const hex = ssuId.startsWith("0x") ? ssuId.slice(2) : ssuId;
+  const idBytes = new Uint8Array(32);
+  for (let i = 0; i < 32; i++) {
+    idBytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  }
+  const suffix = new TextEncoder().encode("open_inventory");
+  const combined = new Uint8Array(idBytes.length + suffix.length);
+  combined.set(idBytes, 0);
+  combined.set(suffix, idBytes.length);
+  const digest = blake2b(combined, { dkLen: 32 });
+  return (
+    "0x" +
+    Array.from(digest)
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("")
+  );
+}
 
 /**
  * Parse the Sui RPC representation of a VecMap<u64, ItemEntry> into typed items.
@@ -116,6 +142,7 @@ export function useSsuInventory(
       // List all dynamic fields on the StorageUnit
       const dfResult = await client.getDynamicFields({ parentId: ssuId });
       const results: InventorySlot[] = [];
+      const openKey = computeOpenStorageKey(ssuId);
 
       for (const df of dfResult.data) {
         // Inventory dynamic fields are keyed by ID (address type).
@@ -124,16 +151,11 @@ export function useSsuInventory(
         const nameType = (df.name as { type?: string }).type ?? "";
         if (!nameType.includes("ID") && !nameType.includes("address")) continue;
 
-        // Determine slot kind
+        // Determine slot kind by matching against known keys
         let kind: "owner" | "open" | "other" = "other";
         if (nameValue === ownerCapId) {
           kind = "owner";
-        }
-        // Open storage key is deterministic but hard to replicate client-side
-        // without blake2b. We identify it as "not owner, not a known player cap"
-        // — for a first pass, any non-owner inventory key is treated as "open".
-        // If there are multiple non-owner slots, only the first is "open".
-        if (kind === "other" && results.every((r) => r.kind !== "open")) {
+        } else if (nameValue === openKey) {
           kind = "open";
         }
 
