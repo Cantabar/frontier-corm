@@ -346,6 +346,27 @@ export interface IndexerConfig {
   apiPort: number;
   /** Polling interval for event queries (ms) */
   pollIntervalMs: number;
+  /** Cleanup worker configuration */
+  cleanup: CleanupConfig;
+}
+
+export interface CleanupConfig {
+  /** Feature flag to enable/disable the cleanup worker */
+  enabled: boolean;
+  /** Base64-encoded Ed25519 private key for the service wallet */
+  privateKey: string;
+  /** Delay (ms) after a contract completes before submitting cleanup */
+  delayMs: number;
+  /** How often the worker polls for pending jobs (ms) */
+  intervalMs: number;
+  /** Max retries per cleanup job before marking as failed */
+  maxRetries: number;
+  /** Gas budget per cleanup transaction (MIST) */
+  gasBudget: number;
+  /** Coin type for CE (escrow) type argument — default 0x2::sui::SUI */
+  coinType: string;
+  /** Coin type for CF (fill) type argument — default same as coinType */
+  fillCoinType: string;
 }
 
 export const DEFAULT_CONFIG: IndexerConfig = {
@@ -359,4 +380,14 @@ export const DEFAULT_CONFIG: IndexerConfig = {
   databaseUrl: process.env.DATABASE_URL ?? "postgresql://corm:corm@localhost:5432/frontier_corm",
   apiPort: Number(process.env.API_PORT) || 3100,
   pollIntervalMs: Number(process.env.POLL_INTERVAL_MS) || 2000,
+  cleanup: {
+    enabled: process.env.CLEANUP_ENABLED === "true",
+    privateKey: process.env.CLEANUP_WORKER_PRIVATE_KEY ?? "",
+    delayMs: Number(process.env.CLEANUP_DELAY_MS) || 30_000,
+    intervalMs: Number(process.env.CLEANUP_INTERVAL_MS) || 15_000,
+    maxRetries: Number(process.env.CLEANUP_MAX_RETRIES) || 3,
+    gasBudget: Number(process.env.CLEANUP_GAS_BUDGET) || 5_000_000,
+    coinType: process.env.CLEANUP_COIN_TYPE ?? "0x2::sui::SUI",
+    fillCoinType: process.env.CLEANUP_FILL_COIN_TYPE ?? process.env.CLEANUP_COIN_TYPE ?? "0x2::sui::SUI",
+  },
 };

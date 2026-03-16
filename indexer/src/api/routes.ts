@@ -20,6 +20,8 @@ import {
   getTribeLeaderboard,
   getReputationAuditTrail,
   getStats,
+  getCleanupStats,
+  getCleanupJobs,
 } from "../db/queries.js";
 
 export function createRouter(pool: pg.Pool): Router {
@@ -227,6 +229,27 @@ export function createRouter(pool: pg.Pool): Router {
    */
   router.get("/event-types", (_req: Request, res: Response) => {
     res.json({ event_types: EVENT_TYPES });
+  });
+
+  // ---- Cleanup ----
+
+  /**
+   * GET /cleanup/stats
+   * Cleanup worker statistics: job counts by status, total SUI reclaimed.
+   */
+  router.get("/cleanup/stats", async (_req: Request, res: Response) => {
+    const stats = await getCleanupStats(pool);
+    res.json(stats);
+  });
+
+  /**
+   * GET /cleanup/jobs
+   * Paginated list of cleanup jobs with rebate details.
+   */
+  router.get("/cleanup/jobs", async (req: Request, res: Response) => {
+    const params = parsePagination(req);
+    const jobs = await getCleanupJobs(pool, params);
+    res.json({ jobs, ...params });
   });
 
   return router;

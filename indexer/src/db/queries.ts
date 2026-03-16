@@ -343,6 +343,188 @@ export async function getReputationAuditTrail(
 }
 
 // ============================================================
+// Cleanup Jobs
+// ============================================================
+
+export interface CleanupJob {
+  id: number;
+  contract_id: string;
+  contract_module: string;
+  contract_type: string | null;
+  poster_id: string | null;
+  source_ssu_id: string | null;
+  completed_at: string | null;
+  status: string;
+  cleanup_tx_digest: string | null;
+  storage_rebate_mist: string | null;
+  computation_cost_mist: string | null;
+  storage_cost_mist: string | null;
+  net_rebate_mist: string | null;
+  error_message: string | null;
+  retry_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+const INSERT_CLEANUP_JOB_SQL = `
+  INSERT INTO cleanup_jobs (
+    contract_id, contract_module, contract_type, poster_id, source_ssu_id, completed_at
+  ) VALUES ($1, $2, $3, $4, $5, $6)
+  ON CONFLICT (contract_id) DO NOTHING
+  RETURNING id
+`;
+
+export async function insertCleanupJob(
+  pool: pg.Pool,
+  contractId: string,
+  contractModule: string,
+  contractType: string | null,
+  posterId: string | null,
+  sourceSsuId: string | null,
+  completedAt: string | null,
+): Promise<number> {
+  const result = await pool.query(INSERT_CLEANUP_JOB_SQL, [
+    contractId, contractModule, contractType, posterId, sourceSsuId, completedAt,
+  ]);
+  return result.rows[0]?.id ?? 0;
+}
+
+const GET_PENDING_CLEANUP_JOBS_SQL = `
+  SELECT * FROM cleanup_jobs
+  WHERE status = 'pending'
+    AND completed_at < NOW() - ($1 || ' milliseconds')::interval
+  ORDER BY completed_at ASC
+  LIMIT $2
+`;
+
+export async function getPendingCleanupJobs(
+  pool: pg.Pool,
+  delayMs: number,
+  limit: number = 10,
+): Promise<CleanupJob[]> {
+  const result = await pool.query(GET_PENDING_CLEANUP_JOBS_SQL, [String(delayMs), limit]);
+  return result.rows as CleanupJob[];
+}
+
+const UPDATE_CLEANUP_JOB_CONFIRMED_SQL = `
+  UPDATE cleanup_jobs SET
+    status = 'confirmed',
+    cleanup_tx_digest = $2,
+    storage_rebate_mist = $3,
+    computation_cost_mist = $4,
+    storage_cost_mist = $5,
+    net_rebate_mist = $6,
+    updated_at = NOW()
+  WHERE id = $1
+`;
+
+export async function markCleanupConfirmed(
+  pool: pg.Pool,
+  jobId: number,
+  txDigest: string,
+  storageRebate: bigint,
+  computationCost: bigint,
+  storageCost: bigint,
+): Promise<void> {
+  const net = storageRebate - computationCost - storageCost;
+  await pool.query(UPDATE_CLEANUP_JOB_CONFIRMED_SQL, [
+    jobId, txDigest,
+    storageRebate.toString(), computationCost.toString(),
+    storageCost.toString(), net.toString(),
+  ]);
+}
+
+const UPDATE_CLEANUP_JOB_FAILED_SQL = `
+  UPDATE cleanup_jobs SET
+    status = CASE WHEN retry_count + 1 >= $3 THEN 'failed' ELSE 'pending' END,
+    retry_count = retry_count + 1,
+    error_message = $2,
+    updated_at = NOW()
+  WHERE id = $1
+`;
+
+export async function markCleanupFailed(
+  pool: pg.Pool,
+  jobId: number,
+  errorMessage: string,
+  maxRetries: number,
+): Promise<void> {
+  await pool.query(UPDATE_CLEANUP_JOB_FAILED_SQL, [jobId, errorMessage, maxRetries]);
+}
+
+const UPDATE_CLEANUP_JOB_NOT_FOUND_SQL = `
+  UPDATE cleanup_jobs SET
+    status = 'not_found',
+    updated_at = NOW()
+  WHERE id = $1
+`;
+
+export async function markCleanupNotFound(
+  pool: pg.Pool,
+  jobId: number,
+): Promise<void> {
+  await pool.query(UPDATE_CLEANUP_JOB_NOT_FOUND_SQL, [jobId]);
+}
+
+/** Contract IDs that already have a cleanup_jobs row. */
+const GET_EXISTING_CLEANUP_CONTRACT_IDS_SQL = `
+  SELECT contract_id FROM cleanup_jobs
+`;
+
+export async function getExistingCleanupContractIds(
+  pool: pg.Pool,
+): Promise<Set<string>> {
+  const result = await pool.query(GET_EXISTING_CLEANUP_CONTRACT_IDS_SQL);
+  return new Set(result.rows.map((r: { contract_id: string }) => r.contract_id));
+}
+
+export interface CleanupStats {
+  total_jobs: number;
+  by_status: Record<string, number>;
+  total_sui_reclaimed_mist: string;
+  total_gas_spent_mist: string;
+}
+
+export async function getCleanupStats(pool: pg.Pool): Promise<CleanupStats> {
+  const totalResult = await pool.query("SELECT COUNT(*) as count FROM cleanup_jobs");
+  const total = Number(totalResult.rows[0].count);
+
+  const byStatusResult = await pool.query(
+    "SELECT status, COUNT(*) as count FROM cleanup_jobs GROUP BY status",
+  );
+  const byStatus = Object.fromEntries(
+    byStatusResult.rows.map((r: { status: string; count: string }) => [r.status, Number(r.count)]),
+  );
+
+  const reclaimedResult = await pool.query(
+    "SELECT COALESCE(SUM(net_rebate_mist), 0) as total FROM cleanup_jobs WHERE status = 'confirmed'",
+  );
+  const gasResult = await pool.query(
+    "SELECT COALESCE(SUM(computation_cost_mist + storage_cost_mist), 0) as total FROM cleanup_jobs WHERE status = 'confirmed'",
+  );
+
+  return {
+    total_jobs: total,
+    by_status: byStatus,
+    total_sui_reclaimed_mist: String(reclaimedResult.rows[0].total),
+    total_gas_spent_mist: String(gasResult.rows[0].total),
+  };
+}
+
+export async function getCleanupJobs(
+  pool: pg.Pool,
+  params?: EventQueryParams,
+): Promise<CleanupJob[]> {
+  const { limit, offset, order } = defaultParams(params);
+  const dir = order === "asc" ? "ASC" : "DESC";
+  const result = await pool.query(
+    `SELECT * FROM cleanup_jobs ORDER BY id ${dir} LIMIT $1 OFFSET $2`,
+    [limit, offset],
+  );
+  return result.rows as CleanupJob[];
+}
+
+// ============================================================
 // Query: Stats
 // ============================================================
 

@@ -20,6 +20,7 @@
 import { initDatabase } from "./db/schema.js";
 import { EventArchiver } from "./archiver/event-archiver.js";
 import { CheckpointSubscriber } from "./subscriber/checkpoint-subscriber.js";
+import { CleanupWorker } from "./cleanup/cleanup-worker.js";
 import { createServer } from "./api/server.js";
 import { DEFAULT_CONFIG } from "./types.js";
 
@@ -70,10 +71,22 @@ async function main() {
     console.log("[subscriber] The API server is running; set package IDs and restart to begin indexing.");
   }
 
+  // 6. Start cleanup worker (if enabled and private key is configured)
+  let cleanupWorker: CleanupWorker | null = null;
+  if (config.cleanup.enabled && config.cleanup.privateKey) {
+    cleanupWorker = new CleanupWorker(config, pool);
+    cleanupWorker.start();
+  } else if (config.cleanup.enabled && !config.cleanup.privateKey) {
+    console.warn("[cleanup] CLEANUP_ENABLED=true but no CLEANUP_WORKER_PRIVATE_KEY set — cleanup worker not started.");
+  } else {
+    console.log("[cleanup] Cleanup worker disabled (set CLEANUP_ENABLED=true to enable).");
+  }
+
   // Graceful shutdown
   const shutdown = () => {
     console.log("\nShutting down...");
     subscriber.stop();
+    cleanupWorker?.stop();
     server.close(async () => {
       await pool.end();
       console.log("Goodbye.");

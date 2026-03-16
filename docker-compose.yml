@@ -20,6 +20,13 @@ services:
     environment:
       - DATABASE_URL=postgresql://corm:corm@postgres:5432/frontier_corm
       - API_PORT=3100
+      # Cleanup worker (disabled by default; set CLEANUP_ENABLED=true and provide a funded keypair)
+      - CLEANUP_ENABLED=${CLEANUP_ENABLED:-false}
+      - CLEANUP_WORKER_PRIVATE_KEY=${CLEANUP_WORKER_PRIVATE_KEY:-}
+      - CLEANUP_DELAY_MS=${CLEANUP_DELAY_MS:-30000}
+      - CLEANUP_INTERVAL_MS=${CLEANUP_INTERVAL_MS:-15000}
+      - CLEANUP_MAX_RETRIES=${CLEANUP_MAX_RETRIES:-3}
+      - CLEANUP_GAS_BUDGET=${CLEANUP_GAS_BUDGET:-5000000}
     depends_on:
       postgres:
         condition: service_healthy

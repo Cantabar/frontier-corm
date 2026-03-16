@@ -91,6 +91,30 @@ const SCHEMA_SQL = `
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
 
+  -- Cleanup worker: tracks contract cleanup jobs and storage rebate data
+  CREATE TABLE IF NOT EXISTS cleanup_jobs (
+    id                  SERIAL PRIMARY KEY,
+    contract_id         TEXT NOT NULL UNIQUE,
+    contract_module     TEXT NOT NULL,
+    contract_type       TEXT,
+    poster_id           TEXT,
+    source_ssu_id       TEXT,
+    completed_at        TIMESTAMPTZ,
+    status              TEXT NOT NULL DEFAULT 'pending',
+    cleanup_tx_digest   TEXT,
+    storage_rebate_mist BIGINT,
+    computation_cost_mist BIGINT,
+    storage_cost_mist   BIGINT,
+    net_rebate_mist     BIGINT,
+    error_message       TEXT,
+    retry_count         INTEGER NOT NULL DEFAULT 0,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_cleanup_jobs_status ON cleanup_jobs(status);
+  CREATE INDEX IF NOT EXISTS idx_cleanup_jobs_contract_id ON cleanup_jobs(contract_id);
+
   -- Legacy single-cursor table (kept for backward compat during migration)
   CREATE TABLE IF NOT EXISTS indexer_cursor (
     id              INTEGER PRIMARY KEY CHECK (id = 1),
