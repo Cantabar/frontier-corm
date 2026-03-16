@@ -972,6 +972,27 @@ export function buildFillItemForCoin(params: {
   return tx;
 }
 
+export function buildClaimFreeItems(params: {
+  contractId: string;
+  sourceSsuId: string;
+  fillerCharacterId: string;
+  quantity: number;
+}): Transaction {
+  const tx = new Transaction();
+  tx.moveCall({
+    target: tcTarget("claim_free_items"),
+    typeArguments: tcTypes(),
+    arguments: [
+      tx.object(params.contractId),
+      tx.object(params.sourceSsuId),
+      tx.object(params.fillerCharacterId),
+      tx.pure.u32(params.quantity),
+      tx.object(SUI_CLOCK),
+    ],
+  });
+  return tx;
+}
+
 // --- Transport ---
 
 export function buildAcceptTransport(params: {

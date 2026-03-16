@@ -10,6 +10,7 @@ import {
   buildFillWithCoins,
   buildFillWithItems,
   buildFillItemForCoin,
+  buildClaimFreeItems,
   buildDeliverTransport,
 } from "../../lib/sui";
 import { SsuPickerField } from "../shared/SsuPickerField";
@@ -69,6 +70,9 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
   // Coin fill fields
   const [fillAmount, setFillAmount] = useState("");
 
+  // Free-claim quantity field
+  const [claimQuantity, setClaimQuantity] = useState("");
+
   // Item fill fields
   const [ssuId, setSsuId] = useState("");
   const [itemId, setItemId] = useState("");
@@ -102,8 +106,20 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
 
     try {
       if (isCoinFill) {
-        const amount = Math.round(Number(fillAmount) * 1e9);
-        if (variant === "CoinForCoin") {
+        if (isZeroCoinTarget && variant === "ItemForCoin") {
+          // Free claim — no coins, just specify quantity
+          const ct = contract.contractType;
+          const sourceSsu = ct.variant === "ItemForCoin" ? ct.sourceSsuId : "";
+          const tx = buildClaimFreeItems({
+            contractId: contract.id,
+            sourceSsuId: sourceSsu,
+            fillerCharacterId: characterId,
+            quantity: Number(claimQuantity),
+          });
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await signAndExecute({ transaction: tx as any });
+        } else if (variant === "CoinForCoin") {
+          const amount = Math.round(Number(fillAmount) * 1e9);
           const tx = buildFillWithCoins({
             contractId: contract.id,
             fillAmount: amount,
@@ -113,6 +129,7 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
           await signAndExecute({ transaction: tx as any });
         } else {
           // ItemForCoin — filler pays coins to get items
+          const amount = Math.round(Number(fillAmount) * 1e9);
           const ct = contract.contractType;
           const sourceSsu = ct.variant === "ItemForCoin" ? ct.sourceSsuId : "";
           const tx = buildFillItemForCoin({
@@ -159,7 +176,10 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
 
   const isValid = (() => {
     if (!characterId) return false;
-    if (isCoinFill) return isZeroCoinTarget || Number(fillAmount) > 0;
+    if (isCoinFill) {
+      if (isZeroCoinTarget && variant === "ItemForCoin") return Number(claimQuantity) > 0;
+      return isZeroCoinTarget || Number(fillAmount) > 0;
+    }
     if (isItemFill) return !!ssuId && !!itemId;
     if (isTransportDeliver) return !!itemId;
     return false;
@@ -206,7 +226,23 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
         </>
       )}
 
-      {isCoinFill && isZeroCoinTarget && (
+      {isCoinFill && isZeroCoinTarget && variant === "ItemForCoin" && (
+        <>
+          <Info>No coins required — claim items for free.</Info>
+          <Label>Quantity to Claim{remaining > 0 ? ` (max ${remaining.toLocaleString()})` : ""}</Label>
+          <Input
+            type="number"
+            min="1"
+            max={remaining || undefined}
+            placeholder="1"
+            value={claimQuantity}
+            onChange={(e) => setClaimQuantity(e.target.value)}
+            autoFocus
+          />
+        </>
+      )}
+
+      {isCoinFill && isZeroCoinTarget && variant !== "ItemForCoin" && (
         <Info>No coins required — claim this contract for free.</Info>
       )}
 

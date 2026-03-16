@@ -602,6 +602,7 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
           <Label>Wanted Amount (SUI)</Label>
           <Input type="number" placeholder="0.0" value={itemWantedAmount} onChange={(e) => setItemWantedAmount(e.target.value)} />
           {submitted && !isValidCoinAmount(itemWantedAmount) && <FieldError>Enter a valid amount</FieldError>}
+          {itemWantedAmount === "0" && <Hint>Items will be offered for free &mdash; fillers can claim without paying.</Hint>}
         </>
       )}
 
