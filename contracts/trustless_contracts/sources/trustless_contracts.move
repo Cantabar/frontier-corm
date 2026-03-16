@@ -1287,6 +1287,127 @@ public fun fill_item_for_item<CE, CF>(
     };
 }
 
+/// Variant of `fill_item_for_item` for contracts where source SSU == destination SSU.
+/// SUI forbids two `&mut` references to the same object in a single call, so this
+/// function accepts a single `&mut StorageUnit` used for both deposit and withdrawal.
+public fun fill_item_for_item_same_ssu<CE, CF>(
+    contract: &mut Contract<CE, CF>,
+    ssu: &mut StorageUnit,
+    poster_character: &Character,
+    filler_character: &Character,
+    item: inventory::Item,
+    clock: &Clock,
+    ctx: &mut TxContext,
+) {
+    assert!(contract.status == ContractStatus::Open, EContractNotOpen);
+    assert!(clock.timestamp_ms() <= contract.deadline_ms, EContractExpired);
+    assert!(is_item_for_item(&contract.contract_type), EWrongContractType);
+
+    let filler_id = filler_character.id();
+    assert!(filler_id != contract.poster_id, ESelfFill);
+    verify_filler_access(contract, filler_character);
+
+    // Verify SSU matches both source and destination
+    let source_ssu_id = get_source_ssu_id(&contract.contract_type);
+    assert!(object::id(ssu) == source_ssu_id, ESourceSsuMismatch);
+
+    // Verify item matches what the contract wants
+    let wanted_type_id = get_wanted_type_id(&contract.contract_type);
+    assert!(inventory::type_id(&item) == wanted_type_id, EItemTypeMismatch);
+
+    let item_qty = (inventory::quantity(&item) as u64);
+    assert!(item_qty > 0, EZeroQuantity);
+
+    let remaining = contract.target_quantity - contract.filled_quantity;
+    assert!(remaining > 0, EContractFull);
+
+    let fill_amount = if (item_qty > remaining) { remaining } else { item_qty };
+
+    if (!contract.allow_partial) {
+        assert!(fill_amount == remaining, EInsufficientFill);
+    };
+
+    // Deposit filler's items to poster's owned inventory at the SSU
+    ssu.deposit_to_owned<TrustlessAuth>(
+        poster_character,
+        item,
+        trustless_auth(),
+        ctx,
+    );
+
+    // Track fill
+    if (contract.fills.contains(filler_id)) {
+        let existing = contract.fills.borrow_mut(filler_id);
+        *existing = *existing + fill_amount;
+    } else {
+        contract.fills.add(filler_id, fill_amount);
+    };
+
+    contract.filled_quantity = contract.filled_quantity + fill_amount;
+
+    // Calculate proportional offered items to release to filler
+    let (offered_type_id, offered_quantity) = get_offered_item_info(&contract.contract_type);
+    let items_to_release = ((fill_amount * (offered_quantity as u64)) / contract.target_quantity as u32);
+
+    let contract_id = object::id(contract);
+
+    // Release proportional offered items from source open inventory to filler
+    if (items_to_release > 0) {
+        let released_item = ssu.withdraw_from_open_inventory<TrustlessAuth>(
+            filler_character,
+            trustless_auth(),
+            offered_type_id,
+            items_to_release,
+            ctx,
+        );
+        ssu.deposit_to_owned<TrustlessAuth>(
+            filler_character,
+            released_item,
+            trustless_auth(),
+            ctx,
+        );
+        contract.items_released = contract.items_released + items_to_release;
+    };
+
+    event::emit(ContractFilledEvent {
+        contract_id,
+        filler_id,
+        fill_quantity: fill_amount,
+        payout_amount: (items_to_release as u64),
+        remaining_quantity: contract.target_quantity - contract.filled_quantity,
+    });
+
+    // Auto-complete if fully filled
+    if (contract.filled_quantity == contract.target_quantity) {
+        // Return any rounding dust items to poster
+        let dust_items = offered_quantity - contract.items_released;
+        if (dust_items > 0) {
+            let dust = ssu.withdraw_from_open_inventory<TrustlessAuth>(
+                poster_character,
+                trustless_auth(),
+                offered_type_id,
+                dust_items,
+                ctx,
+            );
+            ssu.deposit_to_owned<TrustlessAuth>(
+                poster_character,
+                dust,
+                trustless_auth(),
+                ctx,
+            );
+            contract.items_released = contract.items_released + dust_items;
+        };
+
+        contract.status = ContractStatus::Completed;
+        event::emit(ContractCompletedEvent {
+            contract_id,
+            poster_id: contract.poster_id,
+            total_filled: contract.filled_quantity,
+            total_escrow_paid: 0,
+        });
+    };
+}
+
 // === Transport Functions ===
 
 /// Courier accepts a transport contract by locking a coin stake.
