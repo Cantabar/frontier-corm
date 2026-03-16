@@ -22,6 +22,35 @@ export function formatAmount(amountStr: string, decimals = 9): string {
   return `${whole.toLocaleString()}.${fracStr}`;
 }
 
+/**
+ * Format a ratio (numerator / denominator) using integer arithmetic.
+ * Shows up to `maxDecimals` fractional digits, always keeping at least
+ * `minDecimals` so values like "4.50" remain readable.
+ */
+export function formatRate(
+  numerator: bigint,
+  denominator: bigint,
+  maxDecimals = 4,
+  minDecimals = 2,
+): string {
+  if (denominator === 0n) return "0";
+  const scale = 10n ** BigInt(maxDecimals);
+  const scaled = (numerator * scale) / denominator;
+  const whole = scaled / scale;
+  const frac = scaled % scale;
+
+  if (frac === 0n) {
+    return minDecimals > 0
+      ? `${whole.toString()}.${"0".repeat(minDecimals)}`
+      : whole.toString();
+  }
+
+  const fracStr = frac.toString().padStart(maxDecimals, "0");
+  const trimmed = fracStr.replace(/0+$/, "");
+  const finalFrac = trimmed.padEnd(minDecimals, "0");
+  return `${whole.toString()}.${finalFrac}`;
+}
+
 /** Human-readable relative time: "2m ago", "3h ago", "5d ago". */
 export function timeAgo(timestampMs: string | number): string {
   const now = Date.now();

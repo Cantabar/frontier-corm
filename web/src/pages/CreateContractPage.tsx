@@ -14,7 +14,7 @@ import {
   buildCreateTransport,
   buildAuthorizeExtension,
 } from "../lib/sui";
-import { contractTypeLabel, formatAmount } from "../lib/format";
+import { contractTypeLabel, formatAmount, formatRate } from "../lib/format";
 import { ItemPickerField } from "../components/shared/ItemPickerField";
 import { SsuPickerField } from "../components/shared/SsuPickerField";
 import { SsuItemPickerField } from "../components/shared/SsuItemPickerField";
@@ -407,6 +407,20 @@ const VARIANT_DESCRIPTIONS: Record<TrustlessContractVariant, string> = {
   Transport: "Pay for item delivery to an SSU (courier stakes collateral)",
 };
 
+const SUI_MIST = 1_000_000_000n;
+
+function parseSuiToMist(value: string): bigint | null {
+  const amount = Number(value);
+  if (!Number.isFinite(amount) || amount <= 0) return null;
+  return BigInt(Math.round(amount * 1e9));
+}
+
+function parsePositiveInteger(value: string): bigint | null {
+  const amount = Number(value);
+  if (!Number.isFinite(amount) || amount <= 0 || !Number.isInteger(amount)) return null;
+  return BigInt(amount);
+}
+
 // ---------------------------------------------------------------------------
 // Page component
 // ---------------------------------------------------------------------------
@@ -561,38 +575,68 @@ export function CreateContractPage() {
     }
   }, [variant, escrow, wantedAmount, wantedQuantity, itemWantedAmount, offeredQuantity, i4iWantedQuantity, transportItemQuantity, requiredStake, allowPartial]);
 
-  /** Unit price hint text shown when amounts are valid and non-zero. */
-  const unitPriceHint: string | null = useMemo(() => {
+  /** Two-part rate hint: ratio + plain-language explanation. */
+  const unitPriceHint: { ratio: string; detail: string } | null = useMemo(() => {
     if (divisibilityError) return null;
     switch (variant) {
       case "CoinForCoin": {
-        const e = Number(escrow);
-        const w = Number(wantedAmount);
-        if (e > 0 && w > 0) return `Rate: ${(e / w).toFixed(4).replace(/\.?0+$/, "")} SUI reward per 1 SUI filled`;
+        const rewardMist = parseSuiToMist(escrow);
+        const fillMist = parseSuiToMist(wantedAmount);
+        if (rewardMist && fillMist) {
+          const rate = formatRate(rewardMist, fillMist);
+          return {
+            ratio: `Exchange rate: ${rate} : 1 (reward : fill)`,
+            detail: `For every 1 SUI a filler sends, they receive ${rate} SUI from escrow`,
+          };
+        }
         return null;
       }
       case "CoinForItem": {
-        const e = Number(escrow);
-        const q = Number(wantedQuantity);
-        if (e > 0 && q > 0) return `Rate: ${(e / q).toFixed(4).replace(/\.?0+$/, "")} SUI per item`;
+        const rewardMist = parseSuiToMist(escrow);
+        const wantedQty = parsePositiveInteger(wantedQuantity);
+        if (rewardMist && wantedQty) {
+          const rate = formatRate(rewardMist, wantedQty * SUI_MIST);
+          return {
+            ratio: `Exchange rate: ${rate} : 1 (SUI reward : item)`,
+            detail: `For every 1 item delivered, ${rate} SUI is paid from escrow`,
+          };
+        }
         return null;
       }
       case "ItemForCoin": {
-        const w = Number(itemWantedAmount);
-        const q = Number(offeredQuantity);
-        if (w > 0 && q > 0) return `Rate: ${(w / q).toFixed(4).replace(/\.?0+$/, "")} SUI per item`;
+        const wantedMist = parseSuiToMist(itemWantedAmount);
+        const offeredQty = parsePositiveInteger(offeredQuantity);
+        if (wantedMist && offeredQty) {
+          const rate = formatRate(wantedMist, offeredQty * SUI_MIST);
+          return {
+            ratio: `Exchange rate: ${rate} : 1 (SUI : item)`,
+            detail: `For every 1 item purchased, the filler pays ${rate} SUI`,
+          };
+        }
         return null;
       }
       case "ItemForItem": {
-        const o = Number(offeredQuantity);
-        const w = Number(i4iWantedQuantity);
-        if (o > 0 && w > 0) return `Rate: ${(o / w).toFixed(2).replace(/\.?0+$/, "")} offered per wanted item`;
+        const offeredQty = parsePositiveInteger(offeredQuantity);
+        const wantedQty = parsePositiveInteger(i4iWantedQuantity);
+        if (offeredQty && wantedQty) {
+          const rate = formatRate(offeredQty, wantedQty);
+          return {
+            ratio: `Exchange rate: ${rate} : 1 (offered : wanted items)`,
+            detail: `For every 1 wanted item delivered, ${rate} offered items are released`,
+          };
+        }
         return null;
       }
       case "Transport": {
-        const p = Number(escrow);
-        const q = Number(transportItemQuantity);
-        if (p > 0 && q > 0) return `Rate: ${(p / q).toFixed(4).replace(/\.?0+$/, "")} SUI per item delivered`;
+        const rewardMist = parseSuiToMist(escrow);
+        const itemQty = parsePositiveInteger(transportItemQuantity);
+        if (rewardMist && itemQty) {
+          const rate = formatRate(rewardMist, itemQty * SUI_MIST);
+          return {
+            ratio: `Exchange rate: ${rate} : 1 (SUI : delivered item)`,
+            detail: `For every 1 item delivered, ${rate} SUI is paid`,
+          };
+        }
         return null;
       }
     }
@@ -936,7 +980,12 @@ export function CreateContractPage() {
             </div>
           )}
 
-          {unitPriceHint && <Hint>{unitPriceHint}</Hint>}
+          {unitPriceHint && (
+            <>
+              <Hint>{unitPriceHint.ratio}</Hint>
+              <Hint>{unitPriceHint.detail}</Hint>
+            </>
+          )}
           {divisibilityError && <FieldError>{divisibilityError}</FieldError>}
 
           {variant === "CoinForItem" && (

@@ -7,7 +7,7 @@ import { useTransactionPhase } from "../../hooks/useTransactionPhase";
 import { useIdentity } from "../../hooks/useIdentity";
 import { useMyStructures } from "../../hooks/useStructures";
 import { useNotifications } from "../../hooks/useNotifications";
-import { formatAmount } from "../../lib/format";
+import { formatAmount, formatRate } from "../../lib/format";
 import { CopyableId } from "../shared/CopyableId";
 import type { TrustlessContractData } from "../../lib/types";
 import type { InventoryItemEntry } from "../../hooks/useSsuInventory";
@@ -578,7 +578,7 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
                   <a href="#" onClick={(e) => { e.preventDefault(); setFillAmount((remaining / 1e9).toString()); }} style={{ color: "inherit", textDecoration: "underline" }}>
                     Fill remaining ({formatAmount(String(remaining))} SUI)
                   </a>
-                  {c4cUnitPrice > 0 && <> · Unit price: {formatAmount(String(Math.round(c4cUnitPrice)))} SUI per unit</>}
+                  {c4cUnitPrice > 0 && <> · {formatRate(BigInt(contract.escrowAmount), BigInt(contract.targetQuantity))} SUI reward per 1 SUI filled</>}
                 </Hint>
               )}
             </>
