@@ -104,13 +104,20 @@ export function useAutoJoinTribe(): AutoJoinState {
       justJoinedRef.current = true;
       // Wait for the transaction to be indexed so refetches return the new TribeCap
       await client.waitForTransaction({ digest: result.digest });
-      // Invalidate caches so identity (TribeCap) and tribe list refresh
+      // Invalidate caches so identity (TribeCap), tribe list, and member list refresh
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["tribes"] }),
         queryClient.invalidateQueries({ queryKey: ["autoJoinLookup"] }),
+        queryClient.invalidateQueries({ queryKey: ["tribeMembers"] }),
         queryClient.invalidateQueries({
           predicate: (query) =>
             Array.isArray(query.queryKey) && query.queryKey[1] === "getOwnedObjects",
+        }),
+        queryClient.invalidateQueries({
+          predicate: (query) =>
+            Array.isArray(query.queryKey) &&
+            query.queryKey[1] === "getObject" &&
+            (query.queryKey[2] as { id?: string })?.id === tribeObjectId,
         }),
       ]);
       push({
