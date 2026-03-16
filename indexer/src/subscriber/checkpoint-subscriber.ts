@@ -6,15 +6,15 @@
  * Each event is enriched with checkpoint metadata (digest, sequence,
  * timestamp) by querying the transaction's checkpoint.
  *
- * The subscriber maintains a cursor in SQLite so it can resume from
- * where it left off after a restart.
+ * The subscriber maintains per-event-type cursors in Postgres so it can
+ * resume from where it left off after a restart.
  */
 
 import { SuiClient, type SuiEvent } from "@mysten/sui/client";
 import type pg from "pg";
 import type { IndexerConfig, EventTypeName } from "../types.js";
 import { EVENT_TYPES } from "../types.js";
-import { getCursor, updateCursor } from "../db/queries.js";
+import { getAllEventTypeCursors, updateEventTypeCursor } from "../db/queries.js";
 import { EventArchiver } from "../archiver/event-archiver.js";
 
 export interface CheckpointMetadata {
@@ -144,24 +144,28 @@ export class CheckpointSubscriber {
   }
 
   /**
-   * Single poll iteration: query events for each package, enrich with
-   * checkpoint data, and pass to the archiver.
+   * Single poll iteration: query events for each event type using
+   * per-type cursors, enrich with checkpoint data, and pass to the archiver.
+   *
+   * Each event type maintains its own cursor so that advancing one type's
+   * cursor never causes another type's events to be skipped. This is
+   * necessary because Sui's queryEvents cursor semantics are per-type —
+   * a cursor from one event type does not reliably paginate another.
    */
   private async pollOnce(): Promise<void> {
-    const cursor = await getCursor(this.pool);
+    // Load all per-type cursors in a single query
+    const cursors = await getAllEventTypeCursors(this.pool);
 
-    // Build the event cursor for Sui RPC — shared across all event type queries
-    // so that no event type's results advance the cursor past another type's events.
-    const suiCursor = cursor.last_tx_digest
-      ? { txDigest: cursor.last_tx_digest, eventSeq: String(cursor.last_event_seq ?? 0) }
-      : undefined;
-
-    // Query events for each filter (package-level query)
     let totalProcessed = 0;
-    let latestCursorUpdate: { txDigest: string; eventSeq: number; timestampMs: string } | null = null;
 
     for (const eventType of this.eventTypeFilters) {
       try {
+        // Use this event type's own cursor
+        const typeCursor = cursors.get(eventType);
+        const suiCursor = typeCursor?.last_tx_digest
+          ? { txDigest: typeCursor.last_tx_digest, eventSeq: String(typeCursor.last_event_seq ?? 0) }
+          : undefined;
+
         const result = await this.client.queryEvents({
           query: { MoveEventType: eventType },
           cursor: suiCursor,
@@ -176,32 +180,22 @@ export class CheckpointSubscriber {
           totalProcessed++;
         }
 
-        // Track the latest event across all types for cursor update
+        // Advance this event type's cursor to the last event returned
         const lastEvent = result.data[result.data.length - 1];
         if (lastEvent?.id) {
-          const ts = Number(lastEvent.timestampMs ?? "0");
-          if (!latestCursorUpdate || ts > Number(latestCursorUpdate.timestampMs)) {
-            latestCursorUpdate = {
-              txDigest: lastEvent.id.txDigest,
-              eventSeq: Number(lastEvent.id.eventSeq),
-              timestampMs: lastEvent.timestampMs ?? "0",
-            };
-          }
+          await updateEventTypeCursor(
+            this.pool,
+            eventType,
+            lastEvent.id.txDigest,
+            Number(lastEvent.id.eventSeq),
+            lastEvent.timestampMs ?? "0",
+          );
         }
       } catch (err) {
-        // Log but continue with other event types
+        // Log but continue with other event types — this type's cursor
+        // is NOT advanced, so missed events will be retried next poll.
         console.error(`[subscriber] Error querying ${eventType}:`, err);
       }
-    }
-
-    // Update cursor once after all event types are processed
-    if (latestCursorUpdate) {
-      await updateCursor(
-        this.pool,
-        latestCursorUpdate.txDigest,
-        latestCursorUpdate.eventSeq,
-        latestCursorUpdate.timestampMs,
-      );
     }
 
     if (totalProcessed > 0) {

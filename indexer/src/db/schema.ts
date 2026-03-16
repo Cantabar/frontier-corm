@@ -83,6 +83,15 @@ const SCHEMA_SQL = `
     PRIMARY KEY (tribe_id, character_id)
   );
 
+  CREATE TABLE IF NOT EXISTS event_type_cursors (
+    event_type      TEXT PRIMARY KEY,
+    last_tx_digest  TEXT,
+    last_event_seq  INTEGER,
+    last_timestamp  TEXT,
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
+  -- Legacy single-cursor table (kept for backward compat during migration)
   CREATE TABLE IF NOT EXISTS indexer_cursor (
     id              INTEGER PRIMARY KEY CHECK (id = 1),
     last_tx_digest  TEXT,

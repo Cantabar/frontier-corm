@@ -80,6 +80,71 @@ export async function upsertReputation(
 // Cursor
 // ============================================================
 
+// ---- Per-event-type cursors ----
+
+const UPSERT_EVENT_TYPE_CURSOR_SQL = `
+  INSERT INTO event_type_cursors (event_type, last_tx_digest, last_event_seq, last_timestamp, updated_at)
+  VALUES ($1, $2, $3, $4, NOW())
+  ON CONFLICT (event_type) DO UPDATE SET
+    last_tx_digest = $2,
+    last_event_seq = $3,
+    last_timestamp = $4,
+    updated_at = NOW()
+`;
+
+const GET_EVENT_TYPE_CURSOR_SQL = `
+  SELECT event_type, last_tx_digest, last_event_seq, last_timestamp
+  FROM event_type_cursors WHERE event_type = $1
+`;
+
+const GET_ALL_EVENT_TYPE_CURSORS_SQL = `
+  SELECT event_type, last_tx_digest, last_event_seq, last_timestamp
+  FROM event_type_cursors
+`;
+
+export interface EventTypeCursor {
+  event_type: string;
+  last_tx_digest: string | null;
+  last_event_seq: number | null;
+  last_timestamp: string | null;
+}
+
+export async function updateEventTypeCursor(
+  pool: pg.Pool,
+  eventType: string,
+  txDigest: string,
+  eventSeq: number,
+  timestampMs: string,
+): Promise<void> {
+  await pool.query(UPSERT_EVENT_TYPE_CURSOR_SQL, [eventType, txDigest, eventSeq, timestampMs]);
+}
+
+export async function getEventTypeCursor(
+  pool: pg.Pool,
+  eventType: string,
+): Promise<EventTypeCursor | null> {
+  const result = await pool.query(GET_EVENT_TYPE_CURSOR_SQL, [eventType]);
+  return (result.rows[0] as EventTypeCursor) ?? null;
+}
+
+export async function getAllEventTypeCursors(
+  pool: pg.Pool,
+): Promise<Map<string, EventTypeCursor>> {
+  const result = await pool.query(GET_ALL_EVENT_TYPE_CURSORS_SQL);
+  const map = new Map<string, EventTypeCursor>();
+  for (const row of result.rows as EventTypeCursor[]) {
+    map.set(row.event_type, row);
+  }
+  return map;
+}
+
+/** Delete all per-event-type cursors (forces full re-index on next start). */
+export async function resetAllEventTypeCursors(pool: pg.Pool): Promise<void> {
+  await pool.query("DELETE FROM event_type_cursors");
+}
+
+// ---- Legacy single cursor (kept for migration reference) ----
+
 const UPDATE_CURSOR_SQL = `
   UPDATE indexer_cursor SET
     last_tx_digest = $1,
