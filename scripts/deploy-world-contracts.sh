@@ -84,9 +84,9 @@ write_env_var SPONSOR_ADDRESSES    "$ADMIN_ADDRESS"
 
 # Generate player keypairs for seeding (idempotent — only if not already set)
 # Also regenerate if either existing player key collides with the (possibly new) admin key.
-EXISTING_PA=$(grep '^PLAYER_A_PRIVATE_KEY=' "$WORLD_ENV" 2>/dev/null | cut -d= -f2)
-EXISTING_PB=$(grep '^PLAYER_B_PRIVATE_KEY=' "$WORLD_ENV" 2>/dev/null | cut -d= -f2)
-EXISTING_PC=$(grep '^PLAYER_C_PRIVATE_KEY=' "$WORLD_ENV" 2>/dev/null | cut -d= -f2)
+EXISTING_PA=$(grep '^PLAYER_A_PRIVATE_KEY=' "$WORLD_ENV" 2>/dev/null | cut -d= -f2 || true)
+EXISTING_PB=$(grep '^PLAYER_B_PRIVATE_KEY=' "$WORLD_ENV" 2>/dev/null | cut -d= -f2 || true)
+EXISTING_PC=$(grep '^PLAYER_C_PRIVATE_KEY=' "$WORLD_ENV" 2>/dev/null | cut -d= -f2 || true)
 if ! grep -q '^PLAYER_A_PRIVATE_KEY=suiprivkey' "$WORLD_ENV" 2>/dev/null \
    || ! grep -q '^PLAYER_C_PRIVATE_KEY=suiprivkey' "$WORLD_ENV" 2>/dev/null \
    || [ "$EXISTING_PA" = "$ADMIN_PRIVATE_KEY" ] \
