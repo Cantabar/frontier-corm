@@ -298,6 +298,15 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
     return 0;
   }, [contract]);
 
+  // Dynamic step for the CoinForCoin fill-amount input so the browser
+  // stepper arrows increment at a useful decimal granularity.
+  const fillStepSui = useMemo(() => {
+    const remainingSui = remaining / 1e9;
+    if (remainingSui <= 0) return "any";
+    const mag = Math.floor(Math.log10(remainingSui));
+    return String(Math.pow(10, mag - 1));
+  }, [remaining]);
+
   // Auto-set fillAmount for non-partial coin fills (CoinForCoin only now)
   useEffect(() => {
     if (!contract.allowPartial && requiredFillSui && !isItemForCoin) {
@@ -537,6 +546,7 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
             <>
               <Input
                 type="number"
+                step={fillStepSui}
                 placeholder="0.0"
                 value={fillAmount}
                 onChange={(e) => setFillAmount(e.target.value)}
@@ -618,6 +628,7 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
           <Label>Amount to Claim (SUI){remaining > 0 ? ` (max ${formatAmount(String(remaining))})` : ""}</Label>
           <Input
             type="number"
+            step="any"
             min="0"
             placeholder="0.0"
             value={claimQuantity}
