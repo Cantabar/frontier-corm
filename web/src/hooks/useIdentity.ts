@@ -22,6 +22,12 @@ export interface Identity {
   characterPortraitUrl: string | null;
   /** In-game tribe ID read from the Character object (0 = unassigned) */
   inGameTribeId: number | null;
+  /** OwnerCap<Character> object ID (from Character.owner_cap_id field) */
+  characterOwnerCapId: string | null;
+  /** OwnerCap<Character> object version (needed for Receiving<T> in PTBs) */
+  characterOwnerCapVersion: string | null;
+  /** OwnerCap<Character> object digest (needed for Receiving<T> in PTBs) */
+  characterOwnerCapDigest: string | null;
   /** All TribeCaps owned by this wallet */
   tribeCaps: TribeCapData[];
   /** Loading state */
@@ -34,6 +40,9 @@ export const IdentityContext = createContext<Identity>({
   characterName: null,
   characterPortraitUrl: null,
   inGameTribeId: null,
+  characterOwnerCapId: null,
+  characterOwnerCapVersion: null,
+  characterOwnerCapDigest: null,
   tribeCaps: [],
   isLoading: true,
 });
@@ -105,6 +114,27 @@ export function useIdentityResolver(): Identity {
   const characterName = metadata?.name || null;
   const characterPortraitUrl = metadata?.url || null;
 
+  // Extract the Character's owner_cap_id (stored on the Character object)
+  const characterOwnerCapIdFromFields = charFields?.owner_cap_id as string | undefined ?? null;
+
+  // Step 3: Fetch the OwnerCap<Character> object to get version & digest (needed for Receiving<T>)
+  const { data: charCapData, isLoading: charCapLoading } = useSuiClientQuery(
+    "getOwnedObjects",
+    {
+      owner: characterId!,
+      filter: {
+        StructType: `${config.packages.world}::access::OwnerCap<${config.packages.world}::character::Character>`,
+      },
+      options: { showContent: true, showOwner: true },
+    },
+    { enabled: !!characterId && config.packages.world !== "0x0" },
+  );
+
+  const charCapObj = charCapData?.data?.[0]?.data;
+  const characterOwnerCapId = charCapObj?.objectId ?? characterOwnerCapIdFromFields;
+  const characterOwnerCapVersion = charCapObj?.version ?? null;
+  const characterOwnerCapDigest = charCapObj?.digest ?? null;
+
   const tribeCaps: TribeCapData[] = (capData?.data ?? [])
     .map((obj) => {
       const fields = (obj.data?.content as { fields?: Record<string, unknown> })?.fields;
@@ -122,7 +152,7 @@ export function useIdentityResolver(): Identity {
   // Diagnostic notifications
   // ---------------------------------------------------------------------------
   const { push, clearBySource } = useNotifications();
-  const isLoading = profileLoading || charLoading || capLoading;
+  const isLoading = profileLoading || charLoading || capLoading || charCapLoading;
   const prevAddressRef = useRef<string>("");
   const pushedRef = useRef<Set<string>>(new Set());
 
@@ -181,6 +211,9 @@ export function useIdentityResolver(): Identity {
     characterName,
     characterPortraitUrl,
     inGameTribeId,
+    characterOwnerCapId,
+    characterOwnerCapVersion,
+    characterOwnerCapDigest,
     tribeCaps,
     isLoading,
   };
