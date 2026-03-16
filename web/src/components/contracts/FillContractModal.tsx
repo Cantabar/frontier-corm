@@ -211,7 +211,14 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
   const isCoinFill = isCoinForCoin || isItemForCoin;
 
   // When the contract wants 0 coins the filler just needs to claim it.
-  const isZeroCoinTarget = isCoinFill && contract.targetQuantity === "0";
+  // Check wantedAmount from the contract type, not targetQuantity — for free
+  // ItemForCoin contracts targetQuantity is the offered item count, not 0.
+  const isZeroCoinTarget = (() => {
+    const ct = contract.contractType;
+    if (ct.variant === "ItemForCoin") return ct.wantedAmount === "0";
+    if (ct.variant === "CoinForCoin") return ct.wantedAmount === "0";
+    return false;
+  })();
 
   // For ItemForCoin the filler cares about items remaining, not coins.
   const remaining = (() => {
