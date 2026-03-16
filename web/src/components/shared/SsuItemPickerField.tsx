@@ -121,6 +121,8 @@ interface Props {
   onChange: (entry: InventoryItemEntry) => void;
   disabled?: boolean;
   placeholder?: string;
+  /** When set, only items matching this typeId are shown. */
+  filterTypeId?: number;
 }
 
 export function SsuItemPickerField({
@@ -130,6 +132,7 @@ export function SsuItemPickerField({
   onChange,
   disabled,
   placeholder = "Select an item from this SSU…",
+  filterTypeId,
 }: Props) {
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -143,6 +146,7 @@ export function SsuItemPickerField({
     const map = new Map<number, InventoryItemEntry>();
     for (const slot of slots) {
       for (const entry of slot.items) {
+        if (filterTypeId != null && entry.typeId !== filterTypeId) continue;
         const existing = map.get(entry.typeId);
         if (existing) {
           map.set(entry.typeId, { ...existing, quantity: existing.quantity + entry.quantity });
@@ -156,7 +160,7 @@ export function SsuItemPickerField({
       const bName = getItem(b.typeId)?.name ?? "";
       return aName.localeCompare(bName);
     });
-  }, [slots, getItem]);
+  }, [slots, getItem, filterTypeId]);
 
   // Close dropdown on outside click
   useEffect(() => {
