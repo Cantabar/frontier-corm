@@ -62,6 +62,7 @@ const EWantedAmountZero: u64 = 16;
 const EContractFull: u64 = 17;
 const ESourceSsuMismatch: u64 = 18;
 const EItemContractRequiresItemCancel: u64 = 19;
+const EContractNotCompleted: u64 = 20;
 
 // === Auth Witness ===
 
@@ -113,11 +114,14 @@ public enum ContractType has copy, drop, store {
     },
 }
 
-/// Status of a contract. Only Open and InProgress exist on-chain.
-/// Terminal states are recorded as events and the object is deleted.
+/// Status of a contract.
+/// Open / InProgress are live states. Completed is set when fully filled
+/// but the object has not yet been garbage-collected via `cleanup_completed_contract`.
+/// Terminal states (Cancelled / Expired) are recorded as events and the object is deleted.
 public enum ContractStatus has copy, drop, store {
     Open,
     InProgress,
+    Completed,
 }
 
 // === Structs ===
@@ -274,6 +278,7 @@ public fun type_transport(
 
 public fun status_open(): ContractStatus { ContractStatus::Open }
 public fun status_in_progress(): ContractStatus { ContractStatus::InProgress }
+public fun status_completed(): ContractStatus { ContractStatus::Completed }
 
 // === Creation Functions ===
 
@@ -746,6 +751,7 @@ public fun fill_with_coins<CE, CF>(
 
     // Auto-complete if fully filled
     if (contract.filled_quantity == contract.target_quantity) {
+        contract.status = ContractStatus::Completed;
         event::emit(ContractCompletedEvent {
             contract_id,
             poster_id: contract.poster_id,
@@ -755,7 +761,7 @@ public fun fill_with_coins<CE, CF>(
     };
 }
 
-/// Fill a CoinForItem contract with items. Filler deposits an Item at the
+/// Fill a CoinForItem contract with items.
 /// destination SSU via our extension, receives proportional coin escrow.
 /// The Item must have been withdrawn from the destination SSU (parent_id match).
 public fun fill_with_items<CE, CF>(
@@ -842,6 +848,7 @@ public fun fill_with_items<CE, CF>(
 
     // Auto-complete if fully filled
     if (contract.filled_quantity == contract.target_quantity) {
+        contract.status = ContractStatus::Completed;
         event::emit(ContractCompletedEvent {
             contract_id,
             poster_id: contract.poster_id,
@@ -851,7 +858,7 @@ public fun fill_with_items<CE, CF>(
     };
 }
 
-/// Fill an ItemForCoin contract with coins. Filler pays Coin<CF>, receives
+/// Fill an ItemForCoin contract with coins.
 /// proportional items from the source SSU open inventory.
 public fun fill_item_for_coin<CE, CF>(
     contract: &mut Contract<CE, CF>,
@@ -965,6 +972,7 @@ public fun fill_item_for_coin<CE, CF>(
             contract.items_released = contract.items_released + dust_items;
         };
 
+        contract.status = ContractStatus::Completed;
         event::emit(ContractCompletedEvent {
             contract_id,
             poster_id: contract.poster_id,
@@ -1085,6 +1093,7 @@ public fun fill_item_for_item<CE, CF>(
             contract.items_released = contract.items_released + dust_items;
         };
 
+        contract.status = ContractStatus::Completed;
         event::emit(ContractCompletedEvent {
             contract_id,
             poster_id: contract.poster_id,
@@ -1216,6 +1225,7 @@ public fun deliver_transport<CE, CF>(
             transfer::public_transfer(dust, courier_addr);
         };
 
+        contract.status = ContractStatus::Completed;
         event::emit(ContractCompletedEvent {
             contract_id,
             poster_id: contract.poster_id,
@@ -1525,6 +1535,126 @@ public fun expire_item_contract<CE, CF>(
         fill_pool_returned,
         items_returned: items_remaining,
     });
+
+    fills.drop();
+    id.delete();
+}
+
+// === Cleanup Functions ===
+
+/// Garbage-collect a completed coin-only contract (CoinForCoin, CoinForItem, Transport).
+/// Anyone can call this. The object is destroyed and storage rebate is returned.
+public fun cleanup_completed_contract<CE, CF>(
+    contract: Contract<CE, CF>,
+    ctx: &mut TxContext,
+) {
+    assert!(contract.status == ContractStatus::Completed, EContractNotCompleted);
+    assert!(
+        !is_item_for_coin(&contract.contract_type) && !is_item_for_item(&contract.contract_type),
+        EItemContractRequiresItemCancel,
+    );
+
+    let Contract {
+        id,
+        poster_address,
+        escrow,
+        fill_pool,
+        courier_stake,
+        fills,
+        ..
+    } = contract;
+
+    // Return any dust balances to poster
+    if (escrow.value() > 0) {
+        let coin = coin::from_balance(escrow, ctx);
+        transfer::public_transfer(coin, poster_address);
+    } else {
+        escrow.destroy_zero();
+    };
+    if (fill_pool.value() > 0) {
+        let coin = coin::from_balance(fill_pool, ctx);
+        transfer::public_transfer(coin, poster_address);
+    } else {
+        fill_pool.destroy_zero();
+    };
+    if (courier_stake.value() > 0) {
+        let coin = coin::from_balance(courier_stake, ctx);
+        transfer::public_transfer(coin, poster_address);
+    } else {
+        courier_stake.destroy_zero();
+    };
+
+    fills.drop();
+    id.delete();
+}
+
+/// Garbage-collect a completed item-bearing contract (ItemForCoin, ItemForItem).
+/// All items should already have been released during fills; this is a safety
+/// valve in case rounding dust remains.
+public fun cleanup_completed_item_contract<CE, CF>(
+    contract: Contract<CE, CF>,
+    poster_character: &Character,
+    source_ssu: &mut StorageUnit,
+    ctx: &mut TxContext,
+) {
+    assert!(contract.status == ContractStatus::Completed, EContractNotCompleted);
+    assert!(
+        is_item_for_coin(&contract.contract_type) || is_item_for_item(&contract.contract_type),
+        EWrongContractType,
+    );
+
+    let source_ssu_id = get_source_ssu_id(&contract.contract_type);
+    assert!(object::id(source_ssu) == source_ssu_id, ESourceSsuMismatch);
+
+    let (offered_type_id, offered_quantity) = get_offered_item_info(&contract.contract_type);
+    let items_remaining = offered_quantity - contract.items_released;
+
+    let Contract {
+        id,
+        poster_address,
+        escrow,
+        fill_pool,
+        courier_stake,
+        fills,
+        ..
+    } = contract;
+
+    // Return any remaining items from open inventory to poster
+    if (items_remaining > 0) {
+        let returned_item = source_ssu.withdraw_from_open_inventory<TrustlessAuth>(
+            poster_character,
+            trustless_auth(),
+            offered_type_id,
+            items_remaining,
+            ctx,
+        );
+        source_ssu.deposit_to_owned<TrustlessAuth>(
+            poster_character,
+            returned_item,
+            trustless_auth(),
+            ctx,
+        );
+    };
+
+    // Return any dust balances to poster
+    if (escrow.value() > 0) {
+        let coin = coin::from_balance(escrow, ctx);
+        transfer::public_transfer(coin, poster_address);
+    } else {
+        escrow.destroy_zero();
+    };
+    if (fill_pool.value() > 0) {
+        let coin = coin::from_balance(fill_pool, ctx);
+        transfer::public_transfer(coin, poster_address);
+    } else {
+        fill_pool.destroy_zero();
+    };
+    if (courier_stake.value() > 0) {
+        let coin = coin::from_balance(courier_stake, ctx);
+        transfer::public_transfer(coin, poster_address);
+    } else {
+        courier_stake.destroy_zero();
+    };
 
     fills.drop();
     id.delete();
