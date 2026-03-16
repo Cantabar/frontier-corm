@@ -240,6 +240,33 @@ fun online_test_ssu(
     clock.destroy_for_testing();
 }
 
+/// Mints items to a character's owned inventory on the SSU using a Character OwnerCap.
+/// Used to give the filler items on an SSU they don't own.
+fun mint_items_for_character(
+    ts: &mut ts::Scenario,
+    user: address,
+    character_id: ID,
+    storage_id: ID,
+) {
+    ts::next_tx(ts, user);
+    {
+        let mut character = ts::take_shared_by_id<Character>(ts, character_id);
+        let (owner_cap, receipt) = character.borrow_owner_cap<Character>(
+            ts::most_recent_receiving_ticket<OwnerCap<Character>>(&character_id),
+            ts.ctx(),
+        );
+        let mut storage_unit = ts::take_shared_by_id<StorageUnit>(ts, storage_id);
+        storage_unit.game_item_to_chain_inventory_test<Character>(
+            &character, &owner_cap,
+            ITEM_ITEM_ID, ITEM_TYPE_ID, ITEM_VOLUME, ITEM_QUANTITY,
+            ts.ctx(),
+        );
+        character.return_owner_cap(owner_cap, receipt);
+        ts::return_shared(character);
+        ts::return_shared(storage_unit);
+    };
+}
+
 /// Authorizes CormAuth on the SSU and mints items to poster's owned inventory.
 fun authorize_and_mint(
     ts: &mut ts::Scenario,
@@ -1857,6 +1884,208 @@ fun test_zero_dust_multi_partial_fills() {
         clock.destroy_for_testing();
         ts::return_shared(contract);
         ts::return_shared(filler);
+    };
+
+    ts::end(ts);
+}
+
+// =========================================================================
+// CoinForItem — Fill deposits to poster's player inventory (default)
+// =========================================================================
+
+#[test]
+fun test_fill_coin_for_item_to_player_inventory() {
+    let mut ts = ts::begin(@0x0);
+    let (poster_id, filler_id) = setup_ssu_characters(&mut ts);
+    let (storage_id, nwn_id) = create_test_ssu(&mut ts, poster_id);
+    online_test_ssu(&mut ts, user_a(), poster_id, storage_id, nwn_id);
+
+    // Authorize CormAuth extension (no items minted to poster yet)
+    ts::next_tx(&mut ts, user_a());
+    {
+        let mut storage_unit = ts::take_shared_by_id<StorageUnit>(&ts, storage_id);
+        let mut character = ts::take_shared_by_id<Character>(&ts, poster_id);
+        let (owner_cap, receipt) = character.borrow_owner_cap<StorageUnit>(
+            ts::most_recent_receiving_ticket<OwnerCap<StorageUnit>>(&poster_id),
+            ts.ctx(),
+        );
+        storage_unit.authorize_extension<CormAuth>(&owner_cap);
+        character.return_owner_cap(owner_cap, receipt);
+        ts::return_shared(storage_unit);
+        ts::return_shared(character);
+    };
+
+    // Mint items to filler's player inventory on the SSU
+    mint_items_for_character(&mut ts, user_b(), filler_id, storage_id);
+
+    // Create CoinForItem: poster offers 1000 coins, wants 10 items, use_owner_inventory = false
+    ts::next_tx(&mut ts, user_a());
+    {
+        let poster = ts::take_shared_by_id<Character>(&ts, poster_id);
+        let escrow = coin::mint_for_testing<ESCROW>(ESCROW_AMOUNT, ts::ctx(&mut ts));
+        let clock = clock::create_for_testing(ts::ctx(&mut ts));
+
+        trustless_contracts::create_coin_for_item<ESCROW, FILL>(
+            &poster, escrow, ITEM_TYPE_ID, ITEM_QUANTITY, object::id_from_address(object::id_to_address(&storage_id)),
+            false, false, FAR_FUTURE_MS,
+            vector[], vector[], &clock, ts::ctx(&mut ts),
+        );
+
+        clock.destroy_for_testing();
+        ts::return_shared(poster);
+    };
+
+    // Filler withdraws items and fills the contract
+    ts::next_tx(&mut ts, user_b());
+    {
+        let mut contract = ts::take_shared<Contract<ESCROW, FILL>>(&ts);
+        let mut storage_unit = ts::take_shared_by_id<StorageUnit>(&ts, storage_id);
+        let poster = ts::take_shared_by_id<Character>(&ts, poster_id);
+        let mut filler = ts::take_shared_by_id<Character>(&ts, filler_id);
+
+        // Withdraw items from filler's player inventory
+        let (owner_cap, receipt) = filler.borrow_owner_cap<Character>(
+            ts::most_recent_receiving_ticket<OwnerCap<Character>>(&filler_id),
+            ts.ctx(),
+        );
+        let item = storage_unit.withdraw_by_owner(
+            &filler, &owner_cap, ITEM_TYPE_ID, ITEM_QUANTITY, ts.ctx(),
+        );
+        filler.return_owner_cap(owner_cap, receipt);
+
+        let clock = clock::create_for_testing(ts::ctx(&mut ts));
+        trustless_contracts::fill_with_items(
+            &mut contract, &mut storage_unit, &poster, &filler,
+            item, &clock, ts::ctx(&mut ts),
+        );
+
+        assert!(trustless_contracts::contract_filled_quantity(&contract) == (ITEM_QUANTITY as u64));
+        assert!(trustless_contracts::contract_status(&contract) == trustless_contracts::status_completed());
+
+        clock.destroy_for_testing();
+        ts::return_shared(contract);
+        ts::return_shared(storage_unit);
+        ts::return_shared(poster);
+        ts::return_shared(filler);
+    };
+
+    // Verify items are in poster's PLAYER inventory (keyed by poster's Character OwnerCap)
+    ts::next_tx(&mut ts, user_a());
+    {
+        let storage_unit = ts::take_shared_by_id<StorageUnit>(&ts, storage_id);
+        let poster_char = ts::take_shared_by_id<Character>(&ts, poster_id);
+        let poster_cap_id = poster_char.owner_cap_id();
+        assert!(storage_unit.item_quantity(poster_cap_id, ITEM_TYPE_ID) == ITEM_QUANTITY);
+        ts::return_shared(poster_char);
+        ts::return_shared(storage_unit);
+    };
+
+    // Verify filler received escrow payout
+    ts::next_tx(&mut ts, user_b());
+    {
+        let payout = ts::take_from_sender<Coin<ESCROW>>(&ts);
+        assert!(payout.value() == ESCROW_AMOUNT);
+        ts::return_to_sender(&ts, payout);
+    };
+
+    ts::end(ts);
+}
+
+// =========================================================================
+// CoinForItem — Fill deposits to SSU owner inventory (use_owner_inventory)
+// =========================================================================
+
+#[test]
+fun test_fill_coin_for_item_to_owner_inventory() {
+    let mut ts = ts::begin(@0x0);
+    let (poster_id, filler_id) = setup_ssu_characters(&mut ts);
+    let (storage_id, nwn_id) = create_test_ssu(&mut ts, poster_id);
+    online_test_ssu(&mut ts, user_a(), poster_id, storage_id, nwn_id);
+
+    // Authorize CormAuth extension
+    ts::next_tx(&mut ts, user_a());
+    {
+        let mut storage_unit = ts::take_shared_by_id<StorageUnit>(&ts, storage_id);
+        let mut character = ts::take_shared_by_id<Character>(&ts, poster_id);
+        let (owner_cap, receipt) = character.borrow_owner_cap<StorageUnit>(
+            ts::most_recent_receiving_ticket<OwnerCap<StorageUnit>>(&poster_id),
+            ts.ctx(),
+        );
+        storage_unit.authorize_extension<CormAuth>(&owner_cap);
+        character.return_owner_cap(owner_cap, receipt);
+        ts::return_shared(storage_unit);
+        ts::return_shared(character);
+    };
+
+    // Mint items to filler's player inventory on the SSU
+    mint_items_for_character(&mut ts, user_b(), filler_id, storage_id);
+
+    // Create CoinForItem: poster offers 1000 coins, wants 10 items, use_owner_inventory = true
+    ts::next_tx(&mut ts, user_a());
+    {
+        let poster = ts::take_shared_by_id<Character>(&ts, poster_id);
+        let escrow = coin::mint_for_testing<ESCROW>(ESCROW_AMOUNT, ts::ctx(&mut ts));
+        let clock = clock::create_for_testing(ts::ctx(&mut ts));
+
+        trustless_contracts::create_coin_for_item<ESCROW, FILL>(
+            &poster, escrow, ITEM_TYPE_ID, ITEM_QUANTITY, object::id_from_address(object::id_to_address(&storage_id)),
+            false, true, FAR_FUTURE_MS,
+            vector[], vector[], &clock, ts::ctx(&mut ts),
+        );
+
+        clock.destroy_for_testing();
+        ts::return_shared(poster);
+    };
+
+    // Filler withdraws items and fills the contract
+    ts::next_tx(&mut ts, user_b());
+    {
+        let mut contract = ts::take_shared<Contract<ESCROW, FILL>>(&ts);
+        let mut storage_unit = ts::take_shared_by_id<StorageUnit>(&ts, storage_id);
+        let poster = ts::take_shared_by_id<Character>(&ts, poster_id);
+        let mut filler = ts::take_shared_by_id<Character>(&ts, filler_id);
+
+        // Withdraw items from filler's player inventory
+        let (owner_cap, receipt) = filler.borrow_owner_cap<Character>(
+            ts::most_recent_receiving_ticket<OwnerCap<Character>>(&filler_id),
+            ts.ctx(),
+        );
+        let item = storage_unit.withdraw_by_owner(
+            &filler, &owner_cap, ITEM_TYPE_ID, ITEM_QUANTITY, ts.ctx(),
+        );
+        filler.return_owner_cap(owner_cap, receipt);
+
+        let clock = clock::create_for_testing(ts::ctx(&mut ts));
+        trustless_contracts::fill_with_items(
+            &mut contract, &mut storage_unit, &poster, &filler,
+            item, &clock, ts::ctx(&mut ts),
+        );
+
+        assert!(trustless_contracts::contract_filled_quantity(&contract) == (ITEM_QUANTITY as u64));
+        assert!(trustless_contracts::contract_status(&contract) == trustless_contracts::status_completed());
+
+        clock.destroy_for_testing();
+        ts::return_shared(contract);
+        ts::return_shared(storage_unit);
+        ts::return_shared(poster);
+        ts::return_shared(filler);
+    };
+
+    // Verify items are in the SSU's OWNER inventory (keyed by SSU's owner_cap_id)
+    ts::next_tx(&mut ts, user_a());
+    {
+        let storage_unit = ts::take_shared_by_id<StorageUnit>(&ts, storage_id);
+        let ssu_owner_cap_id = storage_unit.owner_cap_id();
+        assert!(storage_unit.item_quantity(ssu_owner_cap_id, ITEM_TYPE_ID) == ITEM_QUANTITY);
+        ts::return_shared(storage_unit);
+    };
+
+    // Verify filler received escrow payout
+    ts::next_tx(&mut ts, user_b());
+    {
+        let payout = ts::take_from_sender<Coin<ESCROW>>(&ts);
+        assert!(payout.value() == ESCROW_AMOUNT);
+        ts::return_to_sender(&ts, payout);
     };
 
     ts::end(ts);
