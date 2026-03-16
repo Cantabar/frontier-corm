@@ -286,6 +286,18 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
     return e / t;
   }, [contract, isCoinForItem]);
 
+  // Dynamic reward for CoinForItem fills (MIST) based on selected quantity
+  const fillRewardMist = useMemo(() => {
+    if (!isCoinForItem || contract.contractType.variant !== "CoinForItem") return 0;
+    if (selectedQty <= 0) return 0;
+    const escrow = BigInt(contract.escrowAmount);
+    const target = BigInt(contract.targetQuantity);
+    if (target === 0n) return 0;
+    // Ceiling division: ceil(selectedQty * escrow / target)
+    const total = BigInt(selectedQty) * escrow;
+    return Number((total + target - 1n) / target);
+  }, [selectedQty, isCoinForItem, contract]);
+
   // Full-fill SUI amount for non-partial coin fills (human-readable)
   const requiredFillSui = useMemo(() => {
     if (contract.allowPartial) return "";
@@ -512,7 +524,9 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
           </>
         )}
         {!isItemForCoin && contract.escrowAmount !== "0" && (
-          <> — Reward: {formatAmount(contract.escrowAmount)} SUI (held in escrow)</>
+          isCoinForItem && c4iUnitPrice > 0
+            ? <div>Reward pool: {formatAmount(contract.escrowAmount)} SUI · {formatAmount(String(Math.round(c4iUnitPrice)))} SUI per item</div>
+            : <> — Reward: {formatAmount(contract.escrowAmount)} SUI (held in escrow)</>
         )}
         {variant === "CoinForItem" && contract.contractType.variant === "CoinForItem" && (
           <div>Wanted: <ItemBadge typeId={contract.contractType.wantedTypeId} /></div>
@@ -680,6 +694,16 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
                   <Label>Required Quantity</Label>
                   <ReadOnlyField>{requiredItemQty.toLocaleString()}</ReadOnlyField>
                 </>
+              )}
+
+              {isCoinForItem && fillRewardMist > 0 && (
+                <CostCallout>
+                  <CostLabel>Reward</CostLabel>
+                  <CostValue>{formatAmount(String(fillRewardMist))} SUI</CostValue>
+                  <CostBreakdown>
+                    {selectedQty.toLocaleString()} × {formatAmount(String(Math.round(c4iUnitPrice)))} SUI per item
+                  </CostBreakdown>
+                </CostCallout>
               )}
             </>
           )}
