@@ -1295,7 +1295,7 @@ fun test_zero_escrow_succeeds() {
 }
 
 // =========================================================================
-// Zero wanted amount — creation succeeds
+// Zero wanted amount (free giveaway) — creation succeeds, target = escrow
 // =========================================================================
 
 #[test]
@@ -1322,8 +1322,38 @@ fun test_zero_wanted_amount_succeeds() {
     {
         let contract = ts::take_shared<Contract<ESCROW, FILL>>(&ts);
         assert!(trustless_contracts::contract_escrow_amount(&contract) == ESCROW_AMOUNT);
-        assert!(trustless_contracts::contract_target_quantity(&contract) == 0);
+        // target_quantity equals offered_amount for free giveaways
+        assert!(trustless_contracts::contract_target_quantity(&contract) == ESCROW_AMOUNT);
         ts::return_shared(contract);
+    };
+
+    ts::end(ts);
+}
+
+// =========================================================================
+// Zero escrow AND zero wanted — creation rejected
+// =========================================================================
+
+#[test]
+#[expected_failure(abort_code = trustless_contracts::EWantedAmountZero)]
+fun test_zero_zero_fails() {
+    let mut ts = ts::begin(@0x0);
+    let (poster_id, _) = setup_characters(&mut ts);
+
+    ts::next_tx(&mut ts, user_a());
+    {
+        let poster = ts::take_shared_by_id<Character>(&ts, poster_id);
+        let escrow = coin::mint_for_testing<ESCROW>(0, ts::ctx(&mut ts));
+        let clock = clock::create_for_testing(ts::ctx(&mut ts));
+
+        // Both escrow and wanted are 0 — should abort
+        trustless_contracts::create_coin_for_coin<ESCROW, FILL>(
+            &poster, escrow, 0, true, FAR_FUTURE_MS,
+            vector[], vector[], &clock, ts::ctx(&mut ts),
+        );
+
+        clock.destroy_for_testing();
+        ts::return_shared(poster);
     };
 
     ts::end(ts);

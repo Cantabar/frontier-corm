@@ -298,10 +298,21 @@ public fun create_coin_for_coin<CE, CF>(
     assert!(deadline_ms > clock.timestamp_ms(), EDeadlineInPast);
 
     let offered_amount = escrow_coin.value();
+    // At least one side must be non-zero; a 0/0 contract is meaningless.
+    assert!(offered_amount > 0 || wanted_amount > 0, EWantedAmountZero);
+
     let poster_id = character.id();
     let poster_address = character.character_address();
 
     let contract_type = ContractType::CoinForCoin { offered_amount, wanted_amount };
+
+    // When wanted_amount is 0 (free coin giveaway), track escrow distributed
+    // instead of coins to collect so partial-fill math stays valid.
+    let effective_target = if (wanted_amount == 0) {
+        offered_amount
+    } else {
+        wanted_amount
+    };
 
     let contract = Contract<CE, CF> {
         id: object::new(ctx),
@@ -314,7 +325,7 @@ public fun create_coin_for_coin<CE, CF>(
         courier_stake: balance::zero<CF>(),
         courier_id: option::none(),
         courier_address: option::none(),
-        target_quantity: wanted_amount,
+        target_quantity: effective_target,
         filled_quantity: 0,
         allow_partial,
         require_stake: false,
@@ -333,7 +344,7 @@ public fun create_coin_for_coin<CE, CF>(
         poster_id,
         contract_type,
         escrow_amount: offered_amount,
-        target_quantity: wanted_amount,
+        target_quantity: effective_target,
         deadline_ms,
         allow_partial,
         require_stake: false,
@@ -1073,6 +1084,84 @@ public fun claim_free_items<CE, CF>(
             poster_id: contract.poster_id,
             total_filled: contract.filled_quantity,
             total_escrow_paid: 0,
+        });
+    };
+}
+
+/// Claim coins from a free CoinForCoin contract (wanted_amount = 0).
+/// No fill coin required. Filler specifies how many escrow units to claim.
+public fun claim_free_coins<CE, CF>(
+    contract: &mut Contract<CE, CF>,
+    filler_character: &Character,
+    amount: u64,
+    clock: &Clock,
+    ctx: &mut TxContext,
+) {
+    assert!(contract.status == ContractStatus::Open, EContractNotOpen);
+    assert!(clock.timestamp_ms() <= contract.deadline_ms, EContractExpired);
+    assert!(is_coin_for_coin(&contract.contract_type), EWrongContractType);
+    assert!(get_c4c_wanted_amount(&contract.contract_type) == 0, EWrongContractType);
+    assert!(amount > 0, EZeroQuantity);
+
+    let filler_id = filler_character.id();
+    assert!(filler_id != contract.poster_id, ESelfFill);
+    verify_filler_access(contract, filler_character);
+
+    let remaining = contract.target_quantity - contract.filled_quantity;
+    assert!(remaining > 0, EContractFull);
+
+    // Cap to remaining
+    let claim_amount = if (amount > remaining) { remaining } else { amount };
+
+    if (!contract.allow_partial) {
+        assert!(claim_amount == remaining, EInsufficientFill);
+    };
+
+    // Track fill
+    if (contract.fills.contains(filler_id)) {
+        let existing = contract.fills.borrow_mut(filler_id);
+        *existing = *existing + claim_amount;
+    } else {
+        contract.fills.add(filler_id, claim_amount);
+    };
+
+    contract.filled_quantity = contract.filled_quantity + claim_amount;
+
+    // Release proportional escrow to filler
+    let payout = if (claim_amount > contract.escrow.value()) {
+        contract.escrow.value()
+    } else {
+        claim_amount
+    };
+    if (payout > 0) {
+        let coin = coin::take(&mut contract.escrow, payout, ctx);
+        transfer::public_transfer(coin, filler_character.character_address());
+    };
+
+    let contract_id = object::id(contract);
+
+    event::emit(ContractFilledEvent {
+        contract_id,
+        filler_id,
+        fill_quantity: claim_amount,
+        payout_amount: payout,
+        remaining_quantity: contract.target_quantity - contract.filled_quantity,
+    });
+
+    if (contract.filled_quantity == contract.target_quantity) {
+        // Release any rounding dust to poster
+        let dust = contract.escrow.value();
+        if (dust > 0) {
+            let dust_coin = coin::take(&mut contract.escrow, dust, ctx);
+            transfer::public_transfer(dust_coin, contract.poster_address);
+        };
+
+        contract.status = ContractStatus::Completed;
+        event::emit(ContractCompletedEvent {
+            contract_id,
+            poster_id: contract.poster_id,
+            total_filled: contract.filled_quantity,
+            total_escrow_paid: contract.escrow_amount,
         });
     };
 }
@@ -1893,6 +1982,13 @@ fun get_source_ssu_id(ct: &ContractType): ID {
 fun get_wanted_coin_amount(ct: &ContractType): u64 {
     match (ct) {
         ContractType::ItemForCoin { wanted_amount, .. } => *wanted_amount,
+        _ => abort EWrongContractType,
+    }
+}
+
+fun get_c4c_wanted_amount(ct: &ContractType): u64 {
+    match (ct) {
+        ContractType::CoinForCoin { wanted_amount, .. } => *wanted_amount,
         _ => abort EWrongContractType,
     }
 }
