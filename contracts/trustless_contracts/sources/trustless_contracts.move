@@ -291,8 +291,6 @@ public fun create_coin_for_coin<CE, CF>(
     ctx: &mut TxContext,
 ) {
     assert!(deadline_ms > clock.timestamp_ms(), EDeadlineInPast);
-    assert!(escrow_coin.value() > 0, EInsufficientEscrow);
-    assert!(wanted_amount > 0, EWantedAmountZero);
 
     let offered_amount = escrow_coin.value();
     let poster_id = character.id();
@@ -358,7 +356,6 @@ public fun create_coin_for_item<CE, CF>(
     ctx: &mut TxContext,
 ) {
     assert!(deadline_ms > clock.timestamp_ms(), EDeadlineInPast);
-    assert!(escrow_coin.value() > 0, EInsufficientEscrow);
     assert!(wanted_quantity > 0, EZeroQuantity);
 
     let offered_amount = escrow_coin.value();
@@ -435,7 +432,6 @@ public fun create_item_for_coin<CE, CF>(
 ) {
     assert!(deadline_ms > clock.timestamp_ms(), EDeadlineInPast);
     assert!(inventory::quantity(&item) > 0, EZeroQuantity);
-    assert!(wanted_amount > 0, EWantedAmountZero);
 
     let poster_id = character.id();
     let poster_address = character.character_address();
@@ -603,7 +599,6 @@ public fun create_transport<CE, CF>(
     ctx: &mut TxContext,
 ) {
     assert!(deadline_ms > clock.timestamp_ms(), EDeadlineInPast);
-    assert!(escrow_coin.value() > 0, EInsufficientEscrow);
     assert!(item_quantity > 0, EZeroQuantity);
     assert!(required_stake > 0, EInsufficientStake);
 
