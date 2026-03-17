@@ -525,6 +525,72 @@ export async function getCleanupJobs(
 }
 
 // ============================================================
+// Query: Payout Events
+// ============================================================
+
+/**
+ * Payout events for a character — fill events where the character is either
+ * the filler (direct character_id match) or the poster (fill on a contract
+ * they created). Supports watermark-based polling via `sinceId`.
+ */
+const GET_PAYOUT_EVENTS_SQL = `
+  SELECT * FROM (
+    -- A: Filler payouts (I filled, I got escrow/items/bounty)
+    SELECT * FROM events
+    WHERE character_id = $1
+      AND event_name IN ('ContractFilledEvent','SlotFilledEvent','TransportDeliveredEvent')
+      AND ($2::int IS NULL OR id > $2)
+    UNION ALL
+    -- B: Poster receipts (someone filled my contract, I got payment/items)
+    SELECT e.* FROM events e
+    WHERE e.event_name IN ('ContractFilledEvent','SlotFilledEvent','TransportDeliveredEvent')
+      AND e.primary_id IN (
+        SELECT primary_id FROM events
+        WHERE character_id = $1
+          AND event_name IN (
+            'CoinForCoinCreatedEvent','CoinForItemCreatedEvent',
+            'ItemForCoinCreatedEvent','ItemForItemCreatedEvent',
+            'TransportCreatedEvent','MultiInputContractCreatedEvent')
+      )
+      AND e.character_id != $1
+      AND ($2::int IS NULL OR e.id > $2)
+  ) combined
+  ORDER BY id ASC LIMIT $3
+`;
+
+export async function getPayoutEvents(
+  pool: pg.Pool,
+  characterId: string,
+  sinceId: number | null = null,
+  limit: number = 50,
+): Promise<ArchivedEvent[]> {
+  const result = await pool.query(GET_PAYOUT_EVENTS_SQL, [characterId, sinceId, limit]);
+  return result.rows as ArchivedEvent[];
+}
+
+/**
+ * Returns the creation event for a contract by its object ID (primary_id).
+ * Used to resolve contract type, SSU IDs, and poster info for notifications.
+ */
+const GET_CONTRACT_CONTEXT_SQL = `
+  SELECT * FROM events
+  WHERE primary_id = $1
+    AND event_name IN (
+      'CoinForCoinCreatedEvent','CoinForItemCreatedEvent',
+      'ItemForCoinCreatedEvent','ItemForItemCreatedEvent',
+      'TransportCreatedEvent','MultiInputContractCreatedEvent')
+  LIMIT 1
+`;
+
+export async function getContractContext(
+  pool: pg.Pool,
+  contractId: string,
+): Promise<ArchivedEvent | undefined> {
+  const result = await pool.query(GET_CONTRACT_CONTEXT_SQL, [contractId]);
+  return result.rows[0] as ArchivedEvent | undefined;
+}
+
+// ============================================================
 // Query: Stats
 // ============================================================
 

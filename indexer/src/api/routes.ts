@@ -22,6 +22,8 @@ import {
   getStats,
   getCleanupStats,
   getCleanupJobs,
+  getPayoutEvents,
+  getContractContext,
 } from "../db/queries.js";
 
 export function createRouter(pool: pg.Pool): Router {
@@ -219,6 +221,44 @@ export function createRouter(pool: pg.Pool): Router {
 
     const events = await getEventsByType(pool, "MultiInputContractCreatedEvent", params);
     res.json({ events: hydrateEvents(events), ...params });
+  });
+
+  // ---- Payout Notifications ----
+
+  /**
+   * GET /events/payouts/:characterId
+   * Fill events where the character received a payout (as filler or poster).
+   * Query params: since_id (watermark), limit
+   */
+  router.get("/events/payouts/:characterId", async (req: Request, res: Response) => {
+    const characterId = req.params.characterId as string;
+    const sinceId = req.query.since_id ? Number(req.query.since_id) : null;
+    const limit = Math.min(Number(req.query.limit) || 50, 200);
+
+    if (sinceId !== null && isNaN(sinceId)) {
+      res.status(400).json({ error: "Invalid since_id" });
+      return;
+    }
+
+    const events = await getPayoutEvents(pool, characterId, sinceId, limit);
+    res.json({ events: hydrateEvents(events), character_id: characterId, since_id: sinceId });
+  });
+
+  /**
+   * GET /events/contract-context/:contractId
+   * Returns the creation event for a contract (by primary_id).
+   * Used to resolve contract type, SSU IDs, and poster info.
+   */
+  router.get("/events/contract-context/:contractId", async (req: Request, res: Response) => {
+    const contractId = req.params.contractId as string;
+    const event = await getContractContext(pool, contractId);
+
+    if (!event) {
+      res.status(404).json({ error: "Contract creation event not found" });
+      return;
+    }
+
+    res.json(hydrateEventData(event));
   });
 
   // ---- Event Type Metadata ----
