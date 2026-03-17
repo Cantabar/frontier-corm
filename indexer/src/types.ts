@@ -18,7 +18,7 @@ export const MODULES = {
   tribe: "tribe::tribe",
   forgePlanner: "forge_planner::forge_planner",
   trustlessContracts: "trustless_contracts::trustless_contracts",
-  multiInputContract: "multi_input_contract::multi_input_contract",
+  multiInput: "trustless_contracts::multi_input",
 } as const;
 
 // ============================================================
@@ -338,7 +338,6 @@ export interface IndexerConfig {
     tribe: string;
     forgePlanner: string;
     trustlessContracts: string;
-    multiInputContract: string;
   };
   /** Postgres connection string */
   databaseUrl: string;
@@ -375,7 +374,6 @@ export const DEFAULT_CONFIG: IndexerConfig = {
     tribe: process.env.PACKAGE_TRIBE ?? "",
     forgePlanner: process.env.PACKAGE_FORGE_PLANNER ?? "",
     trustlessContracts: process.env.PACKAGE_TRUSTLESS_CONTRACTS ?? "",
-    multiInputContract: process.env.PACKAGE_MULTI_INPUT_CONTRACT ?? "",
   },
   databaseUrl: process.env.DATABASE_URL ?? "postgresql://corm:corm@localhost:5432/frontier_corm",
   apiPort: Number(process.env.API_PORT) || 3100,

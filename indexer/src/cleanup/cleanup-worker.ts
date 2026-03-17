@@ -142,7 +142,7 @@ export class CleanupWorker {
       await insertCleanupJob(
         this.pool,
         row.primary_id,
-        "multi_input_contract",
+        "trustless_contracts",
         "MultiInput",
         eventData.poster_id ?? null,
         null,
@@ -243,7 +243,7 @@ export class CleanupWorker {
     // 2. Build the cleanup transaction
     let tx: Transaction;
 
-    if (job.contract_module === "multi_input_contract") {
+    if (job.contract_module === "trustless_contracts" && job.contract_type === "MultiInput") {
       tx = buildCleanupMultiInputContract(this.config, job.contract_id);
     } else if (isItemContract(job.contract_type)) {
       // Item-bearing trustless contract needs poster + SSU

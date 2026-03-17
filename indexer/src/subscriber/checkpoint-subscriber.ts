@@ -57,7 +57,7 @@ export class CheckpointSubscriber {
    */
   private buildEventTypeFilters(): string[] {
     const filters: string[] = [];
-    const { tribe, forgePlanner, trustlessContracts, multiInputContract } = this.config.packageIds;
+    const { tribe, forgePlanner, trustlessContracts } = this.config.packageIds;
 
     // Map event names to their package + module
     const eventModuleMap: Record<string, { packageId: string; module: string }> = {};
@@ -89,13 +89,13 @@ export class CheckpointSubscriber {
       eventModuleMap[name] = { packageId: trustlessContracts, module: "trustless_contracts" };
     }
 
-    // Multi-Input Contract events
+    // Multi-Input Contract events (now in trustless_contracts package)
     for (const name of [
       "MultiInputContractCreatedEvent", "SlotFilledEvent",
       "MultiInputContractCompletedEvent", "MultiInputContractCancelledEvent",
       "MultiInputContractExpiredEvent",
     ]) {
-      eventModuleMap[name] = { packageId: multiInputContract, module: "multi_input_contract" };
+      eventModuleMap[name] = { packageId: trustlessContracts, module: "multi_input" };
     }
 
     for (const [name, { packageId, module }] of Object.entries(eventModuleMap)) {

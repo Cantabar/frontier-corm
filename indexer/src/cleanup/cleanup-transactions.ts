@@ -69,7 +69,7 @@ export function buildCleanupMultiInputContract(
   const tx = new Transaction();
   tx.setGasBudget(config.cleanup.gasBudget);
   tx.moveCall({
-    target: `${config.packageIds.multiInputContract}::multi_input_contract::cleanup`,
+    target: `${config.packageIds.trustlessContracts}::multi_input::cleanup`,
     typeArguments: [config.cleanup.coinType],
     arguments: [tx.object(contractId)],
   });
