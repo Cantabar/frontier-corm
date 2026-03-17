@@ -1,0 +1,53 @@
+/**
+ * Shadow Location Network — Postgres schema for location PODs and tribe
+ * location keys (TLK).
+ *
+ * Tables:
+ *   - location_pods:         encrypted location attestations per structure × tribe
+ *   - tribe_location_keys:   AES-256-GCM TLK wrapped to each tribe member's X25519 key
+ *
+ * Applied automatically by initLocationSchema() on indexer startup.
+ */
+
+import type pg from "pg";
+
+export async function initLocationSchema(pool: pg.Pool): Promise<void> {
+  await pool.query(LOCATION_SCHEMA_SQL);
+}
+
+const LOCATION_SCHEMA_SQL = `
+  -- Encrypted location PODs (one per structure × tribe)
+  CREATE TABLE IF NOT EXISTS location_pods (
+    id              BIGSERIAL PRIMARY KEY,
+    structure_id    TEXT NOT NULL,
+    owner_address   TEXT NOT NULL,
+    tribe_id        TEXT NOT NULL,
+    location_hash   TEXT NOT NULL,
+    encrypted_blob  BYTEA NOT NULL,
+    nonce           BYTEA NOT NULL,
+    signature       TEXT NOT NULL,
+    pod_version     INT NOT NULL DEFAULT 1,
+    tlk_version     INT NOT NULL DEFAULT 1,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (structure_id, tribe_id)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_location_pods_tribe    ON location_pods(tribe_id);
+  CREATE INDEX IF NOT EXISTS idx_location_pods_owner    ON location_pods(owner_address);
+  CREATE INDEX IF NOT EXISTS idx_location_pods_hash     ON location_pods(location_hash);
+
+  -- Tribe Location Keys — AES-256-GCM symmetric key wrapped per member
+  CREATE TABLE IF NOT EXISTS tribe_location_keys (
+    id              BIGSERIAL PRIMARY KEY,
+    tribe_id        TEXT NOT NULL,
+    member_address  TEXT NOT NULL,
+    wrapped_key     BYTEA NOT NULL,
+    tlk_version     INT NOT NULL DEFAULT 1,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (tribe_id, member_address, tlk_version)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_tlk_tribe   ON tribe_location_keys(tribe_id);
+  CREATE INDEX IF NOT EXISTS idx_tlk_member  ON tribe_location_keys(member_address);
+`;

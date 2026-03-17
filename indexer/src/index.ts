@@ -18,6 +18,7 @@
  */
 
 import { initDatabase } from "./db/schema.js";
+import { initLocationSchema } from "./db/location-schema.js";
 import { EventArchiver } from "./archiver/event-archiver.js";
 import { CheckpointSubscriber } from "./subscriber/checkpoint-subscriber.js";
 import { CleanupWorker } from "./cleanup/cleanup-worker.js";
@@ -52,7 +53,8 @@ async function main() {
 
   // 1. Init database
   const pool = await initDatabase(config.databaseUrl);
-  console.log("[db] Database initialised.");
+  await initLocationSchema(pool);
+  console.log("[db] Database initialised (including location tables).");
 
   // 2. Init archiver
   const archiver = new EventArchiver(pool);

@@ -6,6 +6,7 @@ import express from "express";
 import cors from "cors";
 import type pg from "pg";
 import { createRouter } from "./routes.js";
+import { createLocationRouter } from "./location-routes.js";
 
 export function createServer(pool: pg.Pool, port: number) {
   const app = express();
@@ -15,6 +16,9 @@ export function createServer(pool: pg.Pool, port: number) {
 
   // Mount API routes under /api/v1
   app.use("/api/v1", createRouter(pool));
+
+  // Mount Shadow Location Network routes
+  app.use("/api/v1/locations", createLocationRouter(pool));
 
   // Health check (used by ALB and docker-compose)
   app.get("/health", (_req, res) => {
@@ -32,6 +36,7 @@ export function createServer(pool: pg.Pool, port: number) {
   const server = app.listen(port, () => {
     console.log(`[api] Indexer API listening on http://localhost:${port}`);
     console.log(`[api] Endpoints: GET /api/v1/events, /api/v1/reputation/:tribeId/:characterId, /api/v1/proof/:eventId`);
+    console.log(`[api] Shadow Location Network: /api/v1/locations/*`);
   });
 
   return server;

@@ -156,3 +156,129 @@ export function getContractContext(contractId: string) {
 export function getEventTypes() {
   return get<{ event_types: string[] }>("/event-types");
 }
+
+// ---- Shadow Location Network ----
+
+async function authedGet<T>(path: string, authHeader: string): Promise<T> {
+  const res = await fetch(`${base}${path}`, {
+    headers: { Authorization: authHeader },
+  });
+  if (!res.ok) {
+    const error = new Error(`Indexer ${res.status}: ${await res.text()}`);
+    notifyError(error, path);
+    throw error;
+  }
+  return res.json();
+}
+
+async function authedPost<T>(path: string, authHeader: string, body: unknown): Promise<T> {
+  const res = await fetch(`${base}${path}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: authHeader,
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const error = new Error(`Indexer ${res.status}: ${await res.text()}`);
+    notifyError(error, path);
+    throw error;
+  }
+  return res.json();
+}
+
+async function authedDelete<T>(path: string, authHeader: string): Promise<T> {
+  const res = await fetch(`${base}${path}`, {
+    method: "DELETE",
+    headers: { Authorization: authHeader },
+  });
+  if (!res.ok) {
+    const error = new Error(`Indexer ${res.status}: ${await res.text()}`);
+    notifyError(error, path);
+    throw error;
+  }
+  return res.json();
+}
+
+export interface LocationPodResponse {
+  id: number;
+  structure_id: string;
+  owner_address: string;
+  tribe_id: string;
+  location_hash: string;
+  encrypted_blob: string;
+  nonce: string;
+  signature: string;
+  pod_version: number;
+  tlk_version: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export function getLocationPodsByTribe(tribeId: string, authHeader: string) {
+  return authedGet<{ pods: LocationPodResponse[]; tribe_id: string; count: number }>(
+    `/locations/tribe/${tribeId}`,
+    authHeader,
+  );
+}
+
+export function getLocationPod(structureId: string, tribeId: string, authHeader: string) {
+  return authedGet<LocationPodResponse>(
+    `/locations/pod/${structureId}?tribeId=${encodeURIComponent(tribeId)}`,
+    authHeader,
+  );
+}
+
+export function submitLocationPod(authHeader: string, body: {
+  structureId: string;
+  tribeId: string;
+  locationHash: string;
+  encryptedBlob: string;
+  nonce: string;
+  signature: string;
+  podVersion?: number;
+  tlkVersion?: number;
+}) {
+  return authedPost<{ id: number; structureId: string; tribeId: string }>(
+    "/locations/pod",
+    authHeader,
+    body,
+  );
+}
+
+export function deleteLocationPod(structureId: string, authHeader: string) {
+  return authedDelete<{ deleted: boolean; structureId: string }>(
+    `/locations/pod/${structureId}`,
+    authHeader,
+  );
+}
+
+export function getTlk(tribeId: string, authHeader: string) {
+  return authedGet<{ tribe_id: string; tlk_version: number; wrapped_key: string }>(
+    `/locations/keys/${tribeId}`,
+    authHeader,
+  );
+}
+
+export function initTlk(authHeader: string, body: {
+  tribeId: string;
+  memberPublicKeys: { address: string; x25519Pub: string }[];
+}) {
+  return authedPost<{ tribe_id: string; tlk_version: number; members_wrapped: number }>(
+    "/locations/keys/init",
+    authHeader,
+    body,
+  );
+}
+
+export function rotateTlk(authHeader: string, body: {
+  tribeId: string;
+  memberPublicKeys: { address: string; x25519Pub: string }[];
+}) {
+  return authedPost<{ tribe_id: string; tlk_version: number; members_wrapped: number }>(
+    "/locations/keys/rotate",
+    authHeader,
+    body,
+  );
+}
