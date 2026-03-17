@@ -134,12 +134,10 @@ clean: ## Remove build artifacts
 zk-build: ## Build Groth16 artifacts for region/proximity location circuits
 	bash indexer/scripts/build-zk-artifacts.sh
 
-zk-clean: ## Remove generated ZK artifacts and copied web assets
+zk-clean: ## Remove generated ZK artifacts
 	rm -rf indexer/circuits/build indexer/circuits/*.ptau
 	rm -rf indexer/circuits/artifacts/*
 	touch indexer/circuits/artifacts/.gitkeep
-	rm -rf web/public/zk/*
-	touch web/public/zk/.gitkeep
 
 # ── Help ───────────────────────────────────────────────────────────
 

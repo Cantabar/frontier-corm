@@ -10,6 +10,10 @@ export default defineConfig({
         target: process.env.INDEXER_API_URL ?? "http://localhost:3100",
         changeOrigin: true,
       },
+      "/zk": {
+        target: process.env.INDEXER_API_URL ?? "http://localhost:3100",
+        changeOrigin: true,
+      },
     },
   },
   build: {

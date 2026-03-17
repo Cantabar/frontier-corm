@@ -1,6 +1,8 @@
 /**
  * Express HTTP server for the Frontier Corm indexer query API.
  */
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import express from "express";
 import cors from "cors";
@@ -9,12 +11,21 @@ import { createRouter } from "./routes.js";
 import { createLocationRouter } from "./location-routes.js";
 import { createZkRouter } from "./zk-routes.js";
 import { initVerifier } from "../location/zk-verifier.js";
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export function createServer(pool: pg.Pool, port: number) {
   const app = express();
 
   app.use(cors());
   app.use(express.json());
+
+  // Serve ZK circuit artifacts used by the web client for proof generation.
+  app.use(
+    "/zk",
+    express.static(resolve(__dirname, "../../circuits/artifacts"), {
+      maxAge: "7d",
+    }),
+  );
 
   // Mount API routes under /api/v1
   app.use("/api/v1", createRouter(pool));
@@ -44,6 +55,7 @@ export function createServer(pool: pg.Pool, port: number) {
     console.log(`[api] Endpoints: GET /api/v1/events, /api/v1/reputation/:tribeId/:characterId, /api/v1/proof/:eventId`);
     console.log(`[api] Shadow Location Network: /api/v1/locations/*`);
     console.log(`[api] ZK Proofs: /api/v1/locations/proofs/*`);
+    console.log(`[api] ZK Artifacts: /zk/*`);
   });
 
   return server;

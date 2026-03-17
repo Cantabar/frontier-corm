@@ -4,18 +4,19 @@
  * Wraps snarkjs Groth16 fullProve() to generate proofs that a
  * Poseidon-committed location satisfies a region or proximity filter.
  *
- * Circuit WASM + zkey files are served as static assets from /zk/.
+ * Circuit WASM + zkey files are served by the indexer at /zk/.
  * They are produced by `make zk-build` at the project root.
  */
 
 import * as snarkjs from "snarkjs";
+import { config } from "../config";
 
 // ============================================================
 // Constants
 // ============================================================
 
-/** Base URL for circuit artefacts served from web/public/zk/ */
-const ZK_ASSET_BASE = "/zk";
+/** Base URL for circuit artefacts served by the indexer. */
+const ZK_ASSET_BASE = config.indexerUrl.replace(/\/api\/v1$/, "") + "/zk";
 
 const REGION_WASM = `${ZK_ASSET_BASE}/region_filter.wasm`;
 const REGION_ZKEY = `${ZK_ASSET_BASE}/region_filter_final.zkey`;

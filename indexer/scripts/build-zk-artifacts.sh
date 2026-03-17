@@ -6,7 +6,6 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CIRCUITS_DIR="$ROOT_DIR/circuits"
 BUILD_DIR="$CIRCUITS_DIR/build"
 ARTIFACTS_DIR="$CIRCUITS_DIR/artifacts"
-WEB_ZK_DIR="$ROOT_DIR/../web/public/zk"
 PTAU_FILE="$CIRCUITS_DIR/powersOfTau28_hez_final_16.ptau"
 
 function require_cmd() {
@@ -61,21 +60,16 @@ function build_circuit() {
 
   cp "$wasm" "$ARTIFACTS_DIR/${circuit_name}.wasm"
   cp "$zkey_final" "$ARTIFACTS_DIR/${circuit_name}_final.zkey"
-
-  cp "$ARTIFACTS_DIR/${circuit_name}.wasm" "$WEB_ZK_DIR/${circuit_name}.wasm"
-  cp "$ARTIFACTS_DIR/${circuit_name}_final.zkey" "$WEB_ZK_DIR/${circuit_name}_final.zkey"
-  cp "$ARTIFACTS_DIR/${circuit_name}_vkey.json" "$WEB_ZK_DIR/${circuit_name}_vkey.json"
 }
 
 require_cmd circom
 require_cmd npx
 
-mkdir -p "$BUILD_DIR" "$ARTIFACTS_DIR" "$WEB_ZK_DIR"
+mkdir -p "$BUILD_DIR" "$ARTIFACTS_DIR"
 setup_ptau
 
 build_circuit "region_filter"
 build_circuit "proximity_filter"
 
-echo "[zk] Done. Artifacts copied to:"
+echo "[zk] Done. Artifacts written to:"
 echo "  - $ARTIFACTS_DIR"
-echo "  - $WEB_ZK_DIR"
