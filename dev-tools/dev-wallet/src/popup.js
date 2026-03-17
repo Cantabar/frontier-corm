@@ -15,6 +15,9 @@ const $keyLabel = document.getElementById("keyLabel");
 const $keyInput = document.getElementById("keyInput");
 const $importBtn = document.getElementById("importBtn");
 const $importStatus = document.getElementById("importStatus");
+const $bulkInput = document.getElementById("bulkInput");
+const $bulkImportBtn = document.getElementById("bulkImportBtn");
+const $bulkStatus = document.getElementById("bulkStatus");
 const $rpcUrl = document.getElementById("rpcUrl");
 const $saveRpc = document.getElementById("saveRpc");
 const $rpcStatus = document.getElementById("rpcStatus");
@@ -92,6 +95,88 @@ $importBtn.addEventListener("click", async () => {
     render();
   } catch (err) {
     flash($importStatus, `Invalid key: ${err.message}`, true);
+  }
+});
+
+// ── Bulk Import ────────────────────────────────────────────────────
+
+/** Parse .env-style text into an array of {label, rawKey}. */
+function parseBulkInput(text) {
+  const results = [];
+  for (const line of text.split(/\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const match = trimmed.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(\S+)/);
+    if (!match) continue;
+    const envName = match[1];
+    const rawKey = match[2];
+    // Derive a human label: PLAYER_A_PRIVATE_KEY → Player A
+    const label = envName
+      .replace(/_PRIVATE_KEY$/i, "")
+      .replace(/_/g, " ")
+      .replace(/\w\S*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+    results.push({ label, rawKey });
+  }
+  return results;
+}
+
+$bulkImportBtn.addEventListener("click", async () => {
+  const text = $bulkInput.value.trim();
+  if (!text) {
+    flash($bulkStatus, "Paste .env lines containing private keys", true);
+    return;
+  }
+
+  const parsed = parseBulkInput(text);
+  if (parsed.length === 0) {
+    flash($bulkStatus, "No KEY=value lines found", true);
+    return;
+  }
+
+  const { [STORAGE_KEY]: entries = [] } = await chrome.storage.local.get(
+    STORAGE_KEY
+  );
+
+  // Build a set of existing addresses for fast dedup
+  const existingAddrs = new Set(
+    entries
+      .map((e) => {
+        try { return Ed25519Keypair.fromSecretKey(e.privateKey).toSuiAddress(); }
+        catch { return null; }
+      })
+      .filter(Boolean)
+  );
+
+  let imported = 0;
+  let skippedDup = 0;
+  let skippedInvalid = 0;
+
+  for (const { label, rawKey } of parsed) {
+    try {
+      const kp = Ed25519Keypair.fromSecretKey(rawKey);
+      const addr = kp.toSuiAddress();
+      if (existingAddrs.has(addr)) {
+        skippedDup++;
+        continue;
+      }
+      entries.push({ label, privateKey: rawKey });
+      existingAddrs.add(addr);
+      imported++;
+    } catch {
+      skippedInvalid++;
+    }
+  }
+
+  await chrome.storage.local.set({ [STORAGE_KEY]: entries });
+
+  const parts = [`Imported ${imported}`];
+  if (skippedDup) parts.push(`${skippedDup} duplicate`);
+  if (skippedInvalid) parts.push(`${skippedInvalid} invalid`);
+  flash($bulkStatus, parts.join(", "), imported === 0);
+
+  if (imported > 0) {
+    $bulkInput.value = "";
+    render();
   }
 });
 

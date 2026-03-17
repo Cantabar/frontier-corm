@@ -21,12 +21,20 @@ npm run build          # outputs to dist/
 #    - Click "Load unpacked"
 #    - Select the dev-tools/dev-wallet/ directory (not dist/)
 
-# 3. Import a seeded key
+# 3. Import seeded keys
 #    - Click the extension icon in the toolbar
+#
+#    Single key:
 #    - Paste a private key from world-contracts/.env, e.g.:
 #        PLAYER_A_PRIVATE_KEY=suiprivkey1…
 #    - Give it a label (e.g. "Player A")
 #    - Click "Import"
+#
+#    Bulk import:
+#    - Copy the private-key lines from world-contracts/.env:
+#        grep '_PRIVATE_KEY' ../world-contracts/.env
+#    - Paste them into the "Bulk Import from .env" textarea
+#    - Click "Bulk Import" — labels are derived automatically
 ```
 
 ## Getting Seeded Keys

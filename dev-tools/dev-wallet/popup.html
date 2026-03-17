@@ -66,6 +66,18 @@
 
   <hr>
 
+  <h3>Bulk Import from .env</h3>
+  <div style="margin-top:6px">
+    <label for="bulkInput">Paste .env lines (KEY=suiprivkey1…)</label>
+    <textarea id="bulkInput" rows="6" placeholder="PLAYER_A_PRIVATE_KEY=suiprivkey1…
+PLAYER_B_PRIVATE_KEY=suiprivkey1…
+PLAYER_C_PRIVATE_KEY=suiprivkey1…"></textarea>
+  </div>
+  <button class="btn-primary" id="bulkImportBtn">Bulk Import</button>
+  <div id="bulkStatus" class="status"></div>
+
+  <hr>
+
   <h3>RPC URL</h3>
   <input id="rpcUrl" placeholder="http://127.0.0.1:9000" />
   <button class="btn-secondary" id="saveRpc" style="margin-top:4px">Save</button>
