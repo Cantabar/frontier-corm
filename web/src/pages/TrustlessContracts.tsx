@@ -1,15 +1,15 @@
-import { useState } from "react";
 import styled from "styled-components";
 import { useNavigate } from "react-router-dom";
 import { useIdentity } from "../hooks/useIdentity";
 import { useActiveContracts } from "../hooks/useContracts";
+import { useContractFilters } from "../hooks/useContractFilters";
+import type { StatusTab, SortKey } from "../hooks/useContractFilters";
 import { ContractCard } from "../components/contracts/ContractCard";
 import { ContractHistory } from "../components/contracts/ContractHistory";
-import { canViewContract } from "../lib/contractVisibility";
+import { ContractFilterPanel } from "../components/contracts/ContractFilterPanel";
 import { LoadingSpinner } from "../components/shared/LoadingSpinner";
 import { EmptyState } from "../components/shared/EmptyState";
 import { PrimaryButton } from "../components/shared/Button";
-import type { TrustlessContractVariant } from "../lib/types";
 
 const Page = styled.div``;
 
@@ -47,7 +47,7 @@ const Tab = styled.button<{ $active: boolean }>`
   cursor: pointer;
 `;
 
-const TypeSelect = styled.select`
+const SelectControl = styled.select`
   background: ${({ theme }) => theme.colors.surface.raised};
   color: ${({ theme }) => theme.colors.text.secondary};
   border: 1px solid ${({ theme }) => theme.colors.surface.border};
@@ -55,13 +55,18 @@ const TypeSelect = styled.select`
   padding: ${({ theme }) => theme.spacing.xs} ${({ theme }) => theme.spacing.md};
   font-size: 13px;
   font-weight: 600;
-  margin-left: auto;
 
   &:focus {
     outline: none;
     border-color: ${({ theme }) => theme.colors.primary.main};
   }
 `;
+
+const TypeSelect = styled(SelectControl)`
+  margin-left: auto;
+`;
+
+const SortSelect = styled(SelectControl)``;
 
 const Grid = styled.div`
   display: flex;
@@ -78,22 +83,12 @@ const SectionLabel = styled.h2`
 
 // ---------------------------------------------------------------------------
 
-type StatusTab = "all" | "Open" | "InProgress" | "Completed";
-
 export function TrustlessContracts() {
   const navigate = useNavigate();
   const { characterId, inGameTribeId } = useIdentity();
-  const { contracts, isLoading, refetch } = useActiveContracts();
+  const { contracts, isLoading } = useActiveContracts();
 
-  const [statusTab, setStatusTab] = useState<StatusTab>("all");
-  const [typeFilter, setTypeFilter] = useState<TrustlessContractVariant | "all">("all");
-
-  const filtered = contracts.filter((c) => {
-    if (!canViewContract(c, { characterId, inGameTribeId })) return false;
-    if (statusTab !== "all" && c.status !== statusTab) return false;
-    if (typeFilter !== "all" && c.contractType.variant !== typeFilter) return false;
-    return true;
-  });
+  const filters = useContractFilters(contracts, { characterId, inGameTribeId });
 
   if (isLoading) return <LoadingSpinner />;
 
@@ -106,13 +101,13 @@ export function TrustlessContracts() {
 
       <FilterRow>
         {(["all", "Open", "InProgress", "Completed"] as StatusTab[]).map((t) => (
-          <Tab key={t} $active={statusTab === t} onClick={() => setStatusTab(t)}>
+          <Tab key={t} $active={filters.statusTab === t} onClick={() => filters.setStatusTab(t)}>
             {t === "all" ? "All" : t === "InProgress" ? "In Progress" : t}
           </Tab>
         ))}
         <TypeSelect
-          value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value as TrustlessContractVariant | "all")}
+          value={filters.typeFilter}
+          onChange={(e) => filters.setTypeFilter(e.target.value as Parameters<typeof filters.setTypeFilter>[0])}
         >
           <option value="all">All Types</option>
           <option value="CoinForCoin">Coin → Coin</option>
@@ -121,16 +116,39 @@ export function TrustlessContracts() {
           <option value="ItemForItem">Item → Item</option>
           <option value="Transport">Transport</option>
         </TypeSelect>
+        <SortSelect
+          value={filters.sortKey}
+          onChange={(e) => filters.setSortKey(e.target.value as SortKey)}
+        >
+          <option value="newest">Newest</option>
+          <option value="deadline-asc">Deadline: Soonest</option>
+          <option value="deadline-desc">Deadline: Latest</option>
+          <option value="reward-high">Reward: High → Low</option>
+          <option value="reward-low">Reward: Low → High</option>
+        </SortSelect>
       </FilterRow>
 
-      {filtered.length === 0 ? (
+      <ContractFilterPanel
+        wantedItemTypeId={filters.wantedItemTypeId}
+        onWantedItemChange={filters.setWantedItemTypeId}
+        offeredItemTypeId={filters.offeredItemTypeId}
+        onOfferedItemChange={filters.setOfferedItemTypeId}
+        posterCharacterId={filters.posterCharacterId}
+        onPosterChange={filters.setPosterCharacterId}
+        filterTribeId={filters.filterTribeId}
+        onTribeChange={filters.setFilterTribeId}
+        activeCount={filters.activeFilterCount}
+        onClearAll={filters.clearFilters}
+      />
+
+      {filters.filteredAndSorted.length === 0 ? (
         <EmptyState
           title="No contracts found"
           description="Create a trustless contract or connect your wallet to browse."
         />
       ) : (
         <Grid>
-          {filtered.map((c) => (
+          {filters.filteredAndSorted.map((c) => (
             <ContractCard key={c.id} contract={c} onClick={() => navigate(`/contracts/${c.id}`)} />
           ))}
         </Grid>
