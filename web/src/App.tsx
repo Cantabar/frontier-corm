@@ -4,6 +4,7 @@ import styled from "styled-components";
 
 import { IdentityContext, useIdentityResolver } from "./hooks/useIdentity";
 import { useNotifications } from "./hooks/useNotifications";
+import { usePayoutWatcher } from "./hooks/usePayoutWatcher";
 import { onIndexerError } from "./lib/indexer";
 import { Header } from "./components/layout/Header";
 import { Sidebar } from "./components/layout/Sidebar";
@@ -47,6 +48,9 @@ export default function App() {
   const identity = useIdentityResolver();
   const { push } = useNotifications();
   const location = useLocation();
+
+  // Poll for payout & item pickup notifications
+  usePayoutWatcher();
 
   // Subscribe to indexer fetch errors and surface them as notifications
   useEffect(() => {

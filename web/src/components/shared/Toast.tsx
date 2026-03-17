@@ -41,12 +41,14 @@ const Container = styled.div`
   pointer-events: none;
 `;
 
-const levelColor = (level: string, theme: { colors: { danger: string; warning: string; primary: { main: string } } }) => {
+const levelColor = (level: string, theme: { colors: { danger: string; warning: string; success: string; primary: { main: string } } }) => {
   switch (level) {
     case "error":
       return theme.colors.danger;
     case "warning":
       return theme.colors.warning;
+    case "success":
+      return theme.colors.success;
     default:
       return theme.colors.primary.main;
   }
@@ -136,7 +138,7 @@ function ToastEntry({ notification }: { notification: SessionNotification }) {
     <ToastItem $level={notification.level} $exiting={exiting} onClick={handleClick}>
       <ToastHeader>
         <ToastTitle $level={notification.level}>
-          {notification.level === "error" ? "Error" : notification.level === "warning" ? "Warning" : "Info"}
+          {notification.level === "error" ? "Error" : notification.level === "warning" ? "Warning" : notification.level === "success" ? "Success" : "Info"}
           {" — "}
           {notification.title}
         </ToastTitle>

@@ -80,6 +80,8 @@ const levelBorderColor = (level: NotificationLevel) => {
       return "danger";
     case "warning":
       return "warning";
+    case "success":
+      return "success";
     default:
       return "primary.main";
   }
@@ -99,6 +101,8 @@ const Row = styled.div<{ $level: NotificationLevel; $dismissed: boolean }>`
           return theme.colors.danger;
         case "warning":
           return theme.colors.warning;
+        case "success":
+          return theme.colors.success;
         default:
           return theme.colors.primary.main;
       }
@@ -122,6 +126,8 @@ const Badge = styled.span<{ $level: NotificationLevel }>`
         return `${theme.colors.danger}22`;
       case "warning":
         return `${theme.colors.warning}22`;
+      case "success":
+        return `${theme.colors.success}22`;
       default:
         return `${theme.colors.primary.main}22`;
     }
@@ -132,6 +138,8 @@ const Badge = styled.span<{ $level: NotificationLevel }>`
         return theme.colors.danger;
       case "warning":
         return theme.colors.warning;
+      case "success":
+        return theme.colors.success;
       default:
         return theme.colors.primary.main;
     }
@@ -175,7 +183,7 @@ const EmptyText = styled.div`
 // Component
 // ---------------------------------------------------------------------------
 
-const ALL_LEVELS: NotificationLevel[] = ["error", "warning", "info"];
+const ALL_LEVELS: NotificationLevel[] = ["error", "warning", "info", "success"];
 
 export function NotificationsPage() {
   const { notifications, dismissAll } = useNotifications();

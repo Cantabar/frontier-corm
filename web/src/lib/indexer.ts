@@ -139,6 +139,18 @@ export function getTrustlessContractHistory(params: PaginationParams = {}) {
   );
 }
 
+// ---- Payout Notifications ----
+
+export function getPayoutEvents(characterId: string, sinceId?: number, limit?: number) {
+  return get<{ events: ArchivedEvent[]; character_id: string; since_id: number | null }>(
+    `/events/payouts/${characterId}${qs({ since_id: sinceId, limit })}`,
+  );
+}
+
+export function getContractContext(contractId: string) {
+  return get<ArchivedEvent>(`/events/contract-context/${contractId}`);
+}
+
 // ---- Metadata ----
 
 export function getEventTypes() {

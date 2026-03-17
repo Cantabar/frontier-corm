@@ -20,7 +20,7 @@ import {
 // Types
 // ---------------------------------------------------------------------------
 
-export type NotificationLevel = "error" | "warning" | "info";
+export type NotificationLevel = "error" | "warning" | "info" | "success";
 
 export interface SessionNotification {
   id: string;
