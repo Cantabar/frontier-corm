@@ -506,8 +506,8 @@ export function buildCancelOrder(params: {
 // Multi-Input Contract
 // ============================================================
 
-const micPkg = () => packages.multiInputContract;
-const micTarget = (fn: string) => `${micPkg()}::multi_input_contract::${fn}`;
+const micPkg = () => packages.trustlessContracts;
+const micTarget = (fn: string) => `${micPkg()}::multi_input::${fn}`;
 
 /**
  * Create a multi-input manufacturing order. Poster escrows a bounty split from

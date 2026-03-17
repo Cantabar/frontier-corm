@@ -11,7 +11,7 @@ import { useSuiClientQuery } from "@mysten/dapp-kit";
 import { config } from "../config";
 import type { MultiInputContractData, MultiInputSlot } from "../lib/types";
 
-const pkg = config.packages.multiInputContract;
+const pkg = config.packages.trustlessContracts;
 
 // ---------------------------------------------------------------------------
 // Parsers
@@ -96,7 +96,7 @@ export function useActiveMultiInputContracts() {
     "queryEvents",
     {
       query: {
-        MoveEventType: `${pkg}::multi_input_contract::MultiInputContractCreatedEvent`,
+        MoveEventType: `${pkg}::multi_input::MultiInputContractCreatedEvent`,
       },
       limit: 50,
       order: "descending",
@@ -141,7 +141,7 @@ export function useMultiInputSlotFills(contractId: string | undefined) {
     "queryEvents",
     {
       query: {
-        MoveEventType: `${pkg}::multi_input_contract::SlotFilledEvent`,
+        MoveEventType: `${pkg}::multi_input::SlotFilledEvent`,
       },
       limit: 200,
       order: "descending",
