@@ -80,16 +80,26 @@ export class CheckpointSubscriber {
       eventModuleMap[name] = { packageId: forgePlanner, module: "forge_planner" };
     }
 
-    // Trustless Contracts events
+    // Trustless Contracts — per-module creation events
+    eventModuleMap["CoinForCoinCreatedEvent"] = { packageId: trustlessContracts, module: "coin_for_coin" };
+    eventModuleMap["CoinForItemCreatedEvent"] = { packageId: trustlessContracts, module: "coin_for_item" };
+    eventModuleMap["ItemForCoinCreatedEvent"] = { packageId: trustlessContracts, module: "item_for_coin" };
+    eventModuleMap["ItemForItemCreatedEvent"] = { packageId: trustlessContracts, module: "item_for_item" };
+    eventModuleMap["TransportCreatedEvent"]   = { packageId: trustlessContracts, module: "transport" };
+
+    // Trustless Contracts — shared lifecycle events (in contract_utils)
     for (const name of [
-      "ContractCreatedEvent", "ContractFilledEvent", "ContractCompletedEvent",
+      "ContractFilledEvent", "ContractCompletedEvent",
       "ContractCancelledEvent", "ContractExpiredEvent",
-      "TransportAcceptedEvent", "TransportDeliveredEvent",
     ]) {
-      eventModuleMap[name] = { packageId: trustlessContracts, module: "trustless_contracts" };
+      eventModuleMap[name] = { packageId: trustlessContracts, module: "contract_utils" };
     }
 
-    // Multi-Input Contract events (now in trustless_contracts package)
+    // Trustless Contracts — transport-specific events
+    eventModuleMap["TransportAcceptedEvent"]  = { packageId: trustlessContracts, module: "transport" };
+    eventModuleMap["TransportDeliveredEvent"] = { packageId: trustlessContracts, module: "transport" };
+
+    // Multi-Input Contract events
     for (const name of [
       "MultiInputContractCreatedEvent", "SlotFilledEvent",
       "MultiInputContractCompletedEvent", "MultiInputContractCancelledEvent",

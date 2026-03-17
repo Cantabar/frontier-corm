@@ -214,9 +214,9 @@ export function ContractDetail({ contract: initial, onStatusChange }: Props) {
           c.contractType.variant === "ItemForCoin" ? c.contractType.sourceSsuId :
           c.contractType.variant === "ItemForItem" ? c.contractType.sourceSsuId :
           c.contractType.variant === "Transport" ? c.contractType.sourceSsuId : "";
-        tx = buildCancelItemContract({ contractId: c.id, posterCharacterId: c.posterId, sourceSsuId });
+        tx = buildCancelItemContract({ contractId: c.id, posterCharacterId: c.posterId, sourceSsuId, contractVariant: c.contractType.variant });
       } else {
-        tx = buildCancelTrustlessContract({ contractId: c.id, characterId });
+        tx = buildCancelTrustlessContract({ contractId: c.id, characterId, contractVariant: c.contractType.variant });
       }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const result = await signAndExecute({ transaction: tx as any });
@@ -239,9 +239,9 @@ export function ContractDetail({ contract: initial, onStatusChange }: Props) {
           c.contractType.variant === "ItemForCoin" ? c.contractType.sourceSsuId :
           c.contractType.variant === "ItemForItem" ? c.contractType.sourceSsuId :
           c.contractType.variant === "Transport" ? c.contractType.sourceSsuId : "";
-        tx = buildExpireItemContract({ contractId: c.id, posterCharacterId: c.posterId, sourceSsuId });
+        tx = buildExpireItemContract({ contractId: c.id, posterCharacterId: c.posterId, sourceSsuId, contractVariant: c.contractType.variant });
       } else {
-        tx = buildExpireTrustlessContract({ contractId: c.id });
+        tx = buildExpireTrustlessContract({ contractId: c.id, contractVariant: c.contractType.variant });
       }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const result = await signAndExecute({ transaction: tx as any });
@@ -268,11 +268,12 @@ export function ContractDetail({ contract: initial, onStatusChange }: Props) {
           contractId: c.id,
           posterCharacterId: c.posterId,
           sourceSsuId,
+          contractVariant: c.contractType.variant,
         });
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         result = await signAndExecute({ transaction: tx as any });
       } else {
-        const tx = buildCleanupCompletedContract({ contractId: c.id });
+        const tx = buildCleanupCompletedContract({ contractId: c.id, contractVariant: c.contractType.variant });
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         result = await signAndExecute({ transaction: tx as any });
       }

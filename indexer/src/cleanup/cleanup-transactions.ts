@@ -10,21 +10,39 @@ import { Transaction } from "@mysten/sui/transactions";
 import type { IndexerConfig } from "../types.js";
 
 // ============================================================
+// Variant → module mapping (mirrors on-chain module names)
+// ============================================================
+
+const VARIANT_MODULE: Record<string, string> = {
+  CoinForCoin: "coin_for_coin",
+  CoinForItem: "coin_for_item",
+  ItemForCoin: "item_for_coin",
+  ItemForItem: "item_for_item",
+  Transport: "transport",
+};
+
+function moduleFor(contractType: string | null, fallback: string): string {
+  return (contractType && VARIANT_MODULE[contractType]) ?? fallback;
+}
+
+// ============================================================
 // Trustless Contracts cleanup
 // ============================================================
 
 /**
  * Build a cleanup transaction for a completed coin-only trustless contract
- * (CoinForCoin, CoinForItem, or Transport).
+ * (CoinForCoin or CoinForItem).
  */
 export function buildCleanupCompletedContract(
   config: IndexerConfig,
   contractId: string,
+  contractType: string | null,
 ): Transaction {
+  const mod = moduleFor(contractType, "coin_for_coin");
   const tx = new Transaction();
   tx.setGasBudget(config.cleanup.gasBudget);
   tx.moveCall({
-    target: `${config.packageIds.trustlessContracts}::trustless_contracts::cleanup_completed_contract`,
+    target: `${config.packageIds.trustlessContracts}::${mod}::cleanup`,
     typeArguments: [config.cleanup.coinType, config.cleanup.fillCoinType],
     arguments: [tx.object(contractId)],
   });
@@ -33,18 +51,20 @@ export function buildCleanupCompletedContract(
 
 /**
  * Build a cleanup transaction for a completed item-bearing trustless contract
- * (ItemForCoin or ItemForItem). Requires the poster's Character and source SSU.
+ * (ItemForCoin, ItemForItem, or Transport). Requires the poster's Character and source SSU.
  */
 export function buildCleanupCompletedItemContract(
   config: IndexerConfig,
   contractId: string,
   posterCharacterId: string,
   sourceSsuId: string,
+  contractType: string | null,
 ): Transaction {
+  const mod = moduleFor(contractType, "item_for_coin");
   const tx = new Transaction();
   tx.setGasBudget(config.cleanup.gasBudget);
   tx.moveCall({
-    target: `${config.packageIds.trustlessContracts}::trustless_contracts::cleanup_completed_item_contract`,
+    target: `${config.packageIds.trustlessContracts}::${mod}::cleanup`,
     typeArguments: [config.cleanup.coinType, config.cleanup.fillCoinType],
     arguments: [
       tx.object(contractId),

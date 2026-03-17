@@ -4,7 +4,7 @@
  * Mirrors the on-chain Move event structs from:
  *   - tribe::tribe (Phase 1)
  *   - forge_planner::forge_planner (Phase 3)
- *   - trustless_contracts::trustless_contracts (Phase 4)
+ *   - trustless_contracts::{coin_for_coin,coin_for_item,item_for_coin,item_for_item,transport,contract_utils,multi_input} (Phase 4)
  *
  * Sui emits event fields as JSON via RPC. Object IDs are hex strings.
  * u64 values arrive as strings from Sui RPC (JSON doesn't support 64-bit ints).
@@ -17,7 +17,14 @@
 export const MODULES = {
   tribe: "tribe::tribe",
   forgePlanner: "forge_planner::forge_planner",
-  trustlessContracts: "trustless_contracts::trustless_contracts",
+  /** Shared lifecycle events (filled, completed, cancelled, expired) */
+  contractUtils: "trustless_contracts::contract_utils",
+  /** Per-module creation events */
+  coinForCoin: "trustless_contracts::coin_for_coin",
+  coinForItem: "trustless_contracts::coin_for_item",
+  itemForCoin: "trustless_contracts::item_for_coin",
+  itemForItem: "trustless_contracts::item_for_item",
+  transport: "trustless_contracts::transport",
   multiInput: "trustless_contracts::multi_input",
 } as const;
 
@@ -131,16 +138,77 @@ export interface OrderCancelledEvent {
 // Phase 4 — Trustless Contracts Events
 // ============================================================
 
-export interface ContractCreatedEvent {
+// Per-module creation events (no generic ContractCreatedEvent exists)
+
+export interface CoinForCoinCreatedEvent {
   contract_id: string;
   poster_id: string;
-  contract_type: Record<string, unknown>;
-  escrow_amount: string;
+  offered_amount: string;
+  wanted_amount: string;
   target_quantity: string;
   deadline_ms: string;
   allow_partial: boolean;
-  require_stake: boolean;
+  allowed_characters: string[];
+  allowed_tribes: number[];
+}
+
+export interface CoinForItemCreatedEvent {
+  contract_id: string;
+  poster_id: string;
+  escrow_amount: string;
+  wanted_type_id: string;
+  wanted_quantity: number;
+  destination_ssu_id: string;
+  target_quantity: string;
+  deadline_ms: string;
+  allow_partial: boolean;
+  use_owner_inventory: boolean;
+  allowed_characters: string[];
+  allowed_tribes: number[];
+}
+
+export interface ItemForCoinCreatedEvent {
+  contract_id: string;
+  poster_id: string;
+  offered_type_id: string;
+  offered_quantity: number;
+  source_ssu_id: string;
+  wanted_amount: string;
+  target_quantity: string;
+  deadline_ms: string;
+  allow_partial: boolean;
+  allowed_characters: string[];
+  allowed_tribes: number[];
+}
+
+export interface ItemForItemCreatedEvent {
+  contract_id: string;
+  poster_id: string;
+  offered_type_id: string;
+  offered_quantity: number;
+  source_ssu_id: string;
+  wanted_type_id: string;
+  wanted_quantity: number;
+  destination_ssu_id: string;
+  target_quantity: string;
+  deadline_ms: string;
+  allow_partial: boolean;
+  use_owner_inventory: boolean;
+  allowed_characters: string[];
+  allowed_tribes: number[];
+}
+
+export interface TransportCreatedEvent {
+  contract_id: string;
+  poster_id: string;
+  item_type_id: string;
+  item_quantity: number;
+  source_ssu_id: string;
+  destination_ssu_id: string;
+  payment_amount: string;
   stake_amount: string;
+  deadline_ms: string;
+  use_owner_inventory: boolean;
   allowed_characters: string[];
   allowed_tribes: number[];
 }
@@ -257,8 +325,13 @@ export const EVENT_TYPES = [
   "OrderCreatedEvent",
   "OrderFulfilledEvent",
   "OrderCancelledEvent",
-  // Trustless Contracts
-  "ContractCreatedEvent",
+  // Trustless Contracts — per-module creation events
+  "CoinForCoinCreatedEvent",
+  "CoinForItemCreatedEvent",
+  "ItemForCoinCreatedEvent",
+  "ItemForItemCreatedEvent",
+  "TransportCreatedEvent",
+  // Trustless Contracts — shared lifecycle events (in contract_utils)
   "ContractFilledEvent",
   "ContractCompletedEvent",
   "ContractCancelledEvent",

@@ -93,20 +93,48 @@ function parseStatus(raw: unknown): TrustlessContractStatus {
   return "Open";
 }
 
-function eventToContract(ev: { parsedJson?: unknown; id: { txDigest: string } }): TrustlessContractData {
+/** Map fully-qualified event type suffix → contract variant for creation events. */
+function variantFromEventType(eventType: string): string {
+  if (eventType.includes("CoinForCoinCreatedEvent")) return "CoinForCoin";
+  if (eventType.includes("CoinForItemCreatedEvent")) return "CoinForItem";
+  if (eventType.includes("ItemForCoinCreatedEvent")) return "ItemForCoin";
+  if (eventType.includes("ItemForItemCreatedEvent")) return "ItemForItem";
+  if (eventType.includes("TransportCreatedEvent")) return "Transport";
+  return "CoinForCoin"; // fallback
+}
+
+/** Build a TrustlessContractType from a creation event's fields + detected variant. */
+function contractTypeFromEvent(variant: string, d: Record<string, unknown>): TrustlessContractType {
+  switch (variant) {
+    case "CoinForCoin":
+      return { variant: "CoinForCoin", offeredAmount: String(d.offered_amount ?? "0"), wantedAmount: String(d.wanted_amount ?? "0") };
+    case "CoinForItem":
+      return { variant: "CoinForItem", offeredAmount: String(d.escrow_amount ?? "0"), wantedTypeId: Number(d.wanted_type_id ?? 0), wantedQuantity: Number(d.wanted_quantity ?? 0), destinationSsuId: String(d.destination_ssu_id ?? "") };
+    case "ItemForCoin":
+      return { variant: "ItemForCoin", offeredTypeId: Number(d.offered_type_id ?? 0), offeredQuantity: Number(d.offered_quantity ?? 0), sourceSsuId: String(d.source_ssu_id ?? ""), wantedAmount: String(d.wanted_amount ?? "0") };
+    case "ItemForItem":
+      return { variant: "ItemForItem", offeredTypeId: Number(d.offered_type_id ?? 0), offeredQuantity: Number(d.offered_quantity ?? 0), sourceSsuId: String(d.source_ssu_id ?? ""), wantedTypeId: Number(d.wanted_type_id ?? 0), wantedQuantity: Number(d.wanted_quantity ?? 0), destinationSsuId: String(d.destination_ssu_id ?? "") };
+    case "Transport":
+      return { variant: "Transport", itemTypeId: Number(d.item_type_id ?? 0), itemQuantity: Number(d.item_quantity ?? 0), sourceSsuId: String(d.source_ssu_id ?? ""), destinationSsuId: String(d.destination_ssu_id ?? ""), paymentAmount: String(d.payment_amount ?? "0"), requiredStake: String(d.stake_amount ?? "0") };
+    default:
+      return { variant: "CoinForCoin", offeredAmount: "0", wantedAmount: "0" };
+  }
+}
+
+function eventToContract(ev: { type: string; parsedJson?: unknown; id: { txDigest: string } }): TrustlessContractData {
   const d = (ev.parsedJson as Record<string, unknown>) ?? {};
-  const ct = (d.contract_type as Record<string, unknown>) ?? {};
+  const variant = variantFromEventType(ev.type);
 
   return {
     id: String(d.contract_id ?? ev.id.txDigest),
     posterId: String(d.poster_id ?? ""),
     posterAddress: "",
-    contractType: parseContractType(ct),
-    escrowAmount: String(d.escrow_amount ?? "0"),
+    contractType: contractTypeFromEvent(variant, d),
+    escrowAmount: String(d.escrow_amount ?? d.offered_amount ?? d.payment_amount ?? "0"),
     targetQuantity: String(d.target_quantity ?? "0"),
     filledQuantity: "0",
     allowPartial: Boolean(d.allow_partial),
-    requireStake: Boolean(d.require_stake),
+    requireStake: variant === "Transport",
     stakeAmount: String(d.stake_amount ?? "0"),
     deadlineMs: String(d.deadline_ms ?? "0"),
     status: "Open",
@@ -154,24 +182,39 @@ function objectToContract(objectId: string, fields: Record<string, unknown>): Tr
 // Hooks
 // ---------------------------------------------------------------------------
 
-/** Fetch active contracts from on-chain ContractCreatedEvent emissions,
+/** Per-module creation event types to query. */
+const CREATION_EVENT_TYPES = [
+  `${pkg}::coin_for_coin::CoinForCoinCreatedEvent`,
+  `${pkg}::coin_for_item::CoinForItemCreatedEvent`,
+  `${pkg}::item_for_coin::ItemForCoinCreatedEvent`,
+  `${pkg}::item_for_item::ItemForItemCreatedEvent`,
+  `${pkg}::transport::TransportCreatedEvent`,
+];
+
+/** Fetch active contracts from on-chain creation event emissions,
  *  enriched with live object state (filled_quantity, status). */
 export function useActiveContracts() {
   const client = useSuiClient();
 
-  const { data, isLoading: eventsLoading, error, refetch } = useSuiClientQuery(
-    "queryEvents",
-    {
-      query: {
-        MoveEventType: `${pkg}::trustless_contracts::ContractCreatedEvent`,
-      },
-      limit: 50,
-      order: "descending",
+  // Query all creation event types in parallel and merge results
+  const { data, isLoading: eventsLoading, error, refetch } = useQuery({
+    queryKey: ["trustlessCreationEvents", pkg],
+    queryFn: async () => {
+      const results = await Promise.all(
+        CREATION_EVENT_TYPES.map((eventType) =>
+          client.queryEvents({ query: { MoveEventType: eventType }, limit: 50, order: "descending" }),
+        ),
+      );
+      // Merge all events and sort by timestamp descending
+      return results
+        .flatMap((r) => r.data)
+        .sort((a, b) => Number(b.timestampMs ?? 0) - Number(a.timestampMs ?? 0));
     },
-    { enabled: pkg !== "0x0" },
-  );
+    enabled: pkg !== "0x0",
+    refetchInterval: 15_000,
+  });
 
-  const eventContracts: TrustlessContractData[] = (data?.data ?? []).map(eventToContract);
+  const eventContracts: TrustlessContractData[] = (data ?? []).map(eventToContract);
   const contractIds = eventContracts.map((c) => c.id).filter((id) => id.startsWith("0x"));
 
   // Batch-fetch live object state so filled_quantity & status are current

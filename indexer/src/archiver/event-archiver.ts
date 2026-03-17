@@ -189,8 +189,12 @@ function extractDenormalisedFields(
         characterId: str(data.creator_id),
       };
 
-    // -- Trustless Contracts events --
-    case "ContractCreatedEvent":
+    // -- Trustless Contracts events (per-module creation events) --
+    case "CoinForCoinCreatedEvent":
+    case "CoinForItemCreatedEvent":
+    case "ItemForCoinCreatedEvent":
+    case "ItemForItemCreatedEvent":
+    case "TransportCreatedEvent":
       return {
         primaryId: str(data.contract_id),
         tribeId: "",

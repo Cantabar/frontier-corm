@@ -157,42 +157,46 @@ export class CleanupWorker {
     }
   }
 
+  /** Map creation event names to their contract variant. */
+  private static readonly CREATION_EVENT_VARIANTS: Record<string, string> = {
+    CoinForCoinCreatedEvent: "CoinForCoin",
+    CoinForItemCreatedEvent: "CoinForItem",
+    ItemForCoinCreatedEvent: "ItemForCoin",
+    ItemForItemCreatedEvent: "ItemForItem",
+    TransportCreatedEvent: "Transport",
+  };
+
   /**
-   * Look up the ContractCreatedEvent for a trustless contract to extract
-   * contract_type variant, poster_id, and source_ssu_id (for item contracts).
+   * Look up the creation event for a trustless contract to extract
+   * contract variant, poster_id, and source_ssu_id (for item contracts).
    */
   private async getContractCreationMeta(contractId: string): Promise<{
     contractType: string | null;
     posterId: string | null;
     sourceSsuId: string | null;
   }> {
+    const creationNames = Object.keys(CleanupWorker.CREATION_EVENT_VARIANTS);
+    const placeholders = creationNames.map((_, i) => `$${i + 2}`).join(", ");
     const result = await this.pool.query(
-      `SELECT event_data FROM events
-       WHERE event_name = 'ContractCreatedEvent' AND primary_id = $1
+      `SELECT event_name, event_data FROM events
+       WHERE event_name IN (${placeholders}) AND primary_id = $1
        LIMIT 1`,
-      [contractId],
+      [contractId, ...creationNames],
     );
 
     if (result.rows.length === 0) {
       return { contractType: null, posterId: null, sourceSsuId: null };
     }
 
-    const data = typeof result.rows[0].event_data === "string"
-      ? JSON.parse(result.rows[0].event_data)
-      : result.rows[0].event_data;
+    const row = result.rows[0];
+    const data = typeof row.event_data === "string" ? JSON.parse(row.event_data) : row.event_data;
+    const variant = CleanupWorker.CREATION_EVENT_VARIANTS[row.event_name] ?? null;
 
-    const posterId = data.poster_id ?? null;
-    const ct = data.contract_type ?? {};
-
-    // The contract_type is an enum variant object like { "CoinForCoin": { ... } }
-    const variant = Object.keys(ct)[0] ?? null;
-    let sourceSsuId: string | null = null;
-
-    if (variant && ct[variant]) {
-      sourceSsuId = ct[variant].source_ssu_id ?? null;
-    }
-
-    return { contractType: variant, posterId, sourceSsuId };
+    return {
+      contractType: variant,
+      posterId: data.poster_id ?? null,
+      sourceSsuId: data.source_ssu_id ?? null,
+    };
   }
 
   // ================================================================
@@ -263,10 +267,11 @@ export class CleanupWorker {
         job.contract_id,
         job.poster_id,
         job.source_ssu_id,
+        job.contract_type,
       );
     } else {
       // Coin-only trustless contract
-      tx = buildCleanupCompletedContract(this.config, job.contract_id);
+      tx = buildCleanupCompletedContract(this.config, job.contract_id, job.contract_type);
     }
 
     // 3. Sign and execute
