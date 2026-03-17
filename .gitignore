@@ -42,3 +42,11 @@ mprocs.log
 dev-tools/*
 !dev-tools/dev-wallet
 !dev-tools/give-item-helper
+
+# ZK circuit generated artifacts
+indexer/circuits/build/
+indexer/circuits/*.ptau
+indexer/circuits/artifacts/*
+!indexer/circuits/artifacts/.gitkeep
+web/public/zk/*
+!web/public/zk/.gitkeep

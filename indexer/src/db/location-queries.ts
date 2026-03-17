@@ -182,3 +182,88 @@ export async function getAllTlksForTribe(
   );
   return result.rows as TribeTlkRow[];
 }
+
+// ============================================================
+// ZK Location Filter Proofs
+// ============================================================
+
+export interface FilterProofRow {
+  id: number;
+  structure_id: string;
+  tribe_id: string;
+  location_hash: string;
+  filter_type: "region" | "proximity";
+  filter_key: string;
+  public_signals: string[];
+  proof_json: Record<string, unknown>;
+  created_at: string;
+  verified_at: string;
+}
+
+const UPSERT_FILTER_PROOF_SQL = `
+  INSERT INTO location_filter_proofs (
+    structure_id, tribe_id, location_hash, filter_type, filter_key,
+    public_signals, proof_json
+  ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+  ON CONFLICT (structure_id, tribe_id, filter_type, filter_key) DO UPDATE SET
+    public_signals = EXCLUDED.public_signals,
+    proof_json     = EXCLUDED.proof_json,
+    verified_at    = NOW()
+  RETURNING id
+`;
+
+export async function upsertFilterProof(
+  pool: pg.Pool,
+  proof: {
+    structureId: string;
+    tribeId: string;
+    locationHash: string;
+    filterType: "region" | "proximity";
+    filterKey: string;
+    publicSignals: string[];
+    proofJson: Record<string, unknown>;
+  },
+): Promise<number> {
+  const result = await pool.query(UPSERT_FILTER_PROOF_SQL, [
+    proof.structureId,
+    proof.tribeId,
+    proof.locationHash,
+    proof.filterType,
+    proof.filterKey,
+    JSON.stringify(proof.publicSignals),
+    JSON.stringify(proof.proofJson),
+  ]);
+  return result.rows[0]?.id ?? 0;
+}
+
+export async function getFilterProofsByKey(
+  pool: pg.Pool,
+  tribeId: string,
+  filterType: "region" | "proximity",
+  filterKey: string,
+): Promise<FilterProofRow[]> {
+  const result = await pool.query(
+    `SELECT fp.*, lp.owner_address, lp.encrypted_blob, lp.nonce, lp.signature,
+            lp.pod_version, lp.tlk_version
+     FROM location_filter_proofs fp
+     JOIN location_pods lp ON lp.structure_id = fp.structure_id AND lp.tribe_id = fp.tribe_id
+     WHERE fp.tribe_id = $1 AND fp.filter_type = $2 AND fp.filter_key = $3
+     ORDER BY fp.verified_at DESC`,
+    [tribeId, filterType, filterKey],
+  );
+  return result.rows as FilterProofRow[];
+}
+
+export async function getFilterProofsForStructure(
+  pool: pg.Pool,
+  structureId: string,
+  tribeId: string,
+): Promise<FilterProofRow[]> {
+  const result = await pool.query(
+    `SELECT * FROM location_filter_proofs
+     WHERE structure_id = $1 AND tribe_id = $2
+     ORDER BY verified_at DESC`,
+    [structureId, tribeId],
+  );
+  return result.rows as FilterProofRow[];
+}

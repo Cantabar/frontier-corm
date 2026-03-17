@@ -50,4 +50,24 @@ const LOCATION_SCHEMA_SQL = `
 
   CREATE INDEX IF NOT EXISTS idx_tlk_tribe   ON tribe_location_keys(tribe_id);
   CREATE INDEX IF NOT EXISTS idx_tlk_member  ON tribe_location_keys(member_address);
+
+  -- Verified Groth16 proofs for location filters (region / proximity)
+  CREATE TABLE IF NOT EXISTS location_filter_proofs (
+    id              BIGSERIAL PRIMARY KEY,
+    structure_id    TEXT NOT NULL,
+    tribe_id        TEXT NOT NULL,
+    location_hash   TEXT NOT NULL,
+    filter_type     TEXT NOT NULL CHECK (filter_type IN ('region', 'proximity')),
+    filter_key      TEXT NOT NULL,
+    public_signals  JSONB NOT NULL,
+    proof_json      JSONB NOT NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    verified_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (structure_id, tribe_id, filter_type, filter_key)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_location_filter_proofs_lookup
+    ON location_filter_proofs(tribe_id, filter_type, filter_key);
+  CREATE INDEX IF NOT EXISTS idx_location_filter_proofs_hash
+    ON location_filter_proofs(location_hash);
 `;

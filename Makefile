@@ -18,7 +18,7 @@
 
 .PHONY: local local-down local-reset \
         infra-init deploy deploy-infra deploy-images deploy-frontend teardown \
-        build clean enrich-items seed-ores help
+        build clean enrich-items seed-ores zk-build zk-clean help
 
 SHELL := /bin/bash
 AWS_REGION ?= us-east-1
@@ -128,6 +128,18 @@ build: ## Build all TypeScript projects locally
 
 clean: ## Remove build artifacts
 	rm -rf indexer/dist app/dist infra/dist infra/cdk.out
+
+# ── ZK Circuits ────────────────────────────────────────────────────
+
+zk-build: ## Build Groth16 artifacts for region/proximity location circuits
+	bash indexer/scripts/build-zk-artifacts.sh
+
+zk-clean: ## Remove generated ZK artifacts and copied web assets
+	rm -rf indexer/circuits/build indexer/circuits/*.ptau
+	rm -rf indexer/circuits/artifacts/*
+	touch indexer/circuits/artifacts/.gitkeep
+	rm -rf web/public/zk/*
+	touch web/public/zk/.gitkeep
 
 # ── Help ───────────────────────────────────────────────────────────
 

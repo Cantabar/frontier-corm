@@ -282,3 +282,78 @@ export function rotateTlk(authHeader: string, body: {
     body,
   );
 }
+
+// ---- ZK Location Proofs ----
+
+export interface ZkProofSubmission {
+  structureId: string;
+  tribeId: string;
+  filterType: "region" | "proximity";
+  publicSignals: string[];
+  proof: Record<string, unknown>;
+}
+
+export interface ZkFilteredResult {
+  id: number;
+  structure_id: string;
+  tribe_id: string;
+  location_hash: string;
+  filter_type: string;
+  filter_key: string;
+  public_signals: string[];
+  proof_json: Record<string, unknown>;
+  verified_at: string;
+  // Joined from location_pods
+  owner_address?: string;
+  encrypted_blob?: string;
+  nonce?: string;
+  signature?: string;
+  pod_version?: number;
+  tlk_version?: number;
+}
+
+export function submitZkProof(authHeader: string, body: ZkProofSubmission) {
+  return authedPost<{ id: number; structureId: string; tribeId: string; filterType: string; verified: boolean }>(
+    "/locations/proofs/submit",
+    authHeader,
+    body,
+  );
+}
+
+export function getZkRegionResults(
+  authHeader: string,
+  params: {
+    tribeId: string;
+    xMin: string;
+    xMax: string;
+    yMin: string;
+    yMax: string;
+    zMin: string;
+    zMax: string;
+  },
+) {
+  const q = `tribeId=${enc(params.tribeId)}&xMin=${enc(params.xMin)}&xMax=${enc(params.xMax)}&yMin=${enc(params.yMin)}&yMax=${enc(params.yMax)}&zMin=${enc(params.zMin)}&zMax=${enc(params.zMax)}`;
+  return authedGet<{ tribe_id: string; filter_type: string; count: number; results: ZkFilteredResult[] }>(
+    `/locations/proofs/region?${q}`,
+    authHeader,
+  );
+}
+
+export function getZkProximityResults(
+  authHeader: string,
+  params: {
+    tribeId: string;
+    refX: string;
+    refY: string;
+    refZ: string;
+    maxDistSq: string;
+  },
+) {
+  const q = `tribeId=${enc(params.tribeId)}&refX=${enc(params.refX)}&refY=${enc(params.refY)}&refZ=${enc(params.refZ)}&maxDistSq=${enc(params.maxDistSq)}`;
+  return authedGet<{ tribe_id: string; filter_type: string; count: number; results: ZkFilteredResult[] }>(
+    `/locations/proofs/proximity?${q}`,
+    authHeader,
+  );
+}
+
+function enc(v: string) { return encodeURIComponent(v); }
