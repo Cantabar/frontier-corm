@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { useLocation } from "react-router-dom";
 import styled from "styled-components";
 import { useSuiClient, useSignAndExecuteTransaction } from "@mysten/dapp-kit";
 import { useQueryClient } from "@tanstack/react-query";
@@ -121,6 +122,41 @@ const ActionRow = styled.div`
   padding-top: ${({ theme }) => theme.spacing.md};
 `;
 
+const HeaderRight = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.sm};
+`;
+
+const ShareBtn = styled.button`
+  all: unset;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  color: ${({ theme }) => theme.colors.text.muted};
+  padding: 4px 8px;
+  border-radius: ${({ theme }) => theme.radii.sm};
+  border: 1px solid ${({ theme }) => theme.colors.surface.border};
+  transition: color 0.15s, border-color 0.15s;
+
+  &:hover {
+    color: ${({ theme }) => theme.colors.primary.main};
+    border-color: ${({ theme }) => theme.colors.primary.main};
+  }
+`;
+
+const ContractIdRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.sm};
+  margin-bottom: ${({ theme }) => theme.spacing.md};
+  font-size: 12px;
+  color: ${({ theme }) => theme.colors.text.muted};
+`;
+
 
 // ---------------------------------------------------------------------------
 
@@ -137,6 +173,7 @@ interface Props {
 
 export function ContractDetail({ contract: initial, onStatusChange }: Props) {
   const { characterId } = useIdentity();
+  const location = useLocation();
   const suiClient = useSuiClient();
   const { mutateAsync: signAndExecute, isPending } = useSignAndExecuteTransaction();
   const queryClient = useQueryClient();
@@ -144,6 +181,7 @@ export function ContractDetail({ contract: initial, onStatusChange }: Props) {
   const { decimals: ceDecimals, symbol: ceSymbol } = useEscrowCoinDecimals();
   const { decimals: cfDecimals, symbol: cfSymbol } = useFillCoinDecimals();
   const [showFill, setShowFill] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
 
   // Fetch live object state for up-to-date balances/fill qty
   const { contract: live } = useContractObject(initial.id);
@@ -304,6 +342,14 @@ export function ContractDetail({ contract: initial, onStatusChange }: Props) {
     }
   }
 
+  const handleShare = useCallback(() => {
+    const url = `${window.location.origin}/contracts/${c.id}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 1500);
+    });
+  }, [c.id]);
+
   return (
     <>
       <Wrapper>
@@ -312,8 +358,18 @@ export function ContractDetail({ contract: initial, onStatusChange }: Props) {
             <TypeTag>{contractTypeLabel(c.contractType.variant)}</TypeTag>
             <Title style={{ display: "inline" }}>Contract Details</Title>
           </div>
-          <StatusBadge status={statusVariant(c.status)} />
+          <HeaderRight>
+            <ShareBtn onClick={handleShare} title="Copy shareable link">
+              {shareCopied ? "✓ Copied" : "🔗 Share"}
+            </ShareBtn>
+            <StatusBadge status={statusVariant(c.status)} />
+          </HeaderRight>
         </Header>
+
+        <ContractIdRow>
+          <span>Contract ID:</span>
+          <CopyableId id={c.id} />
+        </ContractIdRow>
 
         <DetailGrid>
           <div>

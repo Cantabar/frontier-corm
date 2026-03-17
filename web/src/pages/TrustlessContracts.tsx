@@ -4,12 +4,11 @@ import { useNavigate } from "react-router-dom";
 import { useIdentity } from "../hooks/useIdentity";
 import { useActiveContracts } from "../hooks/useContracts";
 import { ContractCard } from "../components/contracts/ContractCard";
-import { ContractDetail } from "../components/contracts/ContractDetail";
 import { ContractHistory } from "../components/contracts/ContractHistory";
 import { canViewContract } from "../lib/contractVisibility";
 import { LoadingSpinner } from "../components/shared/LoadingSpinner";
 import { EmptyState } from "../components/shared/EmptyState";
-import { PrimaryButton, SecondaryButton } from "../components/shared/Button";
+import { PrimaryButton } from "../components/shared/Button";
 import type { TrustlessContractVariant } from "../lib/types";
 
 const Page = styled.div``;
@@ -64,10 +63,6 @@ const TypeSelect = styled.select`
   }
 `;
 
-const BackButton = styled(SecondaryButton)`
-  margin-bottom: ${({ theme }) => theme.spacing.md};
-`;
-
 const Grid = styled.div`
   display: flex;
   flex-direction: column;
@@ -92,7 +87,6 @@ export function TrustlessContracts() {
 
   const [statusTab, setStatusTab] = useState<StatusTab>("all");
   const [typeFilter, setTypeFilter] = useState<TrustlessContractVariant | "all">("all");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const filtered = contracts.filter((c) => {
     if (!canViewContract(c, { characterId, inGameTribeId })) return false;
@@ -110,45 +104,36 @@ export function TrustlessContracts() {
         {characterId && <PrimaryButton onClick={() => navigate("/contracts/create")}>+ Create Contract</PrimaryButton>}
       </Header>
 
-      {selectedId && contracts.find((c) => c.id === selectedId) ? (
-        <>
-          <BackButton onClick={() => setSelectedId(null)}>← Back to list</BackButton>
-          <ContractDetail contract={contracts.find((c) => c.id === selectedId)!} onStatusChange={() => { setSelectedId(null); refetch(); }} />
-        </>
-      ) : (
-        <>
-          <FilterRow>
-            {(["all", "Open", "InProgress", "Completed"] as StatusTab[]).map((t) => (
-              <Tab key={t} $active={statusTab === t} onClick={() => setStatusTab(t)}>
-                {t === "all" ? "All" : t === "InProgress" ? "In Progress" : t}
-              </Tab>
-            ))}
-            <TypeSelect
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value as TrustlessContractVariant | "all")}
-            >
-              <option value="all">All Types</option>
-              <option value="CoinForCoin">Coin → Coin</option>
-              <option value="CoinForItem">Coin → Item</option>
-              <option value="ItemForCoin">Item → Coin</option>
-              <option value="ItemForItem">Item → Item</option>
-              <option value="Transport">Transport</option>
-            </TypeSelect>
-          </FilterRow>
+      <FilterRow>
+        {(["all", "Open", "InProgress", "Completed"] as StatusTab[]).map((t) => (
+          <Tab key={t} $active={statusTab === t} onClick={() => setStatusTab(t)}>
+            {t === "all" ? "All" : t === "InProgress" ? "In Progress" : t}
+          </Tab>
+        ))}
+        <TypeSelect
+          value={typeFilter}
+          onChange={(e) => setTypeFilter(e.target.value as TrustlessContractVariant | "all")}
+        >
+          <option value="all">All Types</option>
+          <option value="CoinForCoin">Coin → Coin</option>
+          <option value="CoinForItem">Coin → Item</option>
+          <option value="ItemForCoin">Item → Coin</option>
+          <option value="ItemForItem">Item → Item</option>
+          <option value="Transport">Transport</option>
+        </TypeSelect>
+      </FilterRow>
 
-          {filtered.length === 0 ? (
-            <EmptyState
-              title="No contracts found"
-              description="Create a trustless contract or connect your wallet to browse."
-            />
-          ) : (
-            <Grid>
-              {filtered.map((c) => (
-                <ContractCard key={c.id} contract={c} onClick={() => setSelectedId(c.id)} />
-              ))}
-            </Grid>
-          )}
-        </>
+      {filtered.length === 0 ? (
+        <EmptyState
+          title="No contracts found"
+          description="Create a trustless contract or connect your wallet to browse."
+        />
+      ) : (
+        <Grid>
+          {filtered.map((c) => (
+            <ContractCard key={c.id} contract={c} onClick={() => navigate(`/contracts/${c.id}`)} />
+          ))}
+        </Grid>
       )}
 
       <SectionLabel>Contract History</SectionLabel>
