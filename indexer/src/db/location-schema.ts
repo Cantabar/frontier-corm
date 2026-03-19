@@ -51,6 +51,19 @@ const LOCATION_SCHEMA_SQL = `
   CREATE INDEX IF NOT EXISTS idx_tlk_tribe   ON tribe_location_keys(tribe_id);
   CREATE INDEX IF NOT EXISTS idx_tlk_member  ON tribe_location_keys(member_address);
 
+  -- Member X25519 public keys for TLK distribution
+  CREATE TABLE IF NOT EXISTS member_public_keys (
+    id              BIGSERIAL PRIMARY KEY,
+    tribe_id        TEXT NOT NULL,
+    member_address  TEXT NOT NULL,
+    x25519_pub      BYTEA NOT NULL,
+    registered_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (tribe_id, member_address)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_member_pubkeys_tribe
+    ON member_public_keys(tribe_id);
+
   -- Verified Groth16 proofs for location filters (region / proximity)
   CREATE TABLE IF NOT EXISTS location_filter_proofs (
     id              BIGSERIAL PRIMARY KEY,

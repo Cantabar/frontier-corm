@@ -20,6 +20,8 @@ import {
   getTlkForMember,
   getLatestTlkVersion,
   upsertTlk,
+  upsertMemberPublicKey,
+  getMembersWithoutTlk,
 } from "../db/location-queries.js";
 
 export function createLocationRouter(pool: pg.Pool): Router {
@@ -335,6 +337,72 @@ export function createLocationRouter(pool: pg.Pool): Router {
     } catch (err) {
       console.error("[locations] Failed to rotate TLK:", err);
       res.status(500).json({ error: "Failed to rotate TLK" });
+    }
+  });
+
+  // ================================================================
+  // POST /keys/register — Register caller's X25519 public key for TLK distribution
+  //
+  // Body: { tribeId, x25519Pub (base64) }
+  //
+  // Members call this on page load so that existing TLK holders can
+  // wrap the key for them.
+  // ================================================================
+  router.post("/keys/register", async (req: Request, res: Response) => {
+    const address = await authenticate(req, res);
+    if (!address) return;
+
+    const { tribeId, x25519Pub } = req.body as {
+      tribeId: string;
+      x25519Pub: string; // base64-encoded 32-byte X25519 public key
+    };
+
+    if (!tribeId || !x25519Pub) {
+      res.status(400).json({ error: "tribeId and x25519Pub required" });
+      return;
+    }
+
+    try {
+      const pubBuf = Buffer.from(x25519Pub, "base64");
+      if (pubBuf.length !== 32) {
+        res.status(400).json({ error: "Invalid X25519 public key length — expected 32 bytes" });
+        return;
+      }
+
+      await upsertMemberPublicKey(pool, tribeId, address, pubBuf);
+      res.json({ tribe_id: tribeId, member: address, registered: true });
+    } catch (err) {
+      console.error("[locations] Failed to register public key:", err);
+      res.status(500).json({ error: "Failed to register public key" });
+    }
+  });
+
+  // ================================================================
+  // GET /keys/pending/:tribeId — List members who need a wrapped TLK
+  //
+  // Returns members who have registered an X25519 public key but do
+  // not yet have a wrapped TLK at the current version.
+  // ================================================================
+  router.get("/keys/pending/:tribeId", async (req: Request, res: Response) => {
+    const address = await authenticate(req, res);
+    if (!address) return;
+
+    const tribeId = req.params.tribeId as string;
+
+    try {
+      const pending = await getMembersWithoutTlk(pool, tribeId);
+      res.json({
+        tribe_id: tribeId,
+        count: pending.length,
+        members: pending.map((m) => ({
+          address: m.member_address,
+          x25519Pub: m.x25519_pub.toString("base64"),
+          registeredAt: m.registered_at,
+        })),
+      });
+    } catch (err) {
+      console.error("[locations] Failed to fetch pending members:", err);
+      res.status(500).json({ error: "Failed to fetch pending members" });
     }
   });
 

@@ -184,6 +184,80 @@ export async function getAllTlksForTribe(
 }
 
 // ============================================================
+// Member Public Keys (for TLK distribution)
+// ============================================================
+
+export interface MemberPublicKeyRow {
+  id: number;
+  tribe_id: string;
+  member_address: string;
+  x25519_pub: Buffer;
+  registered_at: string;
+}
+
+const UPSERT_MEMBER_PUBKEY_SQL = `
+  INSERT INTO member_public_keys (tribe_id, member_address, x25519_pub)
+  VALUES ($1, $2, $3)
+  ON CONFLICT (tribe_id, member_address) DO UPDATE SET
+    x25519_pub    = EXCLUDED.x25519_pub,
+    registered_at = NOW()
+  RETURNING id
+`;
+
+export async function upsertMemberPublicKey(
+  pool: pg.Pool,
+  tribeId: string,
+  memberAddress: string,
+  x25519Pub: Buffer,
+): Promise<number> {
+  const result = await pool.query(UPSERT_MEMBER_PUBKEY_SQL, [
+    tribeId,
+    memberAddress,
+    x25519Pub,
+  ]);
+  return result.rows[0]?.id ?? 0;
+}
+
+export async function getMemberPublicKeys(
+  pool: pg.Pool,
+  tribeId: string,
+): Promise<MemberPublicKeyRow[]> {
+  const result = await pool.query(
+    "SELECT * FROM member_public_keys WHERE tribe_id = $1 ORDER BY registered_at ASC",
+    [tribeId],
+  );
+  return result.rows as MemberPublicKeyRow[];
+}
+
+/**
+ * Members who have registered an X25519 public key but do NOT yet have
+ * a wrapped TLK at the current (latest) version for this tribe.
+ */
+export async function getMembersWithoutTlk(
+  pool: pg.Pool,
+  tribeId: string,
+): Promise<MemberPublicKeyRow[]> {
+  const result = await pool.query(
+    `SELECT mpk.*
+     FROM member_public_keys mpk
+     WHERE mpk.tribe_id = $1
+       AND NOT EXISTS (
+         SELECT 1 FROM tribe_location_keys tlk
+         WHERE tlk.tribe_id = mpk.tribe_id
+           AND tlk.member_address = mpk.member_address
+           AND tlk.tlk_version = (
+             SELECT COALESCE(MAX(tlk_version), 0)
+             FROM tribe_location_keys
+             WHERE tribe_id = $1
+           )
+       )
+     ORDER BY mpk.registered_at ASC`,
+    [tribeId],
+  );
+  return result.rows as MemberPublicKeyRow[];
+}
+
+// ============================================================
 // ZK Location Filter Proofs
 // ============================================================
 
