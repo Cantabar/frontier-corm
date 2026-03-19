@@ -36,6 +36,7 @@ const EInGameTribeAlreadyClaimed: u64 = 14;
 const EInGameTribeIdInvalid: u64 = 15;
 const ECharacterTribeMismatch: u64 = 16;
 const ECannotTransferToSelf: u64 = 17;
+const ERoleStale: u64 = 18;
 
 // === Enums ===
 public enum Role has copy, drop, store {
@@ -457,6 +458,7 @@ public fun member_role(tribe: &Tribe, character_id: ID): Role {
 fun verify_tribe_cap(tribe: &Tribe, cap: &TribeCap) {
     assert!(cap.tribe_id == object::id(tribe), ETribeMismatch);
     assert!(tribe.members.contains(cap.character_id), ENotMember);
+    assert!(cap.role == *tribe.members.borrow(cap.character_id), ERoleStale);
 }
 
 fun is_leader_or_officer(cap: &TribeCap): bool {

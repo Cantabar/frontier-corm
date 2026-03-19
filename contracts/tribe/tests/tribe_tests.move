@@ -596,6 +596,67 @@ fun transfer_leadership_to_self_fails() {
 }
 
 #[test]
+#[expected_failure(abort_code = 18)] // ERoleStale
+fun stale_leader_cap_rejected_after_transfer() {
+    let mut ts = ts::begin(@0x0);
+    let (leader_id, member_id) = setup_characters(&mut ts);
+
+    // Create tribe
+    ts::next_tx(&mut ts, user_a());
+    {
+        let leader = ts::take_shared_by_id<Character>(&ts, leader_id);
+        let mut tribe_registry = ts::take_shared<TribeRegistry>(&ts);
+        let cap = tribe::create_tribe(&mut tribe_registry, &leader, utf8(TRIBE_NAME), ts::ctx(&mut ts));
+        transfer::public_transfer(cap, user_a());
+        ts::return_shared(tribe_registry);
+        ts::return_shared(leader);
+    };
+
+    // Add member as Officer
+    ts::next_tx(&mut ts, user_a());
+    {
+        let leader_cap = ts::take_from_sender<TribeCap>(&ts);
+        let mut tribe = ts::take_shared<Tribe>(&ts);
+        let member = ts::take_shared_by_id<Character>(&ts, member_id);
+        let member_cap = tribe::add_member(
+            &mut tribe, &leader_cap, &member, tribe::role_officer(), ts::ctx(&mut ts),
+        );
+        transfer::public_transfer(member_cap, user_b());
+        ts::return_to_sender(&ts, leader_cap);
+        ts::return_shared(tribe);
+        ts::return_shared(member);
+    };
+
+    // Transfer leadership; send valid Officer cap elsewhere to isolate stale cap
+    ts::next_tx(&mut ts, user_a());
+    {
+        let stale_cap = ts::take_from_sender<TribeCap>(&ts);
+        let mut tribe = ts::take_shared<Tribe>(&ts);
+
+        let (new_leader_cap, old_leader_cap) = tribe::transfer_leadership(
+            &mut tribe, &stale_cap, member_id, ts::ctx(&mut ts),
+        );
+
+        transfer::public_transfer(new_leader_cap, user_b());
+        transfer::public_transfer(old_leader_cap, @0xDEAD);
+        ts::return_to_sender(&ts, stale_cap);
+        ts::return_shared(tribe);
+    };
+
+    // Use stale cap (role=Leader but table says Officer) — should abort ERoleStale
+    ts::next_tx(&mut ts, user_a());
+    {
+        let stale_cap = ts::take_from_sender<TribeCap>(&ts);
+        let mut tribe = ts::take_shared<Tribe>(&ts);
+        tribe::remove_member(&mut tribe, &stale_cap, member_id);
+        ts::return_to_sender(&ts, stale_cap);
+        ts::return_shared(tribe);
+    };
+
+    ts::end(ts);
+}
+
+#[test]
 #[expected_failure(abort_code = 14)] // EInGameTribeAlreadyClaimed
 fun create_duplicate_in_game_tribe_fails() {
     let mut ts = ts::begin(@0x0);
