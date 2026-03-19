@@ -18,6 +18,16 @@ export class FrontierCormStack extends cdk.Stack {
     const prefix = "fc"; // short prefix for resource names
 
     // ================================================================
+    // Context — SUI network (testnet | mainnet)
+    // ================================================================
+    const suiNetwork = this.node.tryGetContext("suiNetwork") ?? "testnet";
+    const suiRpcUrls: Record<string, string> = {
+      testnet: "https://fullnode.testnet.sui.io:443",
+      mainnet: "https://fullnode.mainnet.sui.io:443",
+    };
+    const suiRpcUrl = suiRpcUrls[suiNetwork] ?? suiRpcUrls.testnet;
+
+    // ================================================================
     // VPC
     // ================================================================
     const vpc = new ec2.Vpc(this, "Vpc", {
@@ -108,11 +118,11 @@ export class FrontierCormStack extends cdk.Stack {
       secretName: `${prefix}/sui-rpc`,
       secretStringValue: cdk.SecretValue.unsafePlainText(
         JSON.stringify({
-          SUI_RPC_URL: "https://fullnode.testnet.sui.io:443",
+          SUI_RPC_URL: suiRpcUrl,
           SUI_WS_URL: "",
         })
       ),
-      description: "Update with actual Sui RPC endpoint after deployment",
+      description: `Sui RPC endpoint (${suiNetwork})`,
     });
 
     // ================================================================
@@ -177,15 +187,6 @@ export class FrontierCormStack extends cdk.Stack {
     });
 
     // ================================================================
-    // Helper: build DATABASE_URL from RDS secret
-    // ================================================================
-    const dbUrl = `postgresql://${dbCredentials
-      .secretValueFromJson("username")
-      .unsafeUnwrap()}:${dbCredentials
-      .secretValueFromJson("password")
-      .unsafeUnwrap()}@${db.dbInstanceEndpointAddress}:${db.dbInstanceEndpointPort}/frontier_corm`;
-
-    // ================================================================
     // ECS — Indexer Service (subscriber + API on port 3100)
     // ================================================================
     const indexerTaskDef = new ecs.FargateTaskDefinition(
@@ -201,10 +202,14 @@ export class FrontierCormStack extends cdk.Stack {
         API_PORT: "3100",
         POLL_INTERVAL_MS: "2000",
         NODE_ENV: "production",
-        DATABASE_URL: dbUrl,
+        DB_HOST: db.dbInstanceEndpointAddress,
+        DB_PORT: db.dbInstanceEndpointPort,
+        DB_NAME: "frontier_corm",
       },
       secrets: {
         SUI_RPC_URL: ecs.Secret.fromSecretsManager(suiSecret, "SUI_RPC_URL"),
+        DB_USERNAME: ecs.Secret.fromSecretsManager(dbCredentials, "username"),
+        DB_PASSWORD: ecs.Secret.fromSecretsManager(dbCredentials, "password"),
       },
       logging: ecs.LogDrivers.awsLogs({
         logGroup,

@@ -40,11 +40,13 @@ COPY --from=build /app/package.json ./
 # wasm + zkey files served to the web client for proof generation.
 COPY --from=circom-builder /app/circuits/artifacts/ ./circuits/artifacts/
 
+# Entrypoint constructs DATABASE_URL from individual DB_* env vars
+COPY entrypoint.sh ./
+
 ENV NODE_ENV=production
 ENV API_PORT=3100
-# DATABASE_URL must be provided at runtime
 
 EXPOSE 3100
 
-ENTRYPOINT ["/sbin/tini", "--"]
+ENTRYPOINT ["/sbin/tini", "--", "./entrypoint.sh"]
 CMD ["node", "dist/index.js"]
