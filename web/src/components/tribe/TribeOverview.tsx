@@ -1,7 +1,6 @@
 import styled from "styled-components";
 import type { TribeData } from "../../lib/types";
 import { formatAmount } from "../../lib/format";
-import { parseCoinModule } from "../../lib/coinUtils";
 import { useCoinDecimals } from "../../hooks/useCoinDecimals";
 
 const Grid = styled.div`
@@ -32,14 +31,8 @@ const CardValue = styled.div`
   color: ${({ theme }) => theme.colors.text.primary};
 `;
 
-const CoinTooltip = styled.span`
-  cursor: help;
-  border-bottom: 1px dotted ${({ theme }) => theme.colors.text.muted};
-`;
-
 export function TribeOverview({ tribe }: { tribe: TribeData }) {
   const { decimals, symbol } = useCoinDecimals(tribe.coinType);
-  const module = parseCoinModule(tribe.coinType);
 
   return (
     <Grid>
@@ -54,12 +47,6 @@ export function TribeOverview({ tribe }: { tribe: TribeData }) {
       <Card>
         <CardLabel>Treasury</CardLabel>
         <CardValue>{formatAmount(tribe.treasuryBalance, decimals)} {symbol}</CardValue>
-      </Card>
-      <Card>
-        <CardLabel>Coin Type</CardLabel>
-        <CardValue>
-          <CoinTooltip title={tribe.coinType}>{module}</CoinTooltip>
-        </CardValue>
       </Card>
       <Card>
         <CardLabel>Vote Threshold</CardLabel>

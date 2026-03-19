@@ -4,7 +4,6 @@ import styled from "styled-components";
 import { useSignAndExecuteTransaction, useSuiClient } from "@mysten/dapp-kit";
 import { useQueryClient } from "@tanstack/react-query";
 import { Modal } from "../shared/Modal";
-import { CoinTypeSelector } from "../shared/CoinTypeSelector";
 import { TransactionStepper } from "../shared/TransactionStepper";
 import { useTransactionPhase } from "../../hooks/useTransactionPhase";
 import { buildCreateTribe } from "../../lib/sui";
@@ -115,7 +114,6 @@ export function CreateTribeModal({ onClose, onCreated }: Props) {
 
   const [name, setName] = useState("");
   const [threshold, setThreshold] = useState("50");
-  const [selectedCoinType, setSelectedCoinType] = useState(config.coinType);
   const [error, setError] = useState<string | null>(null);
   const { phase: step, setPhase: setStep, isBusy: busy, phaseLabel } = useTransactionPhase(TRIBE_CREATION_STEPS);
 
@@ -139,7 +137,7 @@ export function CreateTribeModal({ onClose, onCreated }: Props) {
       name,
       voteThreshold: Number(threshold),
       sender: address,
-      coinType: selectedCoinType,
+      coinType: config.coinType,
     });
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- duplicate @mysten/sui in dep tree
@@ -168,7 +166,7 @@ export function CreateTribeModal({ onClose, onCreated }: Props) {
           name,
           inGameTribeId: inGameTribeId ?? 0,
           leaderCharacterId: characterId,
-          coinType: selectedCoinType,
+          coinType: config.coinType,
         });
       }
 
@@ -251,8 +249,6 @@ export function CreateTribeModal({ onClose, onCreated }: Props) {
       />
       <HelpText>Percentage of members needed to pass a treasury proposal</HelpText>
 
-      <CoinTypeSelector value={selectedCoinType} onChange={setSelectedCoinType} />
-
       {error && (
         <div style={{
           background: "rgba(255,82,82,0.13)",
@@ -269,7 +265,7 @@ export function CreateTribeModal({ onClose, onCreated }: Props) {
 
       <TransactionStepper steps={TRIBE_CREATION_STEPS} currentStep={step} />
 
-      <SubmitButton $fullWidth onClick={handleCreate} disabled={!name || !characterId || !hasTribe || busy || misconfigured || !selectedCoinType}>
+      <SubmitButton $fullWidth onClick={handleCreate} disabled={!name || !characterId || !hasTribe || busy || misconfigured}>
         {busy ? phaseLabel + "…" : misconfigured ? "Tribe contracts not configured" : "Create Tribe"}
       </SubmitButton>
     </Modal>
