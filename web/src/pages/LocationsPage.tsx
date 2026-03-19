@@ -1,0 +1,391 @@
+/**
+ * Tribe Locations page — manages shadow location PODs.
+ *
+ * Shows TLK status, lists decrypted tribe PODs grouped by solar system,
+ * and provides register / revoke actions.
+ */
+
+import { useState, useEffect, useMemo, useCallback } from "react";
+import styled from "styled-components";
+import { useCurrentAccount } from "@mysten/dapp-kit";
+import { useIdentity } from "../hooks/useIdentity";
+import { useLocationPods, type DecryptedPod } from "../hooks/useLocationPods";
+import { useTlkStatus } from "../hooks/useTlkStatus";
+import { useMyStructures } from "../hooks/useStructures";
+import { TlkStatusBanner } from "../components/locations/TlkStatusBanner";
+import { RegisterLocationModal } from "../components/locations/RegisterLocationModal";
+import { LoadingSpinner } from "../components/shared/LoadingSpinner";
+import { EmptyState } from "../components/shared/EmptyState";
+import { PrimaryButton, SecondaryButton, DangerButton } from "../components/shared/Button";
+import { CopyableId } from "../components/shared/CopyableId";
+import { solarSystemName, solarSystemRegion } from "../lib/solarSystems";
+import { truncateAddress, timeAgo } from "../lib/format";
+import { ASSEMBLY_TYPES } from "../lib/types";
+
+// ============================================================
+// Styled primitives
+// ============================================================
+
+const Page = styled.div``;
+
+const Header = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: ${({ theme }) => theme.spacing.lg};
+`;
+
+const Title = styled.h1`
+  font-size: 24px;
+  font-weight: 700;
+  color: ${({ theme }) => theme.colors.text.primary};
+`;
+
+const ActionBar = styled.div`
+  display: flex;
+  gap: ${({ theme }) => theme.spacing.sm};
+`;
+
+const ConnectPrompt = styled.div`
+  text-align: center;
+  padding: ${({ theme }) => theme.spacing.xxl};
+  color: ${({ theme }) => theme.colors.text.muted};
+  font-size: 16px;
+`;
+
+const SummaryGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: ${({ theme }) => theme.spacing.md};
+  margin-bottom: ${({ theme }) => theme.spacing.lg};
+`;
+
+const SummaryCard = styled.div`
+  background: ${({ theme }) => theme.colors.surface.raised};
+  border: 1px solid ${({ theme }) => theme.colors.surface.border};
+  border-radius: ${({ theme }) => theme.radii.md};
+  padding: ${({ theme }) => theme.spacing.md};
+`;
+
+const CardLabel = styled.div`
+  font-size: 12px;
+  color: ${({ theme }) => theme.colors.text.muted};
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: ${({ theme }) => theme.spacing.xs};
+`;
+
+const CardValue = styled.div`
+  font-size: 20px;
+  font-weight: 700;
+  color: ${({ theme }) => theme.colors.text.primary};
+`;
+
+const GroupHeader = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.sm};
+  padding: ${({ theme }) => theme.spacing.sm} 0;
+  margin-top: ${({ theme }) => theme.spacing.md};
+`;
+
+const GroupName = styled.span`
+  font-size: 15px;
+  font-weight: 600;
+  color: ${({ theme }) => theme.colors.text.primary};
+`;
+
+const GroupRegion = styled.span`
+  font-size: 12px;
+  color: ${({ theme }) => theme.colors.text.muted};
+`;
+
+const GroupCount = styled.span`
+  font-size: 11px;
+  color: ${({ theme }) => theme.colors.text.muted};
+  margin-left: auto;
+`;
+
+const PodList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${({ theme }) => theme.spacing.xs};
+`;
+
+const PodRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.md};
+  padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.md};
+  background: ${({ theme }) => theme.colors.surface.raised};
+  border: 1px solid ${({ theme }) => theme.colors.surface.border};
+  border-radius: ${({ theme }) => theme.radii.sm};
+  font-size: 13px;
+`;
+
+const PodInfo = styled.div`
+  flex: 1;
+  min-width: 0;
+`;
+
+const PodName = styled.div`
+  font-weight: 500;
+  color: ${({ theme }) => theme.colors.text.primary};
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+`;
+
+const PodMeta = styled.div`
+  font-size: 11px;
+  color: ${({ theme }) => theme.colors.text.muted};
+  margin-top: 2px;
+`;
+
+const CoordBadge = styled.span`
+  font-size: 11px;
+  font-family: ${({ theme }) => theme.fonts.mono};
+  color: ${({ theme }) => theme.colors.text.muted};
+  white-space: nowrap;
+`;
+
+const OwnerBadge = styled.span`
+  font-size: 11px;
+  color: ${({ theme }) => theme.colors.text.muted};
+  white-space: nowrap;
+`;
+
+const ErrorText = styled.div`
+  color: ${({ theme }) => theme.colors.danger};
+  font-size: 12px;
+  padding: ${({ theme }) => theme.spacing.sm} 0;
+`;
+
+// ============================================================
+// Component
+// ============================================================
+
+export function LocationsPage() {
+  const account = useCurrentAccount();
+  const { tribeCaps, address } = useIdentity();
+  const tribeId = tribeCaps[0]?.tribeId ?? null;
+  const isOfficer =
+    tribeCaps[0]?.role === "Leader" || tribeCaps[0]?.role === "Officer";
+
+  const { pods, isLoading: podsLoading, error: podsError, fetchPods, deletePod } =
+    useLocationPods();
+  const tlk = useTlkStatus();
+  const { structures } = useMyStructures();
+
+  const [showRegisterModal, setShowRegisterModal] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // Fetch TLK status when tribe is known
+  useEffect(() => {
+    if (tribeId) {
+      tlk.fetchStatus(tribeId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tribeId]);
+
+  // Fetch PODs when TLK is unlocked
+  useEffect(() => {
+    if (tribeId && tlk.tlkBytes) {
+      fetchPods(tribeId, tlk.tlkBytes);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tribeId, tlk.tlkBytes]);
+
+  // Structure name lookup
+  const structureMap = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const s of structures) {
+      m.set(s.id, s.name || ASSEMBLY_TYPES[s.typeId]?.label || "Structure");
+    }
+    return m;
+  }, [structures]);
+
+  // Group pods by solar system
+  const grouped = useMemo(() => {
+    const map = new Map<number, DecryptedPod[]>();
+    for (const pod of pods) {
+      const key = pod.location.solarSystemId;
+      const arr = map.get(key);
+      if (arr) arr.push(pod);
+      else map.set(key, [pod]);
+    }
+    // Sort by system name
+    return Array.from(map.entries()).sort(([a], [b]) =>
+      solarSystemName(a).localeCompare(solarSystemName(b)),
+    );
+  }, [pods]);
+
+  // Unique solar systems count
+  const systemCount = grouped.length;
+
+  const handleRefresh = useCallback(() => {
+    if (tribeId && tlk.tlkBytes) {
+      fetchPods(tribeId, tlk.tlkBytes);
+    }
+  }, [tribeId, tlk.tlkBytes, fetchPods]);
+
+  async function handleDelete(structureId: string) {
+    setDeletingId(structureId);
+    try {
+      await deletePod(structureId);
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  async function handleInitializeTlk() {
+    if (!tribeId) return;
+    // For the hackathon MVP, init with empty member list (server generates TLK
+    // and wraps to the caller). A full implementation would collect all member
+    // X25519 public keys here.
+    await tlk.initialize({ tribeId, memberPublicKeys: [] });
+    // Refresh status after init
+    await tlk.fetchStatus(tribeId);
+  }
+
+  if (!account) {
+    return (
+      <Page>
+        <Title>Tribe Locations</Title>
+        <ConnectPrompt>Connect your wallet to manage locations.</ConnectPrompt>
+      </Page>
+    );
+  }
+
+  if (!tribeId) {
+    return (
+      <Page>
+        <Title>Tribe Locations</Title>
+        <EmptyState
+          title="No tribe membership"
+          description="Join or create a Tribe to access location management."
+        />
+      </Page>
+    );
+  }
+
+  return (
+    <Page>
+      <Header>
+        <Title>Tribe Locations</Title>
+        <ActionBar>
+          <SecondaryButton onClick={handleRefresh} disabled={podsLoading || !tlk.tlkBytes}>
+            {podsLoading ? "Loading…" : "Refresh"}
+          </SecondaryButton>
+          <PrimaryButton
+            onClick={() => setShowRegisterModal(true)}
+            disabled={!tlk.tlkBytes}
+          >
+            Register Location
+          </PrimaryButton>
+        </ActionBar>
+      </Header>
+
+      {/* TLK banner */}
+      <TlkStatusBanner
+        isInitialized={tlk.isInitialized}
+        tlkVersion={tlk.tlkVersion}
+        isUnlocked={!!tlk.tlkBytes}
+        isOfficer={isOfficer}
+        isLoading={tlk.isLoading}
+        onInitialize={handleInitializeTlk}
+      />
+
+      {/* Summary cards */}
+      {tlk.tlkBytes && (
+        <SummaryGrid>
+          <SummaryCard>
+            <CardLabel>Total PODs</CardLabel>
+            <CardValue>{pods.length}</CardValue>
+          </SummaryCard>
+          <SummaryCard>
+            <CardLabel>Systems</CardLabel>
+            <CardValue>{systemCount}</CardValue>
+          </SummaryCard>
+          <SummaryCard>
+            <CardLabel>TLK Version</CardLabel>
+            <CardValue>v{tlk.tlkVersion ?? "—"}</CardValue>
+          </SummaryCard>
+        </SummaryGrid>
+      )}
+
+      {/* Error */}
+      {podsError && <ErrorText>{podsError}</ErrorText>}
+
+      {/* POD list */}
+      {podsLoading ? (
+        <LoadingSpinner />
+      ) : !tlk.tlkBytes ? (
+        <EmptyState
+          title="Encryption key not unlocked"
+          description="Unlock your Tribe Location Key to view and manage encrypted locations."
+        />
+      ) : pods.length === 0 ? (
+        <EmptyState
+          title="No locations registered"
+          description="Register your first structure location to share it securely with your Tribe."
+        />
+      ) : (
+        grouped.map(([sysId, groupPods]) => (
+          <div key={sysId}>
+            <GroupHeader>
+              <GroupName>{solarSystemName(sysId)}</GroupName>
+              <GroupRegion>{solarSystemRegion(sysId)}</GroupRegion>
+              <GroupCount>
+                {groupPods.length} structure{groupPods.length !== 1 ? "s" : ""}
+              </GroupCount>
+            </GroupHeader>
+            <PodList>
+              {groupPods.map((pod) => (
+                <PodRow key={pod.structureId}>
+                  <PodInfo>
+                    <PodName>
+                      {structureMap.get(pod.structureId) ??
+                        truncateAddress(pod.structureId, 10, 6)}
+                    </PodName>
+                    <PodMeta>
+                      <CopyableId id={pod.structureId} asCode /> ·{" "}
+                      {timeAgo(pod.updatedAt)}
+                    </PodMeta>
+                  </PodInfo>
+
+                  <CoordBadge>
+                    ({pod.location.x}, {pod.location.y}, {pod.location.z})
+                  </CoordBadge>
+
+                  <OwnerBadge>{truncateAddress(pod.ownerAddress, 6, 4)}</OwnerBadge>
+
+                  {/* Revoke — only shown to the POD owner */}
+                  {pod.ownerAddress.toLowerCase() === address.toLowerCase() && (
+                    <DangerButton
+                      onClick={() => handleDelete(pod.structureId)}
+                      disabled={deletingId === pod.structureId}
+                    >
+                      {deletingId === pod.structureId ? "…" : "Revoke"}
+                    </DangerButton>
+                  )}
+                </PodRow>
+              ))}
+            </PodList>
+          </div>
+        ))
+      )}
+
+      {/* Register modal */}
+      {showRegisterModal && tlk.tlkBytes && tlk.tlkVersion != null && (
+        <RegisterLocationModal
+          tribeId={tribeId}
+          tlkBytes={tlk.tlkBytes}
+          tlkVersion={tlk.tlkVersion}
+          onClose={() => setShowRegisterModal(false)}
+          onSuccess={handleRefresh}
+        />
+      )}
+    </Page>
+  );
+}

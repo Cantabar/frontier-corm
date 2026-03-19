@@ -117,6 +117,11 @@ export function Sidebar() {
       <StyledLink to="/structures">My Structures</StyledLink>
       <SectionLabel>Modules</SectionLabel>
       <StyledLink to="/contracts">Contracts</StyledLink>
+      {userTribeId ? (
+        <StyledLink to="/locations">Locations</StyledLink>
+      ) : (
+        <DisabledNavItem>Locations</DisabledNavItem>
+      )}
       <StyledLink to="/forge">Forge Planner</StyledLink>
       <Spacer />
       <SectionLabel>System</SectionLabel>
