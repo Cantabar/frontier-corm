@@ -52,19 +52,15 @@ export function buildCreateTribe(params: {
   registryId: string;
   characterId: string;
   name: string;
-  voteThreshold: number;
   sender: string;
-  coinType?: string;
 }): Transaction {
   const tx = new Transaction();
   const [leaderCap] = tx.moveCall({
     target: `${packages.tribe}::tribe::create_tribe`,
-    typeArguments: [ct(params.coinType)],
     arguments: [
       tx.object(params.registryId),
       tx.object(params.characterId),
       tx.pure.string(params.name),
-      tx.pure.u64(params.voteThreshold),
     ],
   });
   tx.transferObjects([leaderCap], tx.pure.address(params.sender));
@@ -75,12 +71,10 @@ export function buildSelfJoinTribe(params: {
   tribeId: string;
   characterId: string;
   sender: string;
-  coinType?: string;
 }): Transaction {
   const tx = new Transaction();
   const [memberCap] = tx.moveCall({
     target: `${packages.tribe}::tribe::self_join`,
-    typeArguments: [ct(params.coinType)],
     arguments: [
       tx.object(params.tribeId),
       tx.object(params.characterId),
@@ -96,14 +90,12 @@ export function buildAddMember(params: {
   newMemberCharacterId: string;
   role: Role;
   newMemberAddress: string;
-  coinType?: string;
 }): Transaction {
   const tx = new Transaction();
   const roleTarget = `${packages.tribe}::tribe::role_${params.role.toLowerCase()}`;
   const [role] = tx.moveCall({ target: roleTarget });
   const [memberCap] = tx.moveCall({
     target: `${packages.tribe}::tribe::add_member`,
-    typeArguments: [ct(params.coinType)],
     arguments: [
       tx.object(params.tribeId),
       tx.object(params.capId),
@@ -119,12 +111,10 @@ export function buildRemoveMember(params: {
   tribeId: string;
   capId: string;
   characterId: string;
-  coinType?: string;
 }): Transaction {
   const tx = new Transaction();
   tx.moveCall({
     target: `${packages.tribe}::tribe::remove_member`,
-    typeArguments: [ct(params.coinType)],
     arguments: [
       tx.object(params.tribeId),
       tx.object(params.capId),
@@ -140,12 +130,10 @@ export function buildUpdateReputation(params: {
   characterId: string;
   delta: number;
   increase: boolean;
-  coinType?: string;
 }): Transaction {
   const tx = new Transaction();
   tx.moveCall({
     target: `${packages.tribe}::tribe::update_reputation`,
-    typeArguments: [ct(params.coinType)],
     arguments: [
       tx.object(params.tribeId),
       tx.object(params.capId),
@@ -168,15 +156,12 @@ export function buildChangeRole(params: {
   characterId: string;
   newRole: Role;
   memberWalletAddress: string;
-  coinType?: string;
 }): Transaction {
   const tx = new Transaction();
-  const typeArgs = [ct(params.coinType)];
 
   // Step 1: Remove the member (invalidates their old TribeCap)
   tx.moveCall({
     target: `${packages.tribe}::tribe::remove_member`,
-    typeArguments: typeArgs,
     arguments: [
       tx.object(params.tribeId),
       tx.object(params.capId),
@@ -189,7 +174,6 @@ export function buildChangeRole(params: {
   const [role] = tx.moveCall({ target: roleTarget });
   const [newCap] = tx.moveCall({
     target: `${packages.tribe}::tribe::add_member`,
-    typeArguments: typeArgs,
     arguments: [
       tx.object(params.tribeId),
       tx.object(params.capId),
@@ -211,12 +195,10 @@ export function buildIssueRepUpdateCap(params: {
   tribeId: string;
   capId: string;
   recipientAddress: string;
-  coinType?: string;
 }): Transaction {
   const tx = new Transaction();
   const [repCap] = tx.moveCall({
     target: `${packages.tribe}::tribe::issue_rep_update_cap`,
-    typeArguments: [ct(params.coinType)],
     arguments: [
       tx.object(params.tribeId),
       tx.object(params.capId),
@@ -238,12 +220,10 @@ export function buildTransferLeadership(params: {
   newLeaderCharacterId: string;
   newLeaderWalletAddress: string;
   callerAddress: string;
-  coinType?: string;
 }): Transaction {
   const tx = new Transaction();
   const [newLeaderCap, oldLeaderCap] = tx.moveCall({
     target: `${packages.tribe}::tribe::transfer_leadership`,
-    typeArguments: [ct(params.coinType)],
     arguments: [
       tx.object(params.tribeId),
       tx.object(params.capId),

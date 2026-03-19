@@ -45,13 +45,6 @@ const Input = styled.input`
   }
 `;
 
-const HelpText = styled.div`
-  font-size: 12px;
-  color: ${({ theme }) => theme.colors.text.muted};
-  margin-top: -12px;
-  margin-bottom: ${({ theme }) => theme.spacing.md};
-`;
-
 const InfoRow = styled.div`
   display: flex;
   align-items: center;
@@ -113,7 +106,6 @@ export function CreateTribeModal({ onClose, onCreated }: Props) {
   });
 
   const [name, setName] = useState("");
-  const [threshold, setThreshold] = useState("50");
   const [error, setError] = useState<string | null>(null);
   const { phase: step, setPhase: setStep, isBusy: busy, phaseLabel } = useTransactionPhase(TRIBE_CREATION_STEPS);
 
@@ -135,9 +127,7 @@ export function CreateTribeModal({ onClose, onCreated }: Props) {
       registryId: config.tribeRegistryId,
       characterId,
       name,
-      voteThreshold: Number(threshold),
       sender: address,
-      coinType: config.coinType,
     });
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- duplicate @mysten/sui in dep tree
@@ -154,7 +144,7 @@ export function CreateTribeModal({ onClose, onCreated }: Props) {
       const changes = txResult.objectChanges;
       if (changes) {
         const tribeObj = changes.find(
-          (c) => c.type === "created" && c.objectType?.includes("::tribe::Tribe<"),
+          (c) => c.type === "created" && c.objectType?.includes("::tribe::Tribe"),
         );
         if (tribeObj?.objectId) tribeObjectId = tribeObj.objectId;
       }
@@ -237,17 +227,6 @@ export function CreateTribeModal({ onClose, onCreated }: Props) {
         autoFocus
         disabled={!hasTribe || busy}
       />
-
-      <Label>Vote Threshold (%)</Label>
-      <Input
-        type="number"
-        min={1}
-        max={100}
-        value={threshold}
-        onChange={(e) => setThreshold(e.target.value)}
-        disabled={busy}
-      />
-      <HelpText>Percentage of members needed to pass a treasury proposal</HelpText>
 
       {error && (
         <div style={{
