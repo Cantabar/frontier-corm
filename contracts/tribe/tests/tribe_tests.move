@@ -2,11 +2,7 @@
 module tribe::tribe_tests;
 
 use std::string::utf8;
-use sui::{
-    clock,
-    coin,
-    test_scenario as ts,
-};
+use sui::test_scenario as ts;
 use world::{
     access::AdminACL,
     character::{Self, Character},
@@ -18,20 +14,12 @@ use tribe::tribe::{
     Tribe,
     TribeCap,
     TribeRegistry,
-    TreasuryProposal,
 };
-
-// === Test coin — stand-in for EVE in unit tests ===
-// On EVE Frontier testnet, deploy with Tribe<assets::EVE::EVE> instead.
-#[test_only]
-public struct TESTCOIN has drop {}
 
 // === Constants ===
 const LEADER_GAME_ID: u32 = 1001;
 const MEMBER_GAME_ID: u32 = 1002;
-const VOTE_THRESHOLD_51: u64 = 51;
 const TRIBE_NAME: vector<u8> = b"Iron Vanguard";
-const FAR_FUTURE_MS: u64 = 9_999_999_999_999;
 
 // === Helpers ===
 
@@ -102,11 +90,10 @@ fun create_tribe_success() {
     {
         let leader = ts::take_shared_by_id<Character>(&ts, leader_id);
         let mut tribe_registry = ts::take_shared<TribeRegistry>(&ts);
-        let cap = tribe::create_tribe<TESTCOIN>(
+        let cap = tribe::create_tribe(
             &mut tribe_registry,
             &leader,
             utf8(TRIBE_NAME),
-            VOTE_THRESHOLD_51,
             ts::ctx(&mut ts),
         );
         // Verify cap fields
@@ -119,11 +106,9 @@ fun create_tribe_success() {
     // Verify the tribe was shared
     ts::next_tx(&mut ts, user_a());
     {
-        let tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
+        let tribe = ts::take_shared<Tribe>(&ts);
         assert!(tribe::member_count(&tribe) == 1);
         assert!(tribe::in_game_tribe_id(&tribe) == 100);
-        assert!(tribe::vote_threshold(&tribe) == VOTE_THRESHOLD_51);
-        assert!(tribe::treasury_balance(&tribe) == 0);
         ts::return_shared(tribe);
     };
 
@@ -140,7 +125,7 @@ fun create_tribe_empty_name_fails() {
     {
         let leader = ts::take_shared_by_id<Character>(&ts, leader_id);
         let mut tribe_registry = ts::take_shared<TribeRegistry>(&ts);
-        let cap = tribe::create_tribe<TESTCOIN>(&mut tribe_registry, &leader, utf8(b""), VOTE_THRESHOLD_51, ts::ctx(&mut ts));
+        let cap = tribe::create_tribe(&mut tribe_registry, &leader, utf8(b""), ts::ctx(&mut ts));
         tribe::destroy_tribe_cap_for_testing(cap);
         ts::return_shared(tribe_registry);
         ts::return_shared(leader);
@@ -157,11 +142,10 @@ fun add_member_success() {
     {
         let leader = ts::take_shared_by_id<Character>(&ts, leader_id);
         let mut tribe_registry = ts::take_shared<TribeRegistry>(&ts);
-        let cap = tribe::create_tribe<TESTCOIN>(
+        let cap = tribe::create_tribe(
             &mut tribe_registry,
             &leader,
             utf8(TRIBE_NAME),
-            VOTE_THRESHOLD_51,
             ts::ctx(&mut ts),
         );
         let _tribe_id = tribe::tribe_id(&cap);
@@ -174,7 +158,7 @@ fun add_member_success() {
     ts::next_tx(&mut ts, user_a());
     {
         let leader_cap = ts::take_from_sender<TribeCap>(&ts);
-        let mut tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
+        let mut tribe = ts::take_shared<Tribe>(&ts);
         let member = ts::take_shared_by_id<Character>(&ts, member_id);
 
         let member_cap = tribe::add_member(
@@ -208,7 +192,7 @@ fun add_member_as_member_fails() {
     {
         let leader = ts::take_shared_by_id<Character>(&ts, leader_id);
         let mut tribe_registry = ts::take_shared<TribeRegistry>(&ts);
-        let cap = tribe::create_tribe<TESTCOIN>(&mut tribe_registry, &leader, utf8(TRIBE_NAME), VOTE_THRESHOLD_51, ts::ctx(&mut ts));
+        let cap = tribe::create_tribe(&mut tribe_registry, &leader, utf8(TRIBE_NAME), ts::ctx(&mut ts));
         transfer::public_transfer(cap, user_a());
         ts::return_shared(tribe_registry);
         ts::return_shared(leader);
@@ -217,7 +201,7 @@ fun add_member_as_member_fails() {
     ts::next_tx(&mut ts, user_a());
     {
         let leader_cap = ts::take_from_sender<TribeCap>(&ts);
-        let mut tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
+        let mut tribe = ts::take_shared<Tribe>(&ts);
         let member_char = ts::take_shared_by_id<Character>(&ts, member_id);
         let member_cap = tribe::add_member(&mut tribe, &leader_cap, &member_char, tribe::role_member(), ts::ctx(&mut ts));
         transfer::public_transfer(member_cap, user_b());
@@ -230,7 +214,7 @@ fun add_member_as_member_fails() {
     ts::next_tx(&mut ts, user_b());
     {
         let member_cap = ts::take_from_sender<TribeCap>(&ts);
-        let mut tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
+        let mut tribe = ts::take_shared<Tribe>(&ts);
         // Reuse leader_id as a dummy "new member" — will fail on auth first
         let leader_char = ts::take_shared_by_id<Character>(&ts, leader_id);
         let bad_cap = tribe::add_member(&mut tribe, &member_cap, &leader_char, tribe::role_member(), ts::ctx(&mut ts));
@@ -252,7 +236,7 @@ fun remove_member_success() {
     {
         let leader = ts::take_shared_by_id<Character>(&ts, leader_id);
         let mut tribe_registry = ts::take_shared<TribeRegistry>(&ts);
-        let cap = tribe::create_tribe<TESTCOIN>(&mut tribe_registry, &leader, utf8(TRIBE_NAME), VOTE_THRESHOLD_51, ts::ctx(&mut ts));
+        let cap = tribe::create_tribe(&mut tribe_registry, &leader, utf8(TRIBE_NAME), ts::ctx(&mut ts));
         transfer::public_transfer(cap, user_a());
         ts::return_shared(tribe_registry);
         ts::return_shared(leader);
@@ -261,7 +245,7 @@ fun remove_member_success() {
     ts::next_tx(&mut ts, user_a());
     {
         let leader_cap = ts::take_from_sender<TribeCap>(&ts);
-        let mut tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
+        let mut tribe = ts::take_shared<Tribe>(&ts);
         let member = ts::take_shared_by_id<Character>(&ts, member_id);
         let member_cap = tribe::add_member(&mut tribe, &leader_cap, &member, tribe::role_member(), ts::ctx(&mut ts));
         transfer::public_transfer(member_cap, user_b());
@@ -273,7 +257,7 @@ fun remove_member_success() {
     ts::next_tx(&mut ts, user_a());
     {
         let leader_cap = ts::take_from_sender<TribeCap>(&ts);
-        let mut tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
+        let mut tribe = ts::take_shared<Tribe>(&ts);
         let member = ts::take_shared_by_id<Character>(&ts, member_id);
 
         tribe::remove_member(&mut tribe, &leader_cap, object::id(&member));
@@ -298,7 +282,7 @@ fun update_reputation_success() {
     {
         let leader = ts::take_shared_by_id<Character>(&ts, leader_id);
         let mut tribe_registry = ts::take_shared<TribeRegistry>(&ts);
-        let cap = tribe::create_tribe<TESTCOIN>(&mut tribe_registry, &leader, utf8(TRIBE_NAME), VOTE_THRESHOLD_51, ts::ctx(&mut ts));
+        let cap = tribe::create_tribe(&mut tribe_registry, &leader, utf8(TRIBE_NAME), ts::ctx(&mut ts));
         transfer::public_transfer(cap, user_a());
         ts::return_shared(tribe_registry);
         ts::return_shared(leader);
@@ -307,7 +291,7 @@ fun update_reputation_success() {
     ts::next_tx(&mut ts, user_a());
     {
         let leader_cap = ts::take_from_sender<TribeCap>(&ts);
-        let mut tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
+        let mut tribe = ts::take_shared<Tribe>(&ts);
         let member = ts::take_shared_by_id<Character>(&ts, member_id);
         let member_cap = tribe::add_member(&mut tribe, &leader_cap, &member, tribe::role_member(), ts::ctx(&mut ts));
         transfer::public_transfer(member_cap, user_b());
@@ -319,7 +303,7 @@ fun update_reputation_success() {
     ts::next_tx(&mut ts, user_a());
     {
         let leader_cap = ts::take_from_sender<TribeCap>(&ts);
-        let mut tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
+        let mut tribe = ts::take_shared<Tribe>(&ts);
         let member = ts::take_shared_by_id<Character>(&ts, member_id);
         let member_id_val = object::id(&member);
 
@@ -350,7 +334,7 @@ fun rep_update_cap_success() {
     {
         let leader = ts::take_shared_by_id<Character>(&ts, leader_id);
         let mut tribe_registry = ts::take_shared<TribeRegistry>(&ts);
-        let cap = tribe::create_tribe<TESTCOIN>(&mut tribe_registry, &leader, utf8(TRIBE_NAME), VOTE_THRESHOLD_51, ts::ctx(&mut ts));
+        let cap = tribe::create_tribe(&mut tribe_registry, &leader, utf8(TRIBE_NAME), ts::ctx(&mut ts));
         transfer::public_transfer(cap, user_a());
         ts::return_shared(tribe_registry);
         ts::return_shared(leader);
@@ -359,7 +343,7 @@ fun rep_update_cap_success() {
     ts::next_tx(&mut ts, user_a());
     {
         let leader_cap = ts::take_from_sender<TribeCap>(&ts);
-        let mut tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
+        let mut tribe = ts::take_shared<Tribe>(&ts);
         let member = ts::take_shared_by_id<Character>(&ts, member_id);
         let member_cap = tribe::add_member(&mut tribe, &leader_cap, &member, tribe::role_member(), ts::ctx(&mut ts));
         transfer::public_transfer(member_cap, user_b());
@@ -382,326 +366,6 @@ fun rep_update_cap_success() {
 }
 
 #[test]
-fun treasury_deposit_and_vote_execute() {
-    let mut ts = ts::begin(@0x0);
-    let (leader_id, member_id) = setup_characters(&mut ts);
-
-    // Create tribe
-    ts::next_tx(&mut ts, user_a());
-    {
-        let leader = ts::take_shared_by_id<Character>(&ts, leader_id);
-        let mut tribe_registry = ts::take_shared<TribeRegistry>(&ts);
-        let cap = tribe::create_tribe<TESTCOIN>(&mut tribe_registry, &leader, utf8(TRIBE_NAME), VOTE_THRESHOLD_51, ts::ctx(&mut ts));
-        transfer::public_transfer(cap, user_a());
-        ts::return_shared(tribe_registry);
-        ts::return_shared(leader);
-    };
-
-    // Add member (so we have 2 members; 51% of 2 = 1.02, so 2 votes required for majority)
-    ts::next_tx(&mut ts, user_a());
-    {
-        let leader_cap = ts::take_from_sender<TribeCap>(&ts);
-        let mut tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
-        let member = ts::take_shared_by_id<Character>(&ts, member_id);
-        let member_cap = tribe::add_member(&mut tribe, &leader_cap, &member, tribe::role_member(), ts::ctx(&mut ts));
-        transfer::public_transfer(member_cap, user_b());
-        ts::return_to_sender(&ts, leader_cap);
-        ts::return_shared(tribe);
-        ts::return_shared(member);
-    };
-
-    // Deposit 1000 TESTCOIN into treasury
-    ts::next_tx(&mut ts, user_a());
-    {
-        let mut tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
-        let test_coin = coin::mint_for_testing<TESTCOIN>(1000, ts::ctx(&mut ts));
-        tribe::deposit_to_treasury(&mut tribe, test_coin);
-        assert!(tribe::treasury_balance(&tribe) == 1000);
-        ts::return_shared(tribe);
-    };
-
-    // Create a spend proposal (51% threshold with 2 members requires 2 votes)
-    let proposal_id;
-    ts::next_tx(&mut ts, user_a());
-    {
-        let leader_cap = ts::take_from_sender<TribeCap>(&ts);
-        let tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
-        let clock = clock::create_for_testing(ts::ctx(&mut ts));
-
-        tribe::propose_treasury_spend(
-            &tribe,
-            &leader_cap,
-            500,
-            user_b(),
-            FAR_FUTURE_MS,
-            &clock,
-            ts::ctx(&mut ts),
-        );
-
-        clock.destroy_for_testing();
-        ts::return_to_sender(&ts, leader_cap);
-        ts::return_shared(tribe);
-    };
-
-    // Get proposal id
-    ts::next_tx(&mut ts, user_a());
-    {
-        let proposal = ts::take_shared<TreasuryProposal>(&ts);
-        proposal_id = object::id(&proposal);
-        assert!(tribe::proposal_vote_count(&proposal) == 0);
-        assert!(!tribe::proposal_executed(&proposal));
-        ts::return_shared(proposal);
-    };
-
-    // Leader votes
-    ts::next_tx(&mut ts, user_a());
-    {
-        let leader_cap = ts::take_from_sender<TribeCap>(&ts);
-        let tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
-        let mut proposal = ts::take_shared_by_id<TreasuryProposal>(&ts, proposal_id);
-        let clock = clock::create_for_testing(ts::ctx(&mut ts));
-
-        tribe::vote_on_proposal(&tribe, &mut proposal, &leader_cap, &clock);
-        assert!(tribe::proposal_vote_count(&proposal) == 1);
-
-        clock.destroy_for_testing();
-        ts::return_to_sender(&ts, leader_cap);
-        ts::return_shared(tribe);
-        ts::return_shared(proposal);
-    };
-
-    // Member votes
-    ts::next_tx(&mut ts, user_b());
-    {
-        let member_cap = ts::take_from_sender<TribeCap>(&ts);
-        let tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
-        let mut proposal = ts::take_shared_by_id<TreasuryProposal>(&ts, proposal_id);
-        let clock = clock::create_for_testing(ts::ctx(&mut ts));
-
-        tribe::vote_on_proposal(&tribe, &mut proposal, &member_cap, &clock);
-        assert!(tribe::proposal_vote_count(&proposal) == 2);
-
-        clock.destroy_for_testing();
-        ts::return_to_sender(&ts, member_cap);
-        ts::return_shared(tribe);
-        ts::return_shared(proposal);
-    };
-
-    // Execute proposal (threshold met: 2 votes, 2 members, 51%)
-    ts::next_tx(&mut ts, user_a());
-    {
-        let mut tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
-        let mut proposal = ts::take_shared_by_id<TreasuryProposal>(&ts, proposal_id);
-        let clock = clock::create_for_testing(ts::ctx(&mut ts));
-
-        tribe::execute_proposal(&mut tribe, &mut proposal, &clock, ts::ctx(&mut ts));
-
-        assert!(tribe::proposal_executed(&proposal));
-        assert!(tribe::treasury_balance(&tribe) == 500);
-
-        clock.destroy_for_testing();
-        ts::return_shared(tribe);
-        ts::return_shared(proposal);
-    };
-
-    ts::end(ts);
-}
-
-#[test]
-#[expected_failure(abort_code = 8)]
-fun execute_proposal_without_enough_votes_fails() {
-    let mut ts = ts::begin(@0x0);
-    let (leader_id, _) = setup_characters(&mut ts);
-
-    ts::next_tx(&mut ts, user_a());
-    {
-        let leader = ts::take_shared_by_id<Character>(&ts, leader_id);
-        let mut tribe_registry = ts::take_shared<TribeRegistry>(&ts);
-        let cap = tribe::create_tribe<TESTCOIN>(&mut tribe_registry, &leader, utf8(TRIBE_NAME), VOTE_THRESHOLD_51, ts::ctx(&mut ts));
-        transfer::public_transfer(cap, user_a());
-        ts::return_shared(tribe_registry);
-        ts::return_shared(leader);
-    };
-
-    ts::next_tx(&mut ts, user_a());
-    {
-        let mut tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
-        let test_coin = coin::mint_for_testing<TESTCOIN>(1000, ts::ctx(&mut ts));
-        tribe::deposit_to_treasury(&mut tribe, test_coin);
-        ts::return_shared(tribe);
-    };
-
-    ts::next_tx(&mut ts, user_a());
-    {
-        let leader_cap = ts::take_from_sender<TribeCap>(&ts);
-        let tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
-        let clock = clock::create_for_testing(ts::ctx(&mut ts));
-
-        tribe::propose_treasury_spend(&tribe, &leader_cap, 500, user_b(), FAR_FUTURE_MS, &clock, ts::ctx(&mut ts));
-
-        clock.destroy_for_testing();
-        ts::return_to_sender(&ts, leader_cap);
-        ts::return_shared(tribe);
-    };
-
-    ts::next_tx(&mut ts, user_a());
-    {
-        let mut tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
-        let mut proposal = ts::take_shared<TreasuryProposal>(&ts);
-        let clock = clock::create_for_testing(ts::ctx(&mut ts));
-
-        // No votes cast — should fail threshold check
-        tribe::execute_proposal(&mut tribe, &mut proposal, &clock, ts::ctx(&mut ts));
-
-        clock.destroy_for_testing();
-        ts::return_shared(tribe);
-        ts::return_shared(proposal);
-    };
-
-    ts::end(ts);
-}
-
-#[test]
-fun withdraw_from_treasury_success() {
-    let mut ts = ts::begin(@0x0);
-    let (leader_id, _) = setup_characters(&mut ts);
-
-    ts::next_tx(&mut ts, user_a());
-    {
-        let leader = ts::take_shared_by_id<Character>(&ts, leader_id);
-        let mut tribe_registry = ts::take_shared<TribeRegistry>(&ts);
-        let cap = tribe::create_tribe<TESTCOIN>(&mut tribe_registry, &leader, utf8(TRIBE_NAME), VOTE_THRESHOLD_51, ts::ctx(&mut ts));
-        transfer::public_transfer(cap, user_a());
-        ts::return_shared(tribe_registry);
-        ts::return_shared(leader);
-    };
-
-    // Deposit 1000
-    ts::next_tx(&mut ts, user_a());
-    {
-        let mut tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
-        let test_coin = coin::mint_for_testing<TESTCOIN>(1000, ts::ctx(&mut ts));
-        tribe::deposit_to_treasury(&mut tribe, test_coin);
-        assert!(tribe::treasury_balance(&tribe) == 1000);
-        ts::return_shared(tribe);
-    };
-
-    // Withdraw 400
-    ts::next_tx(&mut ts, user_a());
-    {
-        let leader_cap = ts::take_from_sender<TribeCap>(&ts);
-        let mut tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
-
-        let withdrawn = tribe::withdraw_from_treasury(&mut tribe, &leader_cap, 400, ts::ctx(&mut ts));
-        assert!(withdrawn.value() == 400);
-        assert!(tribe::treasury_balance(&tribe) == 600);
-
-        // Clean up the withdrawn coin
-        transfer::public_transfer(withdrawn, user_a());
-        ts::return_to_sender(&ts, leader_cap);
-        ts::return_shared(tribe);
-    };
-
-    ts::end(ts);
-}
-
-#[test]
-#[expected_failure(abort_code = 4)] // EInsufficientFunds
-fun withdraw_from_treasury_insufficient_fails() {
-    let mut ts = ts::begin(@0x0);
-    let (leader_id, _) = setup_characters(&mut ts);
-
-    ts::next_tx(&mut ts, user_a());
-    {
-        let leader = ts::take_shared_by_id<Character>(&ts, leader_id);
-        let mut tribe_registry = ts::take_shared<TribeRegistry>(&ts);
-        let cap = tribe::create_tribe<TESTCOIN>(&mut tribe_registry, &leader, utf8(TRIBE_NAME), VOTE_THRESHOLD_51, ts::ctx(&mut ts));
-        transfer::public_transfer(cap, user_a());
-        ts::return_shared(tribe_registry);
-        ts::return_shared(leader);
-    };
-
-    // Deposit 100
-    ts::next_tx(&mut ts, user_a());
-    {
-        let mut tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
-        let test_coin = coin::mint_for_testing<TESTCOIN>(100, ts::ctx(&mut ts));
-        tribe::deposit_to_treasury(&mut tribe, test_coin);
-        ts::return_shared(tribe);
-    };
-
-    // Try to withdraw 500 — should fail
-    ts::next_tx(&mut ts, user_a());
-    {
-        let leader_cap = ts::take_from_sender<TribeCap>(&ts);
-        let mut tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
-
-        let withdrawn = tribe::withdraw_from_treasury(&mut tribe, &leader_cap, 500, ts::ctx(&mut ts));
-        transfer::public_transfer(withdrawn, user_a());
-
-        ts::return_to_sender(&ts, leader_cap);
-        ts::return_shared(tribe);
-    };
-
-    ts::end(ts);
-}
-
-#[test]
-#[expected_failure(abort_code = 7)]
-fun double_vote_fails() {
-    let mut ts = ts::begin(@0x0);
-    let (leader_id, _) = setup_characters(&mut ts);
-
-    ts::next_tx(&mut ts, user_a());
-    {
-        let leader = ts::take_shared_by_id<Character>(&ts, leader_id);
-        let mut tribe_registry = ts::take_shared<TribeRegistry>(&ts);
-        let cap = tribe::create_tribe<TESTCOIN>(&mut tribe_registry, &leader, utf8(TRIBE_NAME), VOTE_THRESHOLD_51, ts::ctx(&mut ts));
-        transfer::public_transfer(cap, user_a());
-        ts::return_shared(tribe_registry);
-        ts::return_shared(leader);
-    };
-
-    ts::next_tx(&mut ts, user_a());
-    {
-        let mut tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
-        let test_coin = coin::mint_for_testing<TESTCOIN>(1000, ts::ctx(&mut ts));
-        tribe::deposit_to_treasury(&mut tribe, test_coin);
-        ts::return_shared(tribe);
-    };
-
-    ts::next_tx(&mut ts, user_a());
-    {
-        let leader_cap = ts::take_from_sender<TribeCap>(&ts);
-        let tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
-        let clock = clock::create_for_testing(ts::ctx(&mut ts));
-        tribe::propose_treasury_spend(&tribe, &leader_cap, 100, user_b(), FAR_FUTURE_MS, &clock, ts::ctx(&mut ts));
-        clock.destroy_for_testing();
-        ts::return_to_sender(&ts, leader_cap);
-        ts::return_shared(tribe);
-    };
-
-    ts::next_tx(&mut ts, user_a());
-    {
-        let leader_cap = ts::take_from_sender<TribeCap>(&ts);
-        let tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
-        let mut proposal = ts::take_shared<TreasuryProposal>(&ts);
-        let clock = clock::create_for_testing(ts::ctx(&mut ts));
-
-        tribe::vote_on_proposal(&tribe, &mut proposal, &leader_cap, &clock);
-        // Second vote by the same character — should fail
-        tribe::vote_on_proposal(&tribe, &mut proposal, &leader_cap, &clock);
-
-        clock.destroy_for_testing();
-        ts::return_to_sender(&ts, leader_cap);
-        ts::return_shared(tribe);
-        ts::return_shared(proposal);
-    };
-
-    ts::end(ts);
-}
-
-#[test]
 fun self_join_success() {
     let mut ts = ts::begin(@0x0);
     let (leader_id, member_id) = setup_characters(&mut ts);
@@ -711,8 +375,8 @@ fun self_join_success() {
     {
         let leader = ts::take_shared_by_id<Character>(&ts, leader_id);
         let mut tribe_registry = ts::take_shared<TribeRegistry>(&ts);
-        let cap = tribe::create_tribe<TESTCOIN>(
-            &mut tribe_registry, &leader, utf8(TRIBE_NAME), VOTE_THRESHOLD_51, ts::ctx(&mut ts),
+        let cap = tribe::create_tribe(
+            &mut tribe_registry, &leader, utf8(TRIBE_NAME), ts::ctx(&mut ts),
         );
         transfer::public_transfer(cap, user_a());
         ts::return_shared(tribe_registry);
@@ -723,7 +387,7 @@ fun self_join_success() {
     ts::next_tx(&mut ts, user_b());
     {
         let member = ts::take_shared_by_id<Character>(&ts, member_id);
-        let mut tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
+        let mut tribe = ts::take_shared<Tribe>(&ts);
 
         let member_cap = tribe::self_join(&mut tribe, &member, ts::ctx(&mut ts));
 
@@ -750,8 +414,8 @@ fun self_join_wrong_tribe_fails() {
     {
         let leader = ts::take_shared_by_id<Character>(&ts, leader_id);
         let mut tribe_registry = ts::take_shared<TribeRegistry>(&ts);
-        let cap = tribe::create_tribe<TESTCOIN>(
-            &mut tribe_registry, &leader, utf8(TRIBE_NAME), VOTE_THRESHOLD_51, ts::ctx(&mut ts),
+        let cap = tribe::create_tribe(
+            &mut tribe_registry, &leader, utf8(TRIBE_NAME), ts::ctx(&mut ts),
         );
         transfer::public_transfer(cap, user_a());
         ts::return_shared(tribe_registry);
@@ -779,7 +443,7 @@ fun self_join_wrong_tribe_fails() {
     ts::next_tx(&mut ts, outsider_addr);
     {
         let outsider = ts::take_shared_by_id<Character>(&ts, outsider_id);
-        let mut tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
+        let mut tribe = ts::take_shared<Tribe>(&ts);
 
         let cap = tribe::self_join(&mut tribe, &outsider, ts::ctx(&mut ts));
         tribe::destroy_tribe_cap_for_testing(cap);
@@ -802,8 +466,8 @@ fun self_join_already_member_fails() {
     {
         let leader = ts::take_shared_by_id<Character>(&ts, leader_id);
         let mut tribe_registry = ts::take_shared<TribeRegistry>(&ts);
-        let cap = tribe::create_tribe<TESTCOIN>(
-            &mut tribe_registry, &leader, utf8(TRIBE_NAME), VOTE_THRESHOLD_51, ts::ctx(&mut ts),
+        let cap = tribe::create_tribe(
+            &mut tribe_registry, &leader, utf8(TRIBE_NAME), ts::ctx(&mut ts),
         );
         transfer::public_transfer(cap, user_a());
         ts::return_shared(tribe_registry);
@@ -814,7 +478,7 @@ fun self_join_already_member_fails() {
     ts::next_tx(&mut ts, user_a());
     {
         let leader = ts::take_shared_by_id<Character>(&ts, leader_id);
-        let mut tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
+        let mut tribe = ts::take_shared<Tribe>(&ts);
 
         let cap = tribe::self_join(&mut tribe, &leader, ts::ctx(&mut ts));
         tribe::destroy_tribe_cap_for_testing(cap);
@@ -836,7 +500,7 @@ fun transfer_leadership_success() {
     {
         let leader = ts::take_shared_by_id<Character>(&ts, leader_id);
         let mut tribe_registry = ts::take_shared<TribeRegistry>(&ts);
-        let cap = tribe::create_tribe<TESTCOIN>(&mut tribe_registry, &leader, utf8(TRIBE_NAME), VOTE_THRESHOLD_51, ts::ctx(&mut ts));
+        let cap = tribe::create_tribe(&mut tribe_registry, &leader, utf8(TRIBE_NAME), ts::ctx(&mut ts));
         transfer::public_transfer(cap, user_a());
         ts::return_shared(tribe_registry);
         ts::return_shared(leader);
@@ -846,7 +510,7 @@ fun transfer_leadership_success() {
     ts::next_tx(&mut ts, user_a());
     {
         let leader_cap = ts::take_from_sender<TribeCap>(&ts);
-        let mut tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
+        let mut tribe = ts::take_shared<Tribe>(&ts);
         let member = ts::take_shared_by_id<Character>(&ts, member_id);
         let member_cap = tribe::add_member(&mut tribe, &leader_cap, &member, tribe::role_officer(), ts::ctx(&mut ts));
 
@@ -863,7 +527,7 @@ fun transfer_leadership_success() {
     ts::next_tx(&mut ts, user_a());
     {
         let leader_cap = ts::take_from_sender<TribeCap>(&ts);
-        let mut tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
+        let mut tribe = ts::take_shared<Tribe>(&ts);
 
         let (new_leader_cap, old_leader_cap) = tribe::transfer_leadership(
             &mut tribe, &leader_cap, member_id, ts::ctx(&mut ts),
@@ -907,7 +571,7 @@ fun transfer_leadership_to_self_fails() {
     {
         let leader = ts::take_shared_by_id<Character>(&ts, leader_id);
         let mut tribe_registry = ts::take_shared<TribeRegistry>(&ts);
-        let cap = tribe::create_tribe<TESTCOIN>(&mut tribe_registry, &leader, utf8(TRIBE_NAME), VOTE_THRESHOLD_51, ts::ctx(&mut ts));
+        let cap = tribe::create_tribe(&mut tribe_registry, &leader, utf8(TRIBE_NAME), ts::ctx(&mut ts));
         transfer::public_transfer(cap, user_a());
         ts::return_shared(tribe_registry);
         ts::return_shared(leader);
@@ -916,7 +580,7 @@ fun transfer_leadership_to_self_fails() {
     ts::next_tx(&mut ts, user_a());
     {
         let leader_cap = ts::take_from_sender<TribeCap>(&ts);
-        let mut tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
+        let mut tribe = ts::take_shared<Tribe>(&ts);
 
         let (new_cap, old_cap) = tribe::transfer_leadership(
             &mut tribe, &leader_cap, leader_id, ts::ctx(&mut ts),
@@ -942,7 +606,7 @@ fun create_duplicate_in_game_tribe_fails() {
     {
         let leader = ts::take_shared_by_id<Character>(&ts, leader_id);
         let mut tribe_registry = ts::take_shared<TribeRegistry>(&ts);
-        let cap = tribe::create_tribe<TESTCOIN>(&mut tribe_registry, &leader, utf8(TRIBE_NAME), VOTE_THRESHOLD_51, ts::ctx(&mut ts));
+        let cap = tribe::create_tribe(&mut tribe_registry, &leader, utf8(TRIBE_NAME), ts::ctx(&mut ts));
         transfer::public_transfer(cap, user_a());
         ts::return_shared(tribe_registry);
         ts::return_shared(leader);
@@ -953,7 +617,7 @@ fun create_duplicate_in_game_tribe_fails() {
     {
         let member = ts::take_shared_by_id<Character>(&ts, member_id);
         let mut tribe_registry = ts::take_shared<TribeRegistry>(&ts);
-        let cap = tribe::create_tribe<TESTCOIN>(&mut tribe_registry, &member, utf8(b"Rival Tribe"), VOTE_THRESHOLD_51, ts::ctx(&mut ts));
+        let cap = tribe::create_tribe(&mut tribe_registry, &member, utf8(b"Rival Tribe"), ts::ctx(&mut ts));
         tribe::destroy_tribe_cap_for_testing(cap);
         ts::return_shared(tribe_registry);
         ts::return_shared(member);
@@ -971,7 +635,7 @@ fun tribe_registry_lookup_success() {
     {
         let leader = ts::take_shared_by_id<Character>(&ts, leader_id);
         let mut tribe_registry = ts::take_shared<TribeRegistry>(&ts);
-        let cap = tribe::create_tribe<TESTCOIN>(&mut tribe_registry, &leader, utf8(TRIBE_NAME), VOTE_THRESHOLD_51, ts::ctx(&mut ts));
+        let cap = tribe::create_tribe(&mut tribe_registry, &leader, utf8(TRIBE_NAME), ts::ctx(&mut ts));
         transfer::public_transfer(cap, user_a());
         ts::return_shared(tribe_registry);
         ts::return_shared(leader);
@@ -981,7 +645,7 @@ fun tribe_registry_lookup_success() {
     ts::next_tx(&mut ts, user_a());
     {
         let tribe_registry = ts::take_shared<TribeRegistry>(&ts);
-        let tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
+        let tribe = ts::take_shared<Tribe>(&ts);
 
         // Should find tribe for in-game tribe 100
         let found = tribe::tribe_for_game_id(&tribe_registry, 100);

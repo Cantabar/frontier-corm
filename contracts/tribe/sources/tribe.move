@@ -1,9 +1,8 @@
-/// Tribe Registry — on-chain tribe membership, per-tribe reputation, and shared treasury.
+/// Tribe Registry — on-chain tribe membership, per-tribe reputation, and leadership.
 ///
-/// Each `Tribe<C>` is a shared object that is the authoritative source for:
+/// Each `Tribe` is a shared object that is the authoritative source for:
 ///   - Membership roles (Leader, Officer, Member)
 ///   - Per-tribe reputation scores for each Character (independent per tribe)
-///   - A shared treasury holding `Coin<C>` (any fungible token, typically EVE)
 ///
 /// The `TribeCap` capability is issued to each member and proves membership + role.
 /// It authenticates calls into the tribe (add members, vote, update rep, etc.).
@@ -15,17 +14,12 @@
 /// job completion — without requiring a TribeCap from a live operator.
 ///
 /// Design principles:
-/// - Generic over coin type C (phantom): deploy with C = EVE for EVE Frontier.
 /// - Per-tribe reputation avoids a global bottleneck; a player's score is contextual.
-/// - Only active proposals live on-chain; completed/cancelled ones are event-sourced.
-/// - Treasury spend requires on-chain voting (vote_count * 100 >= member_count * threshold).
+/// - Only active state lives on-chain; completed/cancelled operations are event-sourced.
 module tribe::tribe;
 
 use std::string::String;
 use sui::{
-    balance::{Self, Balance},
-    clock::Clock,
-    coin::{Self, Coin},
     event,
     table::{Self, Table},
 };
@@ -36,17 +30,8 @@ const ETribeNameEmpty: u64 = 0;
 const ENotAuthorized: u64 = 1;
 const EAlreadyMember: u64 = 2;
 const ENotMember: u64 = 3;
-const EInsufficientFunds: u64 = 4;
-const EProposalExpired: u64 = 5;
-const EProposalAlreadyExecuted: u64 = 6;
-const EAlreadyVoted: u64 = 7;
-const EThresholdNotMet: u64 = 8;
 const ECannotRemoveLeader: u64 = 9;
 const ETribeMismatch: u64 = 10;
-const EThresholdOutOfRange: u64 = 11;
-const EDeadlineInPast: u64 = 12;
-#[allow(unused_const)]
-const EProposalNotExpired: u64 = 13;
 const EInGameTribeAlreadyClaimed: u64 = 14;
 const EInGameTribeIdInvalid: u64 = 15;
 const ECharacterTribeMismatch: u64 = 16;
@@ -71,8 +56,7 @@ public struct TribeRegistry has key {
 
 /// The on-chain registry for a single tribe.
 /// Shared object — one per tribe.
-/// C is a phantom coin type (e.g. assets::EVE::EVE on EVE Frontier testnet).
-public struct Tribe<phantom C> has key {
+public struct Tribe has key {
     id: UID,
     name: String,
     /// The in-game tribe ID from the world Character contract (1:1 with this Tribe)
@@ -82,10 +66,6 @@ public struct Tribe<phantom C> has key {
     members: Table<ID, Role>,
     /// Character Sui object ID -> reputation score (tribe-specific)
     reputation: Table<ID, u64>,
-    /// Shared treasury holding Coin<C>
-    treasury: Balance<C>,
-    /// 1–100: percentage of current members required to pass a spend vote
-    vote_threshold: u64,
     member_count: u64,
 }
 
@@ -107,21 +87,6 @@ public struct TribeCap has key, store {
 public struct RepUpdateCap has key, store {
     id: UID,
     tribe_id: ID,
-}
-
-/// Shared proposal for a tribe treasury spend vote.
-/// Lives on-chain while active; votes are recorded here.
-/// After execution or expiry, the event log provides the historical record.
-public struct TreasuryProposal has key {
-    id: UID,
-    tribe_id: ID,
-    amount: u64,
-    recipient: address,
-    /// Character ID -> voted yes (present means voted)
-    votes: Table<ID, bool>,
-    vote_count: u64,
-    executed: bool,
-    deadline_ms: u64,
 }
 
 // === Events ===
@@ -154,39 +119,6 @@ public struct ReputationUpdatedEvent has copy, drop {
     new_score: u64,
 }
 
-public struct TreasuryDepositEvent has copy, drop {
-    tribe_id: ID,
-    amount: u64,
-}
-
-public struct TreasuryProposalCreatedEvent has copy, drop {
-    tribe_id: ID,
-    proposal_id: ID,
-    amount: u64,
-    recipient: address,
-    deadline_ms: u64,
-}
-
-public struct TreasuryProposalVotedEvent has copy, drop {
-    tribe_id: ID,
-    proposal_id: ID,
-    character_id: ID,
-    vote_count: u64,
-}
-
-public struct TreasurySpendEvent has copy, drop {
-    tribe_id: ID,
-    proposal_id: ID,
-    amount: u64,
-    recipient: address,
-}
-
-public struct TreasuryWithdrawEvent has copy, drop {
-    tribe_id: ID,
-    amount: u64,
-    withdrawn_by: ID,
-}
-
 public struct LeadershipTransferredEvent has copy, drop {
     tribe_id: ID,
     old_leader_id: ID,
@@ -210,16 +142,13 @@ fun init(ctx: &mut TxContext) {
 /// Creates a new tribe. The caller provides their `Character` as proof of identity.
 /// The in-game tribe ID is read from the Character and must not already be claimed.
 /// The returned `TribeCap` (Leader role) must be transferred to the caller's wallet.
-/// C is the phantom coin type for the treasury (e.g. EVE on EVE Frontier testnet).
-public fun create_tribe<C>(
+public fun create_tribe(
     registry: &mut TribeRegistry,
     character: &Character,
     name: String,
-    vote_threshold: u64,
     ctx: &mut TxContext,
 ): TribeCap {
     assert!(name.length() > 0, ETribeNameEmpty);
-    assert!(vote_threshold >= 1 && vote_threshold <= 100, EThresholdOutOfRange);
 
     let in_game_tribe_id = character.tribe();
     assert!(in_game_tribe_id != 0, EInGameTribeIdInvalid);
@@ -232,15 +161,13 @@ public fun create_tribe<C>(
     members.add(character_id, Role::Leader);
     reputation.add(character_id, 0u64);
 
-    let tribe = Tribe<C> {
+    let tribe = Tribe {
         id: object::new(ctx),
         name,
         in_game_tribe_id,
         leader_character_id: character_id,
         members,
         reputation,
-        treasury: balance::zero<C>(),
-        vote_threshold,
         member_count: 1,
     };
 
@@ -273,8 +200,8 @@ public fun create_tribe<C>(
 /// autonomously as a Member. No TribeCap authorization is needed — the
 /// Character's `tribe_id` (set by the world contract) serves as proof.
 /// Returns a `TribeCap` that must be transferred to the caller's wallet.
-public fun self_join<C>(
-    tribe: &mut Tribe<C>,
+public fun self_join(
+    tribe: &mut Tribe,
     character: &Character,
     ctx: &mut TxContext,
 ): TribeCap {
@@ -302,8 +229,8 @@ public fun self_join<C>(
 
 /// Adds a new member to the tribe. Requires an Officer or Leader `TribeCap`.
 /// The returned `TribeCap` must be transferred to the new member's wallet.
-public fun add_member<C>(
-    tribe: &mut Tribe<C>,
+public fun add_member(
+    tribe: &mut Tribe,
     cap: &TribeCap,
     new_member_character: &Character,
     role: Role,
@@ -333,8 +260,8 @@ public fun add_member<C>(
 /// Removes a member from the tribe. Requires a Leader `TribeCap`.
 /// The removed member's TribeCap becomes invalid (membership check fails on next use).
 /// Does NOT delete the stale cap; the removed member may burn it separately.
-public fun remove_member<C>(
-    tribe: &mut Tribe<C>,
+public fun remove_member(
+    tribe: &mut Tribe,
     cap: &TribeCap,
     character_id: ID,
 ) {
@@ -355,8 +282,8 @@ public fun remove_member<C>(
 
 /// Updates a member's reputation score. Requires an Officer or Leader `TribeCap`.
 /// If `increase` is false the score is decremented, clamped to zero.
-public fun update_reputation<C>(
-    tribe: &mut Tribe<C>,
+public fun update_reputation(
+    tribe: &mut Tribe,
     cap: &TribeCap,
     character_id: ID,
     delta: u64,
@@ -393,8 +320,8 @@ public fun update_reputation<C>(
 ///
 /// Reputation is preserved (only the members table is cycled).
 /// `member_count` is unchanged.
-public fun transfer_leadership<C>(
-    tribe: &mut Tribe<C>,
+public fun transfer_leadership(
+    tribe: &mut Tribe,
     cap: &TribeCap,
     new_leader_character_id: ID,
     ctx: &mut TxContext,
@@ -445,8 +372,8 @@ public fun transfer_leadership<C>(
 /// Issues a `RepUpdateCap`
 /// Transfer this cap to a hot wallet or authorised contract to allow automated
 /// reputation updates (e.g. from the Contract Board on job completion).
-public fun issue_rep_update_cap<C>(
-    tribe: &Tribe<C>,
+public fun issue_rep_update_cap(
+    tribe: &Tribe,
     cap: &TribeCap,
     ctx: &mut TxContext,
 ): RepUpdateCap {
@@ -461,8 +388,8 @@ public fun issue_rep_update_cap<C>(
 
 /// Updates a member's reputation using a `RepUpdateCap`.
 /// Called by authorised external contracts (e.g. Contract Board on job completion).
-public fun update_reputation_with_cap<C>(
-    tribe: &mut Tribe<C>,
+public fun update_reputation_with_cap(
+    tribe: &mut Tribe,
     rep_cap: &RepUpdateCap,
     character_id: ID,
     delta: u64,
@@ -487,133 +414,6 @@ public fun update_reputation_with_cap<C>(
     event::emit(ReputationUpdatedEvent { tribe_id, character_id, new_score });
 }
 
-/// Deposits coins of type C into the tribe treasury. Open to anyone.
-public fun deposit_to_treasury<C>(tribe: &mut Tribe<C>, coin: Coin<C>) {
-    let amount = coin.value();
-    tribe.treasury.join(coin.into_balance());
-    event::emit(TreasuryDepositEvent { tribe_id: object::id(tribe), amount });
-}
-
-/// Withdraws tokens from the tribe treasury. Requires Leader or Officer TribeCap.
-/// Returns a `Coin<C>` that can be used directly (e.g. to fund a job on the
-/// Contract Board) or transferred. This is the composable primitive for
-/// treasury-funded operations without requiring the proposal/vote flow.
-public fun withdraw_from_treasury<C>(
-    tribe: &mut Tribe<C>,
-    cap: &TribeCap,
-    amount: u64,
-    ctx: &mut TxContext,
-): Coin<C> {
-    verify_tribe_cap(tribe, cap);
-    assert!(is_leader_or_officer(cap), ENotAuthorized);
-    assert!(amount > 0, ETribeNameEmpty); // reuse: zero-amount check
-    assert!(tribe.treasury.value() >= amount, EInsufficientFunds);
-
-    let tribe_id = object::id(tribe);
-    let coin = coin::take(&mut tribe.treasury, amount, ctx);
-
-    event::emit(TreasuryWithdrawEvent {
-        tribe_id,
-        amount,
-        withdrawn_by: cap.character_id,
-    });
-
-    coin
-}
-
-/// Creates a treasury spend proposal. Requires Officer or Leader `TribeCap`.
-/// The proposal is shared and open for voting until `deadline_ms`.
-/// `amount` must not exceed the current treasury balance at proposal time.
-public fun propose_treasury_spend<C>(
-    tribe: &Tribe<C>,
-    cap: &TribeCap,
-    amount: u64,
-    recipient: address,
-    deadline_ms: u64,
-    clock: &Clock,
-    ctx: &mut TxContext,
-) {
-    verify_tribe_cap(tribe, cap);
-    assert!(is_leader_or_officer(cap), ENotAuthorized);
-    assert!(amount <= tribe.treasury.value(), EInsufficientFunds);
-    assert!(deadline_ms > clock.timestamp_ms(), EDeadlineInPast);
-
-    let proposal = TreasuryProposal {
-        id: object::new(ctx),
-        tribe_id: object::id(tribe),
-        amount,
-        recipient,
-        votes: table::new(ctx),
-        vote_count: 0,
-        executed: false,
-        deadline_ms,
-    };
-
-    let proposal_id = object::id(&proposal);
-    event::emit(TreasuryProposalCreatedEvent {
-        tribe_id: object::id(tribe),
-        proposal_id,
-        amount,
-        recipient,
-        deadline_ms,
-    });
-
-    transfer::share_object(proposal);
-}
-
-/// Votes yes on a treasury proposal. Any member with a valid `TribeCap` may vote once.
-public fun vote_on_proposal<C>(
-    tribe: &Tribe<C>,
-    proposal: &mut TreasuryProposal,
-    cap: &TribeCap,
-    clock: &Clock,
-) {
-    verify_tribe_cap(tribe, cap);
-    assert!(proposal.tribe_id == object::id(tribe), ETribeMismatch);
-    assert!(!proposal.executed, EProposalAlreadyExecuted);
-    assert!(clock.timestamp_ms() <= proposal.deadline_ms, EProposalExpired);
-    assert!(!proposal.votes.contains(cap.character_id), EAlreadyVoted);
-
-    proposal.votes.add(cap.character_id, true);
-    proposal.vote_count = proposal.vote_count + 1;
-
-    event::emit(TreasuryProposalVotedEvent {
-        tribe_id: object::id(tribe),
-        proposal_id: object::id(proposal),
-        character_id: cap.character_id,
-        vote_count: proposal.vote_count,
-    });
-}
-
-/// Executes a passed treasury proposal. Anyone may call this once the threshold is met.
-/// Releases the treasury coins to the specified recipient.
-public fun execute_proposal<C>(
-    tribe: &mut Tribe<C>,
-    proposal: &mut TreasuryProposal,
-    clock: &Clock,
-    ctx: &mut TxContext,
-) {
-    assert!(proposal.tribe_id == object::id(tribe), ETribeMismatch);
-    assert!(!proposal.executed, EProposalAlreadyExecuted);
-    assert!(clock.timestamp_ms() <= proposal.deadline_ms, EProposalExpired);
-    assert!(
-        proposal.vote_count * 100 >= tribe.member_count * tribe.vote_threshold,
-        EThresholdNotMet,
-    );
-    assert!(tribe.treasury.value() >= proposal.amount, EInsufficientFunds);
-
-    proposal.executed = true;
-    let coin = coin::take(&mut tribe.treasury, proposal.amount, ctx);
-    transfer::public_transfer(coin, proposal.recipient);
-
-    event::emit(TreasurySpendEvent {
-        tribe_id: object::id(tribe),
-        proposal_id: object::id(proposal),
-        amount: proposal.amount,
-        recipient: proposal.recipient,
-    });
-}
-
 // === View Functions ===
 
 public fun tribe_id(cap: &TribeCap): ID { cap.tribe_id }
@@ -621,12 +421,10 @@ public fun cap_character_id(cap: &TribeCap): ID { cap.character_id }
 public fun cap_role(cap: &TribeCap): Role { cap.role }
 public fun rep_update_cap_tribe_id(cap: &RepUpdateCap): ID { cap.tribe_id }
 
-public fun tribe_name<C>(tribe: &Tribe<C>): String { tribe.name }
-public fun in_game_tribe_id<C>(tribe: &Tribe<C>): u32 { tribe.in_game_tribe_id }
-public fun leader_character_id<C>(tribe: &Tribe<C>): ID { tribe.leader_character_id }
-public fun member_count<C>(tribe: &Tribe<C>): u64 { tribe.member_count }
-public fun treasury_balance<C>(tribe: &Tribe<C>): u64 { tribe.treasury.value() }
-public fun vote_threshold<C>(tribe: &Tribe<C>): u64 { tribe.vote_threshold }
+public fun tribe_name(tribe: &Tribe): String { tribe.name }
+public fun in_game_tribe_id(tribe: &Tribe): u32 { tribe.in_game_tribe_id }
+public fun leader_character_id(tribe: &Tribe): ID { tribe.leader_character_id }
+public fun member_count(tribe: &Tribe): u64 { tribe.member_count }
 
 /// Returns the on-chain Tribe object ID for a given in-game tribe, if one exists.
 public fun tribe_for_game_id(registry: &TribeRegistry, game_tribe_id: u32): Option<ID> {
@@ -637,7 +435,7 @@ public fun tribe_for_game_id(registry: &TribeRegistry, game_tribe_id: u32): Opti
     }
 }
 
-public fun reputation_of<C>(tribe: &Tribe<C>, character_id: ID): u64 {
+public fun reputation_of(tribe: &Tribe, character_id: ID): u64 {
     if (tribe.reputation.contains(character_id)) {
         *tribe.reputation.borrow(character_id)
     } else {
@@ -645,23 +443,18 @@ public fun reputation_of<C>(tribe: &Tribe<C>, character_id: ID): u64 {
     }
 }
 
-public fun is_member<C>(tribe: &Tribe<C>, character_id: ID): bool {
+public fun is_member(tribe: &Tribe, character_id: ID): bool {
     tribe.members.contains(character_id)
 }
 
-public fun member_role<C>(tribe: &Tribe<C>, character_id: ID): Role {
+public fun member_role(tribe: &Tribe, character_id: ID): Role {
     assert!(tribe.members.contains(character_id), ENotMember);
     *tribe.members.borrow(character_id)
 }
 
-public fun proposal_vote_count(proposal: &TreasuryProposal): u64 { proposal.vote_count }
-public fun proposal_executed(proposal: &TreasuryProposal): bool { proposal.executed }
-public fun proposal_amount(proposal: &TreasuryProposal): u64 { proposal.amount }
-public fun proposal_recipient(proposal: &TreasuryProposal): address { proposal.recipient }
-
 // === Private Helpers ===
 
-fun verify_tribe_cap<C>(tribe: &Tribe<C>, cap: &TribeCap) {
+fun verify_tribe_cap(tribe: &Tribe, cap: &TribeCap) {
     assert!(cap.tribe_id == object::id(tribe), ETribeMismatch);
     assert!(tribe.members.contains(cap.character_id), ENotMember);
 }

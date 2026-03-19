@@ -12,7 +12,7 @@ use world::{
     object_registry::ObjectRegistry,
     test_helpers::{Self, admin, tenant, user_a, user_b},
 };
-use tribe::tribe::{Self, Tribe, TribeCap, RepUpdateCap};
+use tribe::tribe::{Self, Tribe, TribeCap, TribeRegistry, RepUpdateCap};
 use forge_planner::forge_planner::{
     Self,
     RecipeRegistry,
@@ -26,7 +26,6 @@ public struct TESTCOIN has drop {}
 // === Constants ===
 const LEADER_GAME_ID: u32 = 2001;
 const MEMBER_GAME_ID: u32 = 2002;
-const VOTE_THRESHOLD_51: u64 = 51;
 const TRIBE_NAME: vector<u8> = b"Forge Masters";
 const BOUNTY_AMOUNT: u64 = 500;
 
@@ -46,6 +45,10 @@ const RUN_TIME: u64 = 3;
 /// Returns (leader_char_id, member_char_id).
 fun setup_world_and_characters(ts: &mut ts::Scenario): (ID, ID) {
     test_helpers::setup_world(ts);
+
+    // Create the TribeRegistry singleton
+    ts::next_tx(ts, admin());
+    tribe::create_registry_for_testing(ts::ctx(ts));
 
     // Create leader character
     ts::next_tx(ts, admin());
@@ -100,13 +103,15 @@ fun setup_tribe_with_member(ts: &mut ts::Scenario, leader_id: ID, member_id: ID)
     ts::next_tx(ts, user_a());
     {
         let leader = ts::take_shared_by_id<Character>(ts, leader_id);
-        let cap = tribe::create_tribe<TESTCOIN>(
+        let mut tribe_registry = ts::take_shared<TribeRegistry>(ts);
+        let cap = tribe::create_tribe(
+            &mut tribe_registry,
             &leader,
             utf8(TRIBE_NAME),
-            VOTE_THRESHOLD_51,
             ts::ctx(ts),
         );
         transfer::public_transfer(cap, user_a());
+        ts::return_shared(tribe_registry);
         ts::return_shared(leader);
     };
 
@@ -114,7 +119,7 @@ fun setup_tribe_with_member(ts: &mut ts::Scenario, leader_id: ID, member_id: ID)
     ts::next_tx(ts, user_a());
     {
         let leader_cap = ts::take_from_sender<TribeCap>(ts);
-        let mut tribe = ts::take_shared<Tribe<TESTCOIN>>(ts);
+        let mut tribe = ts::take_shared<Tribe>(ts);
         let member = ts::take_shared_by_id<Character>(ts, member_id);
         let member_cap = tribe::add_member(
             &mut tribe,
@@ -135,7 +140,7 @@ fun setup_registry(ts: &mut ts::Scenario) {
     ts::next_tx(ts, user_a());
     {
         let leader_cap = ts::take_from_sender<TribeCap>(ts);
-        let tribe = ts::take_shared<Tribe<TESTCOIN>>(ts);
+        let tribe = ts::take_shared<Tribe>(ts);
         forge_planner::create_registry<TESTCOIN>(&tribe, &leader_cap, ts::ctx(ts));
         ts::return_to_sender(ts, leader_cap);
         ts::return_shared(tribe);
@@ -163,7 +168,7 @@ fun create_registry_success() {
     ts::next_tx(&mut ts, user_a());
     {
         let registry = ts::take_shared<RecipeRegistry<TESTCOIN>>(&ts);
-        let tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
+        let tribe = ts::take_shared<Tribe>(&ts);
         assert!(forge_planner::registry_tribe_id(&registry) == object::id(&tribe));
         assert!(forge_planner::registry_recipe_count(&registry) == 0);
         ts::return_shared(registry);
@@ -184,7 +189,7 @@ fun add_recipe_success() {
     ts::next_tx(&mut ts, user_a());
     {
         let leader_cap = ts::take_from_sender<TribeCap>(&ts);
-        let tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
+        let tribe = ts::take_shared<Tribe>(&ts);
         let mut registry = ts::take_shared<RecipeRegistry<TESTCOIN>>(&ts);
 
         forge_planner::add_recipe(
@@ -217,7 +222,7 @@ fun add_duplicate_recipe_fails() {
     ts::next_tx(&mut ts, user_a());
     {
         let leader_cap = ts::take_from_sender<TribeCap>(&ts);
-        let tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
+        let tribe = ts::take_shared<Tribe>(&ts);
         let mut registry = ts::take_shared<RecipeRegistry<TESTCOIN>>(&ts);
 
         forge_planner::add_recipe(
@@ -251,7 +256,7 @@ fun add_recipe_as_member_fails() {
     ts::next_tx(&mut ts, user_b());
     {
         let member_cap = ts::take_from_sender<TribeCap>(&ts);
-        let tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
+        let tribe = ts::take_shared<Tribe>(&ts);
         let mut registry = ts::take_shared<RecipeRegistry<TESTCOIN>>(&ts);
 
         forge_planner::add_recipe(
@@ -278,7 +283,7 @@ fun remove_recipe_success() {
     ts::next_tx(&mut ts, user_a());
     {
         let leader_cap = ts::take_from_sender<TribeCap>(&ts);
-        let tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
+        let tribe = ts::take_shared<Tribe>(&ts);
         let mut registry = ts::take_shared<RecipeRegistry<TESTCOIN>>(&ts);
 
         forge_planner::add_recipe(
@@ -312,7 +317,7 @@ fun create_order_success() {
     ts::next_tx(&mut ts, user_a());
     {
         let leader_cap = ts::take_from_sender<TribeCap>(&ts);
-        let tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
+        let tribe = ts::take_shared<Tribe>(&ts);
         let mut registry = ts::take_shared<RecipeRegistry<TESTCOIN>>(&ts);
         forge_planner::add_recipe(
             &mut registry, &tribe, &leader_cap,
@@ -327,7 +332,7 @@ fun create_order_success() {
     ts::next_tx(&mut ts, user_a());
     {
         let leader_cap = ts::take_from_sender<TribeCap>(&ts);
-        let tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
+        let tribe = ts::take_shared<Tribe>(&ts);
         let registry = ts::take_shared<RecipeRegistry<TESTCOIN>>(&ts);
         let leader = ts::take_shared_by_id<Character>(&ts, leader_id);
         let bounty = coin::mint_for_testing<TESTCOIN>(BOUNTY_AMOUNT, ts::ctx(&mut ts));
@@ -385,7 +390,7 @@ fun create_order_missing_recipe_fails() {
     ts::next_tx(&mut ts, user_a());
     {
         let leader_cap = ts::take_from_sender<TribeCap>(&ts);
-        let tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
+        let tribe = ts::take_shared<Tribe>(&ts);
         let registry = ts::take_shared<RecipeRegistry<TESTCOIN>>(&ts);
         let leader = ts::take_shared_by_id<Character>(&ts, leader_id);
         let bounty = coin::mint_for_testing<TESTCOIN>(BOUNTY_AMOUNT, ts::ctx(&mut ts));
@@ -419,7 +424,7 @@ fun fulfill_order_success() {
     ts::next_tx(&mut ts, user_a());
     {
         let leader_cap = ts::take_from_sender<TribeCap>(&ts);
-        let tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
+        let tribe = ts::take_shared<Tribe>(&ts);
         let mut registry = ts::take_shared<RecipeRegistry<TESTCOIN>>(&ts);
         forge_planner::add_recipe(
             &mut registry, &tribe, &leader_cap,
@@ -434,7 +439,7 @@ fun fulfill_order_success() {
     ts::next_tx(&mut ts, user_a());
     {
         let leader_cap = ts::take_from_sender<TribeCap>(&ts);
-        let tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
+        let tribe = ts::take_shared<Tribe>(&ts);
         let registry = ts::take_shared<RecipeRegistry<TESTCOIN>>(&ts);
         let leader = ts::take_shared_by_id<Character>(&ts, leader_id);
         let bounty = coin::mint_for_testing<TESTCOIN>(BOUNTY_AMOUNT, ts::ctx(&mut ts));
@@ -486,7 +491,7 @@ fun cancel_order_success() {
     ts::next_tx(&mut ts, user_a());
     {
         let leader_cap = ts::take_from_sender<TribeCap>(&ts);
-        let tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
+        let tribe = ts::take_shared<Tribe>(&ts);
         let mut registry = ts::take_shared<RecipeRegistry<TESTCOIN>>(&ts);
         forge_planner::add_recipe(
             &mut registry, &tribe, &leader_cap,
@@ -501,7 +506,7 @@ fun cancel_order_success() {
     ts::next_tx(&mut ts, user_a());
     {
         let leader_cap = ts::take_from_sender<TribeCap>(&ts);
-        let tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
+        let tribe = ts::take_shared<Tribe>(&ts);
         let registry = ts::take_shared<RecipeRegistry<TESTCOIN>>(&ts);
         let leader = ts::take_shared_by_id<Character>(&ts, leader_id);
         let bounty = coin::mint_for_testing<TESTCOIN>(BOUNTY_AMOUNT, ts::ctx(&mut ts));
@@ -551,7 +556,7 @@ fun fulfill_order_with_rep_success() {
     ts::next_tx(&mut ts, user_a());
     {
         let leader_cap = ts::take_from_sender<TribeCap>(&ts);
-        let tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
+        let tribe = ts::take_shared<Tribe>(&ts);
         let mut registry = ts::take_shared<RecipeRegistry<TESTCOIN>>(&ts);
         forge_planner::add_recipe(
             &mut registry, &tribe, &leader_cap,
@@ -566,7 +571,7 @@ fun fulfill_order_with_rep_success() {
     ts::next_tx(&mut ts, user_a());
     {
         let leader_cap = ts::take_from_sender<TribeCap>(&ts);
-        let tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
+        let tribe = ts::take_shared<Tribe>(&ts);
         let rep_cap = tribe::issue_rep_update_cap(&tribe, &leader_cap, ts::ctx(&mut ts));
         transfer::public_transfer(rep_cap, user_a());
         ts::return_to_sender(&ts, leader_cap);
@@ -577,7 +582,7 @@ fun fulfill_order_with_rep_success() {
     ts::next_tx(&mut ts, user_a());
     {
         let leader_cap = ts::take_from_sender<TribeCap>(&ts);
-        let tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
+        let tribe = ts::take_shared<Tribe>(&ts);
         let registry = ts::take_shared<RecipeRegistry<TESTCOIN>>(&ts);
         let leader = ts::take_shared_by_id<Character>(&ts, leader_id);
         let bounty = coin::mint_for_testing<TESTCOIN>(BOUNTY_AMOUNT, ts::ctx(&mut ts));
@@ -599,7 +604,7 @@ fun fulfill_order_with_rep_success() {
     {
         let leader_cap = ts::take_from_sender<TribeCap>(&ts);
         let rep_cap = ts::take_from_sender<RepUpdateCap>(&ts);
-        let mut tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
+        let mut tribe = ts::take_shared<Tribe>(&ts);
         let order = ts::take_shared<ManufacturingOrder<TESTCOIN>>(&ts);
         let member = ts::take_shared_by_id<Character>(&ts, member_id);
 
@@ -639,7 +644,7 @@ fun cancel_order_non_creator_fails() {
     ts::next_tx(&mut ts, user_a());
     {
         let leader_cap = ts::take_from_sender<TribeCap>(&ts);
-        let tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
+        let tribe = ts::take_shared<Tribe>(&ts);
         let mut registry = ts::take_shared<RecipeRegistry<TESTCOIN>>(&ts);
         forge_planner::add_recipe(
             &mut registry, &tribe, &leader_cap,
@@ -654,7 +659,7 @@ fun cancel_order_non_creator_fails() {
     ts::next_tx(&mut ts, user_a());
     {
         let leader_cap = ts::take_from_sender<TribeCap>(&ts);
-        let tribe = ts::take_shared<Tribe<TESTCOIN>>(&ts);
+        let tribe = ts::take_shared<Tribe>(&ts);
         let registry = ts::take_shared<RecipeRegistry<TESTCOIN>>(&ts);
         let leader = ts::take_shared_by_id<Character>(&ts, leader_id);
         let bounty = coin::mint_for_testing<TESTCOIN>(BOUNTY_AMOUNT, ts::ctx(&mut ts));

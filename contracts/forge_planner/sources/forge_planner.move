@@ -177,7 +177,7 @@ public fun status_cancelled(): OrderStatus { OrderStatus::Cancelled }
 /// Each tribe should have one registry (not enforced — multiple are possible
 /// for advanced use cases like guild specialization).
 public fun create_registry<C>(
-    tribe: &Tribe<C>,
+    tribe: &Tribe,
     cap: &TribeCap,
     ctx: &mut TxContext,
 ) {
@@ -203,7 +203,7 @@ public fun create_registry<C>(
 /// Only one recipe per output type_id is allowed (remove first to update).
 public fun add_recipe<C>(
     registry: &mut RecipeRegistry<C>,
-    tribe: &Tribe<C>,
+    tribe: &Tribe,
     cap: &TribeCap,
     output_type_id: u64,
     output_quantity: u32,
@@ -242,7 +242,7 @@ public fun add_recipe<C>(
 /// Removes a recipe from the registry. Requires Leader/Officer TribeCap.
 public fun remove_recipe<C>(
     registry: &mut RecipeRegistry<C>,
-    tribe: &Tribe<C>,
+    tribe: &Tribe,
     cap: &TribeCap,
     output_type_id: u64,
 ) {
@@ -273,7 +273,7 @@ public fun remove_recipe<C>(
 /// The order is scoped to the tribe that owns the registry.
 public fun create_order<C>(
     registry: &RecipeRegistry<C>,
-    tribe: &Tribe<C>,
+    tribe: &Tribe,
     cap: &TribeCap,
     character: &Character,
     description: String,
@@ -388,7 +388,7 @@ public fun fulfill_order<C>(
 /// contributions are rewarded with tribe standing.
 public fun fulfill_order_with_rep<C>(
     order: ManufacturingOrder<C>,
-    tribe: &mut Tribe<C>,
+    tribe: &mut Tribe,
     rep_cap: &RepUpdateCap,
     creator_cap: &TribeCap,
     fulfiller_character: &Character,
