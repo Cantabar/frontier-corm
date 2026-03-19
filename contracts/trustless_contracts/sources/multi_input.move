@@ -320,6 +320,7 @@ public fun cancel<C>(
     ctx: &mut TxContext,
 ) {
     contract_utils::assert_is_poster(poster_character.id(), contract.poster_id);
+    assert!(contract.total_filled < contract.total_required, EContractComplete);
 
     let contract_id = object::id(&contract);
     let bounty_returned = contract.bounty.value();

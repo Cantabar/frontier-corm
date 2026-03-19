@@ -21,6 +21,7 @@ use trustless_contracts::contract_utils::{Self, ContractStatus};
 
 // === Module-specific Errors ===
 const EItemTypeMismatch: u64 = 100;
+const EDestinationSsuMismatch: u64 = 101;
 
 // === Structs ===
 
@@ -140,6 +141,7 @@ public fun fill<CE, CF>(
 ) {
     contract_utils::assert_open(&contract.status);
     contract_utils::assert_not_expired(contract.deadline_ms, clock.timestamp_ms());
+    assert!(object::id(destination_ssu) == contract.destination_ssu_id, EDestinationSsuMismatch);
 
     let filler_id = filler_character.id();
     contract_utils::assert_not_self_fill(filler_id, contract.poster_id);

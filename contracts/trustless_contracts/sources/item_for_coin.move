@@ -158,6 +158,7 @@ public fun fill<CE, CF>(
     contract_utils::assert_open(&contract.status);
     contract_utils::assert_not_expired(contract.deadline_ms, clock.timestamp_ms());
     contract_utils::assert_nonzero_escrow(fill_coin.value());
+    assert!(object::id(source_ssu) == contract.source_ssu_id, ESourceSsuMismatch);
 
     let filler_id = filler_character.id();
     contract_utils::assert_not_self_fill(filler_id, contract.poster_id);

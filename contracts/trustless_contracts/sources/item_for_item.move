@@ -19,6 +19,7 @@ use trustless_contracts::contract_utils::{Self, ContractStatus};
 // === Module-specific Errors ===
 const ESourceSsuMismatch: u64 = 100;
 const EItemTypeMismatch: u64 = 101;
+const EDestinationSsuMismatch: u64 = 102;
 
 // === Structs ===
 
@@ -172,6 +173,7 @@ public fun fill<CE, CF>(
     );
 
     assert!(object::id(source_ssu) == contract.source_ssu_id, ESourceSsuMismatch);
+    assert!(object::id(destination_ssu) == contract.destination_ssu_id, EDestinationSsuMismatch);
     assert!(inventory::type_id(&item) == contract.wanted_type_id, EItemTypeMismatch);
 
     let item_qty = (inventory::quantity(&item) as u64);
@@ -251,6 +253,7 @@ public fun fill_same_ssu<CE, CF>(
     );
 
     assert!(object::id(ssu) == contract.source_ssu_id, ESourceSsuMismatch);
+    assert!(object::id(ssu) == contract.destination_ssu_id, EDestinationSsuMismatch);
     assert!(inventory::type_id(&item) == contract.wanted_type_id, EItemTypeMismatch);
 
     let item_qty = (inventory::quantity(&item) as u64);
