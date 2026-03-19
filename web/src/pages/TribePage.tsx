@@ -6,7 +6,6 @@ import { useTribe } from "../hooks/useTribe";
 import { TribeOverview } from "../components/tribe/TribeOverview";
 import { MemberList } from "../components/tribe/MemberList";
 import { ReputationLeaderboard } from "../components/tribe/ReputationLeaderboard";
-import { TreasuryPanel } from "../components/tribe/TreasuryPanel";
 import { CreateTribeModal } from "../components/tribe/CreateTribeModal";
 import { AddMemberModal } from "../components/tribe/AddMemberModal";
 import { UpdateReputationModal } from "../components/tribe/UpdateReputationModal";
@@ -63,16 +62,6 @@ const SectionLabel = styled.h2`
   margin: ${({ theme }) => theme.spacing.lg} 0 ${({ theme }) => theme.spacing.md};
 `;
 
-const Grid = styled.div`
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: ${({ theme }) => theme.spacing.lg};
-  align-items: start;
-
-  @media (max-width: 768px) {
-    grid-template-columns: 1fr;
-  }
-`;
 
 export function TribePage() {
   const { tribeId } = useParams<{ tribeId: string }>();
@@ -176,33 +165,25 @@ export function TribePage() {
 
       <TribeOverview tribe={tribe} />
 
-      <Grid>
-        <div>
-          <SectionLabel>Members</SectionLabel>
-          <MemberList
-            members={tribe.members}
-            tribeId={tribe.id}
-            leaderCharacterId={tribe.leaderCharacterId}
-            cap={cap}
-            onUpdateReputation={(characterId, reputation) =>
-              setRepTarget({ characterId, reputation })
-            }
-            onChangeRole={(characterId, currentRole) =>
-              setRoleTarget({ characterId, currentRole })
-            }
-            onTransferLeadership={(characterId) =>
-              setTransferTarget(characterId)
-            }
-          />
+      <SectionLabel>Members</SectionLabel>
+      <MemberList
+        members={tribe.members}
+        tribeId={tribe.id}
+        leaderCharacterId={tribe.leaderCharacterId}
+        cap={cap}
+        onUpdateReputation={(characterId, reputation) =>
+          setRepTarget({ characterId, reputation })
+        }
+        onChangeRole={(characterId, currentRole) =>
+          setRoleTarget({ characterId, currentRole })
+        }
+        onTransferLeadership={(characterId) =>
+          setTransferTarget(characterId)
+        }
+      />
 
-          <SectionLabel>Reputation</SectionLabel>
-          <ReputationLeaderboard tribeId={tribe.id} />
-        </div>
-
-        <div>
-          <TreasuryPanel tribe={tribe} cap={cap} proposals={[]} />
-        </div>
-      </Grid>
+      <SectionLabel>Reputation</SectionLabel>
+      <ReputationLeaderboard tribeId={tribe.id} />
 
       {/* Tribe Admin (Leader only) */}
       {isLeader && cap && (

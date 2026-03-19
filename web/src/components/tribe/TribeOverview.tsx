@@ -1,7 +1,5 @@
 import styled from "styled-components";
 import type { TribeData } from "../../lib/types";
-import { formatAmount } from "../../lib/format";
-import { useCoinDecimals } from "../../hooks/useCoinDecimals";
 
 const Grid = styled.div`
   display: grid;
@@ -32,8 +30,6 @@ const CardValue = styled.div`
 `;
 
 export function TribeOverview({ tribe }: { tribe: TribeData }) {
-  const { decimals, symbol } = useCoinDecimals(tribe.coinType);
-
   return (
     <Grid>
       <Card>
@@ -43,14 +39,6 @@ export function TribeOverview({ tribe }: { tribe: TribeData }) {
       <Card>
         <CardLabel>Members</CardLabel>
         <CardValue>{tribe.memberCount}</CardValue>
-      </Card>
-      <Card>
-        <CardLabel>Treasury</CardLabel>
-        <CardValue>{formatAmount(tribe.treasuryBalance, decimals)} {symbol}</CardValue>
-      </Card>
-      <Card>
-        <CardLabel>Vote Threshold</CardLabel>
-        <CardValue>{tribe.voteThreshold}%</CardValue>
       </Card>
     </Grid>
   );
