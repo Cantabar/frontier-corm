@@ -202,7 +202,7 @@ fun test_fill_item_for_coin_full() {
         let clock = clock::create_for_testing(ts::ctx(&mut ts));
 
         item_for_coin::fill(
-            &mut contract, &mut storage_unit, &poster, &filler,
+            &mut contract, &mut storage_unit, &filler,
             fill_coin, &clock, ts::ctx(&mut ts),
         );
 

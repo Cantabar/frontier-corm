@@ -149,7 +149,6 @@ public fun create<C>(
 public fun fill<C>(
     contract: &mut ItemForCoinContract<C>,
     source_ssu: &mut StorageUnit,
-    _poster_character: &Character,
     filler_character: &Character,
     mut fill_coin: Coin<C>,
     clock: &Clock,
