@@ -16,6 +16,9 @@ use world::character::Character;
 use world::inventory;
 use world::storage_unit::StorageUnit;
 
+// === Version ===
+const CURRENT_CONTRACT_VERSION: u64 = 1;
+
 // === Shared Errors ===
 // Used across multiple contract modules. Module-specific errors live in their
 // own modules.
@@ -84,6 +87,12 @@ public struct ContractExpiredEvent has copy, drop {
     fill_pool_returned: u64,
     items_returned: u32,
 }
+
+// === Version ===
+
+/// Returns the current contract version constant. Used by sibling modules
+/// to stamp newly created contracts.
+public(package) fun current_contract_version(): u64 { CURRENT_CONTRACT_VERSION }
 
 // === Public(package) Helpers ===
 

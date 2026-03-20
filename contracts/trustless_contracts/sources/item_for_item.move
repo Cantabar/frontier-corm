@@ -25,6 +25,7 @@ const EDestinationSsuMismatch: u64 = 102;
 
 public struct ItemForItemContract has key {
     id: UID,
+    version: u64,
     poster_id: ID,
     poster_address: address,
     offered_type_id: u64,
@@ -108,6 +109,7 @@ public fun create(
 
     let contract = ItemForItemContract {
         id: object::new(ctx),
+        version: contract_utils::current_contract_version(),
         poster_id,
         poster_address,
         offered_type_id,
@@ -403,6 +405,7 @@ public fun cleanup(
 
 // === View Functions ===
 
+public fun contract_version(c: &ItemForItemContract): u64 { c.version }
 public fun poster_id(c: &ItemForItemContract): ID { c.poster_id }
 public fun poster_address(c: &ItemForItemContract): address { c.poster_address }
 public fun offered_type_id(c: &ItemForItemContract): u64 { c.offered_type_id }

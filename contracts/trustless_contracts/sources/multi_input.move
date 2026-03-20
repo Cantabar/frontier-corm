@@ -61,6 +61,7 @@ public struct SlotState has copy, drop, store {
 /// Remains on-chain after completion (all bounty paid out).
 public struct MultiInputContract<phantom C> has key {
     id: UID,
+    version: u64,
     poster_id: ID,
     poster_address: address,
     description: String,
@@ -180,6 +181,7 @@ public fun create<C>(
 
     let contract = MultiInputContract<C> {
         id: object::new(ctx),
+        version: contract_utils::current_contract_version(),
         poster_id,
         poster_address,
         description,
@@ -411,6 +413,7 @@ public fun cleanup<C>(
 
 // === View Functions ===
 
+public fun contract_version<C>(c: &MultiInputContract<C>): u64 { c.version }
 public fun poster_id<C>(c: &MultiInputContract<C>): ID { c.poster_id }
 public fun poster_address<C>(c: &MultiInputContract<C>): address { c.poster_address }
 public fun description<C>(c: &MultiInputContract<C>): String { c.description }

@@ -27,6 +27,7 @@ const EDestinationSsuMismatch: u64 = 101;
 
 public struct CoinForItemContract<phantom C> has key {
     id: UID,
+    version: u64,
     poster_id: ID,
     poster_address: address,
     escrow: Balance<C>,
@@ -91,6 +92,7 @@ public fun create<C>(
 
     let contract = CoinForItemContract<C> {
         id: object::new(ctx),
+        version: contract_utils::current_contract_version(),
         poster_id,
         poster_address,
         escrow: escrow_coin.into_balance(),
@@ -268,6 +270,7 @@ public fun cleanup<C>(
 
 // === View Functions ===
 
+public fun contract_version<C>(c: &CoinForItemContract<C>): u64 { c.version }
 public fun poster_id<C>(c: &CoinForItemContract<C>): ID { c.poster_id }
 public fun poster_address<C>(c: &CoinForItemContract<C>): address { c.poster_address }
 public fun escrow_amount<C>(c: &CoinForItemContract<C>): u64 { c.escrow_amount }

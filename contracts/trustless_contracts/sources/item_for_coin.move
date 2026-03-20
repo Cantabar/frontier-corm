@@ -28,6 +28,7 @@ const ENotFreeContract: u64 = 101;
 
 public struct ItemForCoinContract<phantom C> has key {
     id: UID,
+    version: u64,
     poster_id: ID,
     poster_address: address,
     /// Accumulated filler payments forwarded to poster.
@@ -109,6 +110,7 @@ public fun create<C>(
 
     let contract = ItemForCoinContract<C> {
         id: object::new(ctx),
+        version: contract_utils::current_contract_version(),
         poster_id,
         poster_address,
         fill_pool: balance::zero<C>(),
@@ -402,6 +404,7 @@ public fun cleanup<C>(
 
 // === View Functions ===
 
+public fun contract_version<C>(c: &ItemForCoinContract<C>): u64 { c.version }
 public fun poster_id<C>(c: &ItemForCoinContract<C>): ID { c.poster_id }
 public fun poster_address<C>(c: &ItemForCoinContract<C>): address { c.poster_address }
 public fun fill_pool_balance<C>(c: &ItemForCoinContract<C>): u64 { c.fill_pool.value() }

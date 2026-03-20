@@ -24,6 +24,7 @@ const EWantedAmountZero: u64 = 100;
 
 public struct CoinForCoinContract<phantom CE, phantom CF> has key {
     id: UID,
+    version: u64,
     poster_id: ID,
     poster_address: address,
     /// Poster's locked coins released proportionally to fillers.
@@ -94,6 +95,7 @@ public fun create<CE, CF>(
 
     let contract = CoinForCoinContract<CE, CF> {
         id: object::new(ctx),
+        version: contract_utils::current_contract_version(),
         poster_id,
         poster_address,
         escrow: escrow_coin.into_balance(),
@@ -365,6 +367,7 @@ public fun cleanup<CE, CF>(
 
 // === View Functions ===
 
+public fun contract_version<CE, CF>(c: &CoinForCoinContract<CE, CF>): u64 { c.version }
 public fun poster_id<CE, CF>(c: &CoinForCoinContract<CE, CF>): ID { c.poster_id }
 public fun poster_address<CE, CF>(c: &CoinForCoinContract<CE, CF>): address { c.poster_address }
 public fun escrow_amount<CE, CF>(c: &CoinForCoinContract<CE, CF>): u64 { c.escrow_amount }
