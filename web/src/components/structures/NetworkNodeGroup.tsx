@@ -109,6 +109,16 @@ const Spacer = styled.span`
   flex: 1;
 `;
 
+const LocationBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: ${({ theme }) => theme.colors.primary.main};
+  white-space: nowrap;
+`;
+
 const Chevron = styled.span<{ $open: boolean }>`
   font-size: 12px;
   color: ${({ theme }) => theme.colors.text.muted};
@@ -150,6 +160,8 @@ interface NetworkNodeGroupProps {
   node: NetworkNodeData | null;
   children: React.ReactNode;
   structureCount: number;
+  /** Whether this network node has a registered location POD. */
+  hasLocation?: boolean;
   /** Start expanded (default true). */
   defaultOpen?: boolean;
 }
@@ -158,6 +170,7 @@ export function NetworkNodeGroup({
   node,
   children,
   structureCount,
+  hasLocation = false,
   defaultOpen = true,
 }: NetworkNodeGroupProps) {
   const [open, setOpen] = useState(defaultOpen);
@@ -212,6 +225,9 @@ export function NetworkNodeGroup({
             {node.totalReservedEnergy} / {node.maxEnergyProduction} GJ
           </BarLabel>
         </BarGroup>
+        {hasLocation && (
+          <LocationBadge title="Location POD registered">📍</LocationBadge>
+        )}
         <NodeMeta>
           {node.connectedAssemblyCount} connected · {structureCount} shown
         </NodeMeta>

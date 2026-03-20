@@ -490,6 +490,7 @@ export function MyStructuresPage() {
                 key === UNCONNECTED_KEY ? null : networkNodes.get(key) ?? null
               }
               structureCount={group.length}
+              hasLocation={key !== UNCONNECTED_KEY && locationIds.has(key)}
             >
               <Grid>
                 {group.map((s) => (
