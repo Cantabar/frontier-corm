@@ -17,6 +17,8 @@ import {
   deleteLocationPod as apiDeletePod,
   getTlk,
   initTlk,
+  submitNetworkNodeLocationPod,
+  refreshNetworkNodeLocationPod,
   type LocationPodResponse,
 } from "../lib/indexer";
 import {
@@ -42,6 +44,8 @@ export interface DecryptedPod {
   location: LocationData & { salt: string };
   podVersion: number;
   tlkVersion: number;
+  /** Set when this POD was derived from a Network Node registration. */
+  networkNodeId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -63,6 +67,16 @@ export interface UseLocationPodsReturn {
     tlkBytes: Uint8Array;
     tlkVersion: number;
   }) => Promise<void>;
+  /** Submit a Network Node location POD (derives PODs for connected structures) */
+  submitNetworkNodePod: (params: {
+    networkNodeId: string;
+    tribeId: string;
+    location: LocationData;
+    tlkBytes: Uint8Array;
+    tlkVersion: number;
+  }) => Promise<{ structureCount: number }>;
+  /** Refresh derived PODs for a previously registered Network Node */
+  refreshNetworkNodePod: (networkNodeId: string, tribeId: string) => Promise<{ structureCount: number; staleRemoved: number }>;
   /** Delete (revoke) a location POD */
   deletePod: (structureId: string) => Promise<void>;
   /** Initialise TLK for a tribe (first-time setup) */
@@ -131,6 +145,7 @@ export function useLocationPods(): UseLocationPodsReturn {
               location,
               podVersion: pod.pod_version,
               tlkVersion: pod.tlk_version,
+              networkNodeId: (pod as LocationPodResponse & { network_node_id?: string }).network_node_id ?? null,
               createdAt: pod.created_at,
               updatedAt: pod.updated_at,
             });
@@ -211,6 +226,90 @@ export function useLocationPods(): UseLocationPodsReturn {
     [address, getAuthHeader, signPersonalMessage],
   );
 
+  const submitNetworkNodePod = useCallback(
+    async (params: {
+      networkNodeId: string;
+      tribeId: string;
+      location: LocationData;
+      tlkBytes: Uint8Array;
+      tlkVersion: number;
+    }): Promise<{ structureCount: number }> => {
+      setError(null);
+      try {
+        const authHeader = await getAuthHeader();
+
+        // 1. Generate salt and compute Poseidon commitment
+        const salt = generateSalt();
+        const locationHash = computeLocationHash(
+          params.location.x,
+          params.location.y,
+          params.location.z,
+          salt,
+        );
+
+        // 2. Encrypt location data with TLK
+        const { ciphertext, nonce } = await encryptLocation(
+          params.location,
+          salt,
+          params.tlkBytes,
+        );
+
+        // 3. Sign the POD payload with wallet
+        const podBytes = new TextEncoder().encode(
+          JSON.stringify({
+            networkNodeId: params.networkNodeId,
+            ownerAddress: address,
+            tribeId: params.tribeId,
+            locationHash,
+            timestamp: Date.now(),
+          }),
+        );
+        const { signature } = await signPersonalMessage({ message: podBytes });
+
+        // 4. Submit to server
+        const result = await submitNetworkNodeLocationPod(authHeader, {
+          networkNodeId: params.networkNodeId,
+          tribeId: params.tribeId,
+          locationHash,
+          encryptedBlob: bytesToBase64(ciphertext),
+          nonce: bytesToBase64(nonce),
+          signature,
+          podVersion: 1,
+          tlkVersion: params.tlkVersion,
+        });
+
+        return { structureCount: result.structureCount };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Failed to submit Network Node POD";
+        setError(msg);
+        throw err;
+      }
+    },
+    [address, getAuthHeader, signPersonalMessage],
+  );
+
+  const refreshNetworkNodePod = useCallback(
+    async (
+      networkNodeId: string,
+      tribeId: string,
+    ): Promise<{ structureCount: number; staleRemoved: number }> => {
+      setError(null);
+      try {
+        const authHeader = await getAuthHeader();
+        const result = await refreshNetworkNodeLocationPod(authHeader, {
+          networkNodeId,
+          tribeId,
+        });
+        return { structureCount: result.structureCount, staleRemoved: result.staleRemoved };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Failed to refresh Network Node PODs";
+        setError(msg);
+        throw err;
+      }
+    },
+    [getAuthHeader],
+  );
+
   const deletePod = useCallback(
     async (structureId: string) => {
       setError(null);
@@ -258,6 +357,8 @@ export function useLocationPods(): UseLocationPodsReturn {
     error,
     fetchPods,
     submitPod,
+    submitNetworkNodePod,
+    refreshNetworkNodePod,
     deletePod,
     initializeTlk,
     fetchWrappedTlk,

@@ -406,3 +406,40 @@ export function getZkProximityResults(
 }
 
 function enc(v: string) { return encodeURIComponent(v); }
+
+// ---- Network Node Location PODs ----
+
+export function submitNetworkNodeLocationPod(
+  authHeader: string,
+  body: {
+    networkNodeId: string;
+    tribeId: string;
+    locationHash: string;
+    encryptedBlob: string;
+    nonce: string;
+    signature: string;
+    podVersion?: number;
+    tlkVersion?: number;
+  },
+) {
+  return authedPost<{
+    networkNodeId: string;
+    tribeId: string;
+    structureCount: number;
+  }>("/locations/network-node-pod", authHeader, body);
+}
+
+export function refreshNetworkNodeLocationPod(
+  authHeader: string,
+  body: {
+    networkNodeId: string;
+    tribeId: string;
+  },
+) {
+  return authedPost<{
+    networkNodeId: string;
+    tribeId: string;
+    structureCount: number;
+    staleRemoved: number;
+  }>("/locations/network-node-pod/refresh", authHeader, body);
+}

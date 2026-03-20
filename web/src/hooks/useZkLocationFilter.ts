@@ -122,7 +122,20 @@ export function useZkLocationFilter(): UseZkLocationFilterReturn {
       try {
         const authHeader = await getAuthHeader();
 
-        for (const pod of pods) {
+        // Deduplicate: for derived PODs, only prove the Network Node.
+        // The server propagates proofs to all connected structures.
+        const seen = new Set<string>();
+        const dedupedPods = pods.filter((pod) => {
+          if (pod.networkNodeId) {
+            // This is a derived POD — skip it, the Network Node proof covers it
+            return false;
+          }
+          if (seen.has(pod.structureId)) return false;
+          seen.add(pod.structureId);
+          return true;
+        });
+
+        for (const pod of dedupedPods) {
           try {
             const proof: ZkProof = await generateRegionProof({
               locationHash: pod.locationHash,
@@ -180,7 +193,16 @@ export function useZkLocationFilter(): UseZkLocationFilterReturn {
       try {
         const authHeader = await getAuthHeader();
 
-        for (const pod of pods) {
+        // Deduplicate: skip derived PODs — server propagates from Network Node
+        const seen = new Set<string>();
+        const dedupedPods = pods.filter((pod) => {
+          if (pod.networkNodeId) return false;
+          if (seen.has(pod.structureId)) return false;
+          seen.add(pod.structureId);
+          return true;
+        });
+
+        for (const pod of dedupedPods) {
           try {
             const proof: ZkProof = await generateProximityProof({
               locationHash: pod.locationHash,

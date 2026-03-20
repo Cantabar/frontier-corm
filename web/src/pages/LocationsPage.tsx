@@ -14,7 +14,7 @@ import { useTlkStatus } from "../hooks/useTlkStatus";
 import { useTlkDistribution } from "../hooks/useTlkDistribution";
 import { useMyStructures } from "../hooks/useStructures";
 import { TlkStatusBanner } from "../components/locations/TlkStatusBanner";
-import { RegisterLocationModal } from "../components/locations/RegisterLocationModal";
+import { RegisterNetworkNodeLocationModal } from "../components/locations/RegisterNetworkNodeLocationModal";
 import { LoadingSpinner } from "../components/shared/LoadingSpinner";
 import { EmptyState } from "../components/shared/EmptyState";
 import { PrimaryButton, SecondaryButton, DangerButton } from "../components/shared/Button";
@@ -218,7 +218,7 @@ export function LocationsPage() {
   const isOfficer =
     tribeCaps[0]?.role === "Leader" || tribeCaps[0]?.role === "Officer";
 
-  const { pods, isLoading: podsLoading, error: podsError, fetchPods, deletePod, getAuthHeader } =
+  const { pods, isLoading: podsLoading, error: podsError, fetchPods, deletePod, refreshNetworkNodePod, getAuthHeader } =
     useLocationPods();
   const tlk = useTlkStatus();
   const distribution = useTlkDistribution(tribeId, tlk.tlkBytes);
@@ -226,6 +226,7 @@ export function LocationsPage() {
 
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [refreshingNodeId, setRefreshingNodeId] = useState<string | null>(null);
   const [unlockLoading, setUnlockLoading] = useState(false);
   const [unlockError, setUnlockError] = useState<string | null>(null);
 
@@ -254,23 +255,41 @@ export function LocationsPage() {
     return m;
   }, [structures]);
 
-  // Group pods by solar system
+  // Group pods by Network Node (primary grouping), with ungrouped pods in a separate bucket
   const grouped = useMemo(() => {
-    const map = new Map<number, DecryptedPod[]>();
+    const nodeMap = new Map<string, DecryptedPod[]>();
+    const ungrouped: DecryptedPod[] = [];
+
     for (const pod of pods) {
-      const key = pod.location.solarSystemId;
-      const arr = map.get(key);
-      if (arr) arr.push(pod);
-      else map.set(key, [pod]);
+      const nodeKey = pod.networkNodeId;
+      if (nodeKey) {
+        const arr = nodeMap.get(nodeKey);
+        if (arr) arr.push(pod);
+        else nodeMap.set(nodeKey, [pod]);
+      } else {
+        // Could be a primary Network Node POD or a legacy per-structure POD.
+        // Check if this pod IS a Network Node (it has derived pods).
+        const hasDerived = pods.some((p) => p.networkNodeId === pod.structureId);
+        if (hasDerived) {
+          // This is a Network Node primary POD — attach to its own group
+          const existing = nodeMap.get(pod.structureId);
+          if (existing) existing.unshift(pod);
+          else nodeMap.set(pod.structureId, [pod]);
+        } else {
+          ungrouped.push(pod);
+        }
+      }
     }
-    // Sort by system name
-    return Array.from(map.entries()).sort(([a], [b]) =>
-      solarSystemName(a).localeCompare(solarSystemName(b)),
-    );
+
+    return { nodeGroups: Array.from(nodeMap.entries()), ungrouped };
   }, [pods]);
 
   // Unique solar systems count
-  const systemCount = grouped.length;
+  const systemCount = useMemo(() => {
+    const systems = new Set<number>();
+    for (const pod of pods) systems.add(pod.location.solarSystemId);
+    return systems.size;
+  }, [pods]);
 
   const handleRefresh = useCallback(() => {
     if (tribeId && tlk.tlkBytes) {
@@ -284,6 +303,17 @@ export function LocationsPage() {
       await deletePod(structureId);
     } finally {
       setDeletingId(null);
+    }
+  }
+
+  async function handleRefreshNode(networkNodeId: string) {
+    if (!tribeId) return;
+    setRefreshingNodeId(networkNodeId);
+    try {
+      await refreshNetworkNodePod(networkNodeId, tribeId);
+      handleRefresh();
+    } finally {
+      setRefreshingNodeId(null);
     }
   }
 
@@ -399,7 +429,7 @@ export function LocationsPage() {
             onClick={() => setShowRegisterModal(true)}
             disabled={!tlk.tlkBytes}
           >
-            Register Location
+            Register Network Node
           </PrimaryButton>
         </ActionBar>
       </Header>
@@ -479,57 +509,120 @@ export function LocationsPage() {
       ) : pods.length === 0 ? (
         <EmptyState
           title="No locations registered"
-          description="Register your first structure location to share it securely with your Tribe."
+          description="Register your first Network Node location to share it securely with your Tribe."
         />
       ) : (
-        grouped.map(([sysId, groupPods]) => (
-          <div key={sysId}>
-            <GroupHeader>
-              <GroupName>{solarSystemName(sysId)}</GroupName>
-              <GroupId>#{sysId}</GroupId>
-              <GroupCount>
-                {groupPods.length} structure{groupPods.length !== 1 ? "s" : ""}
-              </GroupCount>
-            </GroupHeader>
-            <PodList>
-              {groupPods.map((pod) => (
-                <PodRow key={pod.structureId}>
-                  <PodInfo>
-                    <PodName>
-                      {structureMap.get(pod.structureId) ??
-                        truncateAddress(pod.structureId, 10, 6)}
-                    </PodName>
-                    <PodMeta>
-                      <CopyableId id={pod.structureId} asCode /> ·{" "}
-                      {timeAgo(pod.updatedAt)}
-                    </PodMeta>
-                  </PodInfo>
+        <>
+          {/* Network Node groups */}
+          {grouped.nodeGroups.map(([nodeId, groupPods]) => {
+            const nodePod = groupPods.find((p) => p.structureId === nodeId);
+            const derivedPods = groupPods.filter((p) => p.structureId !== nodeId);
+            const nodeName = structureMap.get(nodeId) ?? truncateAddress(nodeId, 10, 6);
+            const sysName = nodePod ? solarSystemName(nodePod.location.solarSystemId) : "";
 
-                  <CoordBadge>
-                    ({pod.location.x}, {pod.location.y}, {pod.location.z})
-                  </CoordBadge>
+            return (
+              <div key={nodeId}>
+                <GroupHeader>
+                  <GroupName>{nodeName}</GroupName>
+                  {sysName && <GroupId>{sysName}</GroupId>}
+                  <GroupCount>
+                    {derivedPods.length} derived structure{derivedPods.length !== 1 ? "s" : ""}
+                  </GroupCount>
+                  <SecondaryButton
+                    onClick={() => handleRefreshNode(nodeId)}
+                    disabled={refreshingNodeId === nodeId}
+                    style={{ marginLeft: "auto", padding: "2px 8px", fontSize: "11px" }}
+                  >
+                    {refreshingNodeId === nodeId ? "…" : "Refresh"}
+                  </SecondaryButton>
+                </GroupHeader>
+                <PodList>
+                  {groupPods.map((pod) => (
+                    <PodRow key={pod.structureId}>
+                      <PodInfo>
+                        <PodName>
+                          {pod.structureId === nodeId
+                            ? `⚡ ${structureMap.get(pod.structureId) ?? truncateAddress(pod.structureId, 10, 6)}`
+                            : structureMap.get(pod.structureId) ?? truncateAddress(pod.structureId, 10, 6)}
+                        </PodName>
+                        <PodMeta>
+                          <CopyableId id={pod.structureId} asCode /> ·{" "}
+                          {timeAgo(pod.updatedAt)}
+                          {pod.networkNodeId && " · derived"}
+                        </PodMeta>
+                      </PodInfo>
 
-                  <OwnerBadge>{truncateAddress(pod.ownerAddress, 6, 4)}</OwnerBadge>
+                      <CoordBadge>
+                        ({pod.location.x}, {pod.location.y}, {pod.location.z})
+                      </CoordBadge>
 
-                  {/* Revoke — only shown to the POD owner */}
-                  {pod.ownerAddress.toLowerCase() === address.toLowerCase() && (
-                    <DangerButton
-                      onClick={() => handleDelete(pod.structureId)}
-                      disabled={deletingId === pod.structureId}
-                    >
-                      {deletingId === pod.structureId ? "…" : "Revoke"}
-                    </DangerButton>
-                  )}
-                </PodRow>
-              ))}
-            </PodList>
-          </div>
-        ))
+                      <OwnerBadge>{truncateAddress(pod.ownerAddress, 6, 4)}</OwnerBadge>
+
+                      {/* Revoke — only the primary Network Node POD owner, and only for non-derived */}
+                      {!pod.networkNodeId &&
+                        pod.ownerAddress.toLowerCase() === address.toLowerCase() && (
+                          <DangerButton
+                            onClick={() => handleDelete(pod.structureId)}
+                            disabled={deletingId === pod.structureId}
+                          >
+                            {deletingId === pod.structureId ? "…" : "Revoke"}
+                          </DangerButton>
+                        )}
+                    </PodRow>
+                  ))}
+                </PodList>
+              </div>
+            );
+          })}
+
+          {/* Ungrouped (legacy per-structure) PODs */}
+          {grouped.ungrouped.length > 0 && (
+            <div>
+              <GroupHeader>
+                <GroupName>Standalone</GroupName>
+                <GroupCount>
+                  {grouped.ungrouped.length} structure{grouped.ungrouped.length !== 1 ? "s" : ""}
+                </GroupCount>
+              </GroupHeader>
+              <PodList>
+                {grouped.ungrouped.map((pod) => (
+                  <PodRow key={pod.structureId}>
+                    <PodInfo>
+                      <PodName>
+                        {structureMap.get(pod.structureId) ??
+                          truncateAddress(pod.structureId, 10, 6)}
+                      </PodName>
+                      <PodMeta>
+                        <CopyableId id={pod.structureId} asCode /> ·{" "}
+                        {timeAgo(pod.updatedAt)}
+                      </PodMeta>
+                    </PodInfo>
+
+                    <CoordBadge>
+                      ({pod.location.x}, {pod.location.y}, {pod.location.z})
+                    </CoordBadge>
+
+                    <OwnerBadge>{truncateAddress(pod.ownerAddress, 6, 4)}</OwnerBadge>
+
+                    {pod.ownerAddress.toLowerCase() === address.toLowerCase() && (
+                      <DangerButton
+                        onClick={() => handleDelete(pod.structureId)}
+                        disabled={deletingId === pod.structureId}
+                      >
+                        {deletingId === pod.structureId ? "…" : "Revoke"}
+                      </DangerButton>
+                    )}
+                  </PodRow>
+                ))}
+              </PodList>
+            </div>
+          )}
+        </>
       )}
 
       {/* Register modal */}
       {showRegisterModal && tlk.tlkBytes && tlk.tlkVersion != null && (
-        <RegisterLocationModal
+        <RegisterNetworkNodeLocationModal
           tribeId={tribeId}
           tlkBytes={tlk.tlkBytes}
           tlkVersion={tlk.tlkVersion}
