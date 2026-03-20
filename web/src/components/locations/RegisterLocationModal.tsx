@@ -141,6 +141,8 @@ interface Props {
   tlkVersion: number;
   onClose: () => void;
   onSuccess: () => void;
+  /** When provided, pre-select this structure and skip the picker. */
+  preselectedStructureId?: string;
 }
 
 type Step = "select" | "confirm";
@@ -151,12 +153,13 @@ export function RegisterLocationModal({
   tlkVersion,
   onClose,
   onSuccess,
+  preselectedStructureId,
 }: Props) {
   const { structures, isLoading: structuresLoading } = useMyStructures();
   const { submitPod } = useLocationPods();
 
   const [step, setStep] = useState<Step>("select");
-  const [structureId, setStructureId] = useState("");
+  const [structureId, setStructureId] = useState(preselectedStructureId ?? "");
   const [solarSystem, setSolarSystem] = useState<SolarSystemEntry | null>(null);
   const [showCoords, setShowCoords] = useState(false);
   const [x, setX] = useState("0");
@@ -212,6 +215,7 @@ export function RegisterLocationModal({
             <Select
               value={structureId}
               onChange={(e) => setStructureId(e.target.value)}
+              disabled={!!preselectedStructureId}
             >
               <option value="">Select a structure…</option>
               {structures.map((s) => (

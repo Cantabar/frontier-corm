@@ -1,13 +1,16 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import styled from "styled-components";
 import { useCurrentAccount, useSignAndExecuteTransaction } from "@mysten/dapp-kit";
 import { useMyStructures } from "../hooks/useStructures";
 import { useNetworkNodes } from "../hooks/useNetworkNodes";
 import { useIdentity } from "../hooks/useIdentity";
+import { useStructureLocationIds } from "../hooks/useStructureLocationIds";
+import { useTlkStatus } from "../hooks/useTlkStatus";
 import { LoadingSpinner } from "../components/shared/LoadingSpinner";
 import { EmptyState } from "../components/shared/EmptyState";
 import { SsuInventoryPanel } from "../components/structures/SsuInventoryPanel";
 import { NetworkNodeGroup } from "../components/structures/NetworkNodeGroup";
+import { RegisterLocationModal } from "../components/locations/RegisterLocationModal";
 import { buildOnlineStructure, buildOfflineStructure } from "../lib/sui";
 import { config } from "../config";
 import { truncateAddress } from "../lib/format";
@@ -218,6 +221,38 @@ const EnergyIndicator = styled.span<{ $connected: boolean }>`
     $connected ? theme.colors.success : theme.colors.text.muted};
 `;
 
+const LocationBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: ${({ theme }) => theme.colors.primary.main};
+  white-space: nowrap;
+`;
+
+const AddLocationButton = styled.button`
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: ${({ theme }) => theme.radii.sm};
+  border: 1px solid ${({ theme }) => theme.colors.primary.main};
+  background: transparent;
+  color: ${({ theme }) => theme.colors.primary.main};
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+
+  &:hover:not(:disabled) {
+    background: ${({ theme }) => theme.colors.primary.subtle};
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+`;
+
 const ActionButton = styled.button<{ $variant: "online" | "offline" }>`
   padding: 4px 12px;
   font-size: 12px;
@@ -266,8 +301,18 @@ const UNCONNECTED_KEY = "__unconnected__";
 
 export function MyStructuresPage() {
   const account = useCurrentAccount();
-  const { characterId } = useIdentity();
+  const { characterId, tribeCaps } = useIdentity();
+  const tribeId = tribeCaps[0]?.tribeId ?? null;
   const { structures, isLoading, refetch } = useMyStructures();
+  const { locationIds, refetch: refetchLocations } = useStructureLocationIds();
+  const tlk = useTlkStatus();
+  const [addLocationForId, setAddLocationForId] = useState<string | null>(null);
+
+  // Fetch TLK status when tribe is known
+  useEffect(() => {
+    if (tribeId) tlk.fetchStatus(tribeId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tribeId]);
 
   const [typeFilter, setTypeFilter] = useState<AssemblyTypeFilter>("all");
   const [statusFilter, setStatusFilter] = useState<AssemblyStatus | "all">("all");
@@ -420,7 +465,7 @@ export function MyStructuresPage() {
             >
               <Grid>
                 {group.map((s) => (
-                  <StructureRow
+              <StructureRow
                     key={s.id}
                     structure={s}
                     characterId={characterId}
@@ -428,6 +473,10 @@ export function MyStructuresPage() {
                     onRefreshNodes={refetchNodes}
                     selectedSsuId={selectedSsuId}
                     onToggleSelect={setSelectedSsuId}
+                    hasLocation={locationIds.has(s.id)}
+                    hasTribeId={!!tribeId}
+                    tlkUnlocked={!!tlk.tlkBytes}
+                    onAddLocation={(id) => setAddLocationForId(id)}
                   />
                 ))}
               </Grid>
@@ -445,9 +494,27 @@ export function MyStructuresPage() {
               onRefreshNodes={refetchNodes}
               selectedSsuId={selectedSsuId}
               onToggleSelect={setSelectedSsuId}
+              hasLocation={locationIds.has(s.id)}
+              hasTribeId={!!tribeId}
+              tlkUnlocked={!!tlk.tlkBytes}
+              onAddLocation={(id) => setAddLocationForId(id)}
             />
           ))}
         </Grid>
+      )}
+
+      {/* Register Location modal */}
+      {addLocationForId && tribeId && tlk.tlkBytes && tlk.tlkVersion != null && (
+        <RegisterLocationModal
+          tribeId={tribeId}
+          tlkBytes={tlk.tlkBytes}
+          tlkVersion={tlk.tlkVersion}
+          preselectedStructureId={addLocationForId}
+          onClose={() => setAddLocationForId(null)}
+          onSuccess={() => {
+            refetchLocations();
+          }}
+        />
       )}
     </Page>
   );
@@ -464,6 +531,10 @@ function StructureRow({
   onRefreshNodes,
   selectedSsuId,
   onToggleSelect,
+  hasLocation,
+  hasTribeId,
+  tlkUnlocked,
+  onAddLocation,
 }: {
   structure: AssemblyData;
   characterId: string | null;
@@ -471,6 +542,10 @@ function StructureRow({
   onRefreshNodes: () => void;
   selectedSsuId: string | null;
   onToggleSelect: (id: string | null) => void;
+  hasLocation: boolean;
+  hasTribeId: boolean;
+  tlkUnlocked: boolean;
+  onAddLocation: (structureId: string) => void;
 }) {
   const { mutateAsync: signAndExecute } = useSignAndExecuteTransaction();
   const [pending, setPending] = useState(false);
@@ -546,6 +621,21 @@ function StructureRow({
       <EnergyIndicator $connected={!!structure.energySourceId}>
         {structure.energySourceId ? "⚡ Connected" : "— No energy"}
       </EnergyIndicator>
+
+      {hasLocation ? (
+        <LocationBadge title="Location POD registered">📍 Location</LocationBadge>
+      ) : hasTribeId ? (
+        <AddLocationButton
+          disabled={!tlkUnlocked}
+          title={tlkUnlocked ? "Register a location for this structure" : "Unlock TLK on Locations page first"}
+          onClick={(e) => {
+            e.stopPropagation();
+            onAddLocation(structure.id);
+          }}
+        >
+          + Location
+        </AddLocationButton>
+      ) : null}
 
       {canOnline && (
         <ActionButton
