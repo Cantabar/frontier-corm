@@ -122,7 +122,6 @@ export function Sidebar() {
       ) : (
         <DisabledNavItem>Locations</DisabledNavItem>
       )}
-      <StyledLink to="/forge">Forge Planner</StyledLink>
       <Spacer />
       <SectionLabel>System</SectionLabel>
       <StyledLink to="/events">Event Explorer</StyledLink>

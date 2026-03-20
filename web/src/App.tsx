@@ -11,7 +11,6 @@ import { Sidebar } from "./components/layout/Sidebar";
 import { AutoJoinBanner } from "./components/tribe/AutoJoinBanner";
 import { Dashboard } from "./pages/Dashboard";
 import { TribePage } from "./pages/TribePage";
-import { ForgePlanner } from "./pages/ForgePlanner";
 import { EventExplorer } from "./pages/EventExplorer";
 import { TrustlessContracts } from "./pages/TrustlessContracts";
 import { CreateContractPage } from "./pages/CreateContractPage";
@@ -90,7 +89,6 @@ export default function App() {
               <Route path="/contracts" element={<TrustlessContracts />} />
               <Route path="/contracts/create" element={<CreateContractPage />} />
               <Route path="/contracts/:contractId" element={<ContractDetailPage />} />
-              <Route path="/forge" element={<ForgePlanner />} />
               <Route path="/events" element={<EventExplorer />} />
               <Route path="/structures" element={<MyStructuresPage />} />
               <Route path="/locations" element={<LocationsPage />} />
