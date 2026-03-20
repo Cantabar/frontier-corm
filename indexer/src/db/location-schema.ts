@@ -28,6 +28,7 @@ const LOCATION_SCHEMA_SQL = `
     signature       TEXT NOT NULL,
     pod_version     INT NOT NULL DEFAULT 1,
     tlk_version     INT NOT NULL DEFAULT 1,
+    network_node_id TEXT,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (structure_id, tribe_id)
@@ -36,6 +37,7 @@ const LOCATION_SCHEMA_SQL = `
   CREATE INDEX IF NOT EXISTS idx_location_pods_tribe    ON location_pods(tribe_id);
   CREATE INDEX IF NOT EXISTS idx_location_pods_owner    ON location_pods(owner_address);
   CREATE INDEX IF NOT EXISTS idx_location_pods_hash     ON location_pods(location_hash);
+  CREATE INDEX IF NOT EXISTS idx_location_pods_network_node ON location_pods(network_node_id);
 
   -- Tribe Location Keys — AES-256-GCM symmetric key wrapped per member
   CREATE TABLE IF NOT EXISTS tribe_location_keys (
@@ -66,16 +68,17 @@ const LOCATION_SCHEMA_SQL = `
 
   -- Verified Groth16 proofs for location filters (region / proximity)
   CREATE TABLE IF NOT EXISTS location_filter_proofs (
-    id              BIGSERIAL PRIMARY KEY,
-    structure_id    TEXT NOT NULL,
-    tribe_id        TEXT NOT NULL,
-    location_hash   TEXT NOT NULL,
-    filter_type     TEXT NOT NULL CHECK (filter_type IN ('region', 'proximity')),
-    filter_key      TEXT NOT NULL,
-    public_signals  JSONB NOT NULL,
-    proof_json      JSONB NOT NULL,
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    verified_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    id                      BIGSERIAL PRIMARY KEY,
+    structure_id            TEXT NOT NULL,
+    tribe_id                TEXT NOT NULL,
+    location_hash           TEXT NOT NULL,
+    filter_type             TEXT NOT NULL CHECK (filter_type IN ('region', 'proximity')),
+    filter_key              TEXT NOT NULL,
+    public_signals          JSONB NOT NULL,
+    proof_json              JSONB NOT NULL,
+    source_network_node_id  TEXT,
+    created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    verified_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (structure_id, tribe_id, filter_type, filter_key)
   );
 
@@ -83,4 +86,6 @@ const LOCATION_SCHEMA_SQL = `
     ON location_filter_proofs(tribe_id, filter_type, filter_key);
   CREATE INDEX IF NOT EXISTS idx_location_filter_proofs_hash
     ON location_filter_proofs(location_hash);
+  CREATE INDEX IF NOT EXISTS idx_location_filter_proofs_source_node
+    ON location_filter_proofs(source_network_node_id);
 `;

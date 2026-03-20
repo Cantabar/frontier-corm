@@ -341,3 +341,147 @@ export async function getFilterProofsForStructure(
   );
   return result.rows as FilterProofRow[];
 }
+
+// ============================================================
+// Network Node — derived PODs and proof propagation
+// ============================================================
+
+/**
+ * Upsert a location POD with an explicit `network_node_id` for derived PODs.
+ * Primary (Network Node) PODs pass `null` for networkNodeId.
+ */
+const UPSERT_POD_WITH_NODE_SQL = `
+  INSERT INTO location_pods (
+    structure_id, owner_address, tribe_id, location_hash,
+    encrypted_blob, nonce, signature, pod_version, tlk_version, network_node_id
+  ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+  ON CONFLICT (structure_id, tribe_id) DO UPDATE SET
+    owner_address   = EXCLUDED.owner_address,
+    location_hash   = EXCLUDED.location_hash,
+    encrypted_blob  = EXCLUDED.encrypted_blob,
+    nonce           = EXCLUDED.nonce,
+    signature       = EXCLUDED.signature,
+    pod_version     = EXCLUDED.pod_version,
+    tlk_version     = EXCLUDED.tlk_version,
+    network_node_id = EXCLUDED.network_node_id,
+    updated_at      = NOW()
+  RETURNING id
+`;
+
+export async function upsertLocationPodWithNode(
+  pool: pg.Pool,
+  pod: {
+    structureId: string;
+    ownerAddress: string;
+    tribeId: string;
+    locationHash: string;
+    encryptedBlob: Buffer;
+    nonce: Buffer;
+    signature: string;
+    podVersion: number;
+    tlkVersion: number;
+    networkNodeId: string | null;
+  },
+): Promise<number> {
+  const result = await pool.query(UPSERT_POD_WITH_NODE_SQL, [
+    pod.structureId,
+    pod.ownerAddress,
+    pod.tribeId,
+    pod.locationHash,
+    pod.encryptedBlob,
+    pod.nonce,
+    pod.signature,
+    pod.podVersion,
+    pod.tlkVersion,
+    pod.networkNodeId,
+  ]);
+  return result.rows[0]?.id ?? 0;
+}
+
+/** Get all derived PODs that were created from a specific Network Node. */
+export async function getDerivedPodsByNetworkNode(
+  pool: pg.Pool,
+  networkNodeId: string,
+  tribeId: string,
+): Promise<LocationPodRow[]> {
+  const result = await pool.query(
+    `SELECT * FROM location_pods
+     WHERE network_node_id = $1 AND tribe_id = $2
+     ORDER BY structure_id`,
+    [networkNodeId, tribeId],
+  );
+  return result.rows as LocationPodRow[];
+}
+
+/**
+ * Delete derived PODs for structures no longer connected to a Network Node.
+ * Returns the count of deleted rows.
+ */
+export async function deleteStaleDerivedPods(
+  pool: pg.Pool,
+  networkNodeId: string,
+  tribeId: string,
+  currentStructureIds: string[],
+): Promise<number> {
+  if (currentStructureIds.length === 0) {
+    // All derived PODs are stale — delete them all
+    const result = await pool.query(
+      `DELETE FROM location_pods
+       WHERE network_node_id = $1 AND tribe_id = $2`,
+      [networkNodeId, tribeId],
+    );
+    return result.rowCount ?? 0;
+  }
+
+  // Build a parameterised IN clause: $3, $4, $5, ...
+  const placeholders = currentStructureIds.map((_, i) => `$${i + 3}`).join(", ");
+  const result = await pool.query(
+    `DELETE FROM location_pods
+     WHERE network_node_id = $1 AND tribe_id = $2
+       AND structure_id NOT IN (${placeholders})`,
+    [networkNodeId, tribeId, ...currentStructureIds],
+  );
+  return result.rowCount ?? 0;
+}
+
+/**
+ * Upsert a derived filter proof record (propagated from a Network Node proof).
+ */
+const UPSERT_DERIVED_FILTER_PROOF_SQL = `
+  INSERT INTO location_filter_proofs (
+    structure_id, tribe_id, location_hash, filter_type, filter_key,
+    public_signals, proof_json, source_network_node_id
+  ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+  ON CONFLICT (structure_id, tribe_id, filter_type, filter_key) DO UPDATE SET
+    public_signals         = EXCLUDED.public_signals,
+    proof_json             = EXCLUDED.proof_json,
+    source_network_node_id = EXCLUDED.source_network_node_id,
+    verified_at            = NOW()
+  RETURNING id
+`;
+
+export async function upsertDerivedFilterProof(
+  pool: pg.Pool,
+  proof: {
+    structureId: string;
+    tribeId: string;
+    locationHash: string;
+    filterType: "region" | "proximity";
+    filterKey: string;
+    publicSignals: string[];
+    proofJson: Record<string, unknown>;
+    sourceNetworkNodeId: string;
+  },
+): Promise<number> {
+  const result = await pool.query(UPSERT_DERIVED_FILTER_PROOF_SQL, [
+    proof.structureId,
+    proof.tribeId,
+    proof.locationHash,
+    proof.filterType,
+    proof.filterKey,
+    JSON.stringify(proof.publicSignals),
+    JSON.stringify(proof.proofJson),
+    proof.sourceNetworkNodeId,
+  ]);
+  return result.rows[0]?.id ?? 0;
+}

@@ -20,6 +20,8 @@ import {
   upsertFilterProof,
   getFilterProofsByKey,
   getLocationPod,
+  getDerivedPodsByNetworkNode,
+  upsertDerivedFilterProof,
 } from "../db/location-queries.js";
 
 export function createZkRouter(pool: pg.Pool): Router {
@@ -141,7 +143,43 @@ export function createZkRouter(pool: pg.Pool): Router {
         proofJson: proof,
       });
 
-      res.json({ id, structureId, tribeId, filterType, verified: true });
+      // 5. Propagate proof to derived structures if this is a Network Node
+      let propagatedCount = 0;
+      try {
+        const derivedPods = await getDerivedPodsByNetworkNode(
+          pool,
+          structureId,
+          tribeId,
+        );
+        for (const derived of derivedPods) {
+          await upsertDerivedFilterProof(pool, {
+            structureId: derived.structure_id,
+            tribeId,
+            locationHash: pod.location_hash,
+            filterType,
+            filterKey,
+            publicSignals,
+            proofJson: proof,
+            sourceNetworkNodeId: structureId,
+          });
+          propagatedCount++;
+        }
+      } catch (propErr) {
+        // Non-fatal — the primary proof is still stored
+        console.warn(
+          "[zk] Failed to propagate proof to derived structures:",
+          propErr,
+        );
+      }
+
+      res.json({
+        id,
+        structureId,
+        tribeId,
+        filterType,
+        verified: true,
+        propagated: propagatedCount,
+      });
     } catch (err) {
       console.error("[zk] Failed to submit proof:", err);
       res.status(500).json({ error: "Failed to submit proof" });

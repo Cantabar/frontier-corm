@@ -22,7 +22,11 @@ import {
   upsertTlk,
   upsertMemberPublicKey,
   getMembersWithoutTlk,
+  upsertLocationPodWithNode,
+  getDerivedPodsByNetworkNode,
+  deleteStaleDerivedPods,
 } from "../db/location-queries.js";
+import { getConnectedAssemblies } from "../location/sui-rpc.js";
 
 export function createLocationRouter(pool: pg.Pool): Router {
   const router = Router();
@@ -437,6 +441,175 @@ export function createLocationRouter(pool: pg.Pool): Router {
     } catch (err) {
       console.error("[locations] Failed to fetch pending members:", err);
       res.status(500).json({ error: "Failed to fetch pending members" });
+    }
+  });
+
+  // ================================================================
+  // POST /network-node-pod — Register a Network Node's location
+  //
+  // Creates a primary POD for the Network Node, then derives PODs
+  // for every structure connected to that node (same location data).
+  // ================================================================
+  router.post("/network-node-pod", async (req: Request, res: Response) => {
+    const address = await authenticate(req, res);
+    if (!address) return;
+
+    const {
+      networkNodeId,
+      tribeId,
+      locationHash,
+      encryptedBlob,
+      nonce,
+      signature,
+      podVersion,
+      tlkVersion,
+    } = req.body;
+
+    if (
+      !networkNodeId ||
+      !tribeId ||
+      !locationHash ||
+      !encryptedBlob ||
+      !nonce ||
+      !signature
+    ) {
+      res.status(400).json({ error: "Missing required fields" });
+      return;
+    }
+
+    try {
+      const blobBuf = Buffer.from(encryptedBlob, "base64");
+      const nonceBuf = Buffer.from(nonce, "base64");
+      const ver = podVersion ?? 1;
+      const tlkVer = tlkVersion ?? 1;
+
+      // 1. Upsert primary POD for the Network Node itself
+      await upsertLocationPodWithNode(pool, {
+        structureId: networkNodeId,
+        ownerAddress: address,
+        tribeId,
+        locationHash,
+        encryptedBlob: blobBuf,
+        nonce: nonceBuf,
+        signature,
+        podVersion: ver,
+        tlkVersion: tlkVer,
+        networkNodeId: null, // primary — not derived
+      });
+
+      // 2. Resolve connected assemblies from on-chain
+      let connectedIds: string[];
+      try {
+        connectedIds = await getConnectedAssemblies(networkNodeId);
+      } catch (err) {
+        console.warn(
+          `[locations] Could not fetch connected assemblies for ${networkNodeId}:`,
+          err,
+        );
+        connectedIds = [];
+      }
+
+      // 3. Upsert derived PODs for each connected structure
+      for (const assemblyId of connectedIds) {
+        await upsertLocationPodWithNode(pool, {
+          structureId: assemblyId,
+          ownerAddress: address,
+          tribeId,
+          locationHash,
+          encryptedBlob: blobBuf,
+          nonce: nonceBuf,
+          signature,
+          podVersion: ver,
+          tlkVersion: tlkVer,
+          networkNodeId,
+        });
+      }
+
+      // 4. Clean up stale derived PODs (structures that disconnected)
+      await deleteStaleDerivedPods(pool, networkNodeId, tribeId, connectedIds);
+
+      res.json({
+        networkNodeId,
+        tribeId,
+        structureCount: connectedIds.length,
+      });
+    } catch (err) {
+      console.error("[locations] Failed to register Network Node POD:", err);
+      res.status(500).json({ error: "Failed to register Network Node location" });
+    }
+  });
+
+  // ================================================================
+  // POST /network-node-pod/refresh — Re-derive PODs for a Network Node
+  //
+  // Fetches current connected_assembly_ids, copies the node's POD to
+  // any new structures, and removes stale derived PODs.
+  // ================================================================
+  router.post("/network-node-pod/refresh", async (req: Request, res: Response) => {
+    const address = await authenticate(req, res);
+    if (!address) return;
+
+    const { networkNodeId, tribeId } = req.body;
+    if (!networkNodeId || !tribeId) {
+      res.status(400).json({ error: "networkNodeId and tribeId required" });
+      return;
+    }
+
+    try {
+      // 1. Fetch the primary (Network Node) POD
+      const nodePod = await getLocationPod(pool, networkNodeId, tribeId);
+      if (!nodePod) {
+        res.status(404).json({
+          error: "No location POD found for this Network Node and tribe",
+        });
+        return;
+      }
+
+      // 2. Resolve current connected assemblies
+      let connectedIds: string[];
+      try {
+        connectedIds = await getConnectedAssemblies(networkNodeId);
+      } catch (err) {
+        console.warn(
+          `[locations] Could not fetch connected assemblies for ${networkNodeId}:`,
+          err,
+        );
+        connectedIds = [];
+      }
+
+      // 3. Upsert derived PODs
+      for (const assemblyId of connectedIds) {
+        await upsertLocationPodWithNode(pool, {
+          structureId: assemblyId,
+          ownerAddress: nodePod.owner_address,
+          tribeId,
+          locationHash: nodePod.location_hash,
+          encryptedBlob: nodePod.encrypted_blob,
+          nonce: nodePod.nonce,
+          signature: nodePod.signature,
+          podVersion: nodePod.pod_version,
+          tlkVersion: nodePod.tlk_version,
+          networkNodeId,
+        });
+      }
+
+      // 4. Delete stale derived PODs
+      const deleted = await deleteStaleDerivedPods(
+        pool,
+        networkNodeId,
+        tribeId,
+        connectedIds,
+      );
+
+      res.json({
+        networkNodeId,
+        tribeId,
+        structureCount: connectedIds.length,
+        staleRemoved: deleted,
+      });
+    } catch (err) {
+      console.error("[locations] Failed to refresh Network Node PODs:", err);
+      res.status(500).json({ error: "Failed to refresh Network Node location" });
     }
   });
 
