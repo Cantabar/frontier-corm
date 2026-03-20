@@ -227,7 +227,20 @@ export function RegisterLocationModal({
           <Label>Solar System</Label>
           <SolarSystemPicker
             value={solarSystem?.id ?? null}
-            onChange={(entry) => setSolarSystem(entry)}
+            onChange={(entry) => {
+              setSolarSystem(entry);
+              if (entry) {
+                setX(entry.x.toString());
+                setY(entry.y.toString());
+                setZ(entry.z.toString());
+                setShowCoords(true);
+              } else {
+                setX("0");
+                setY("0");
+                setZ("0");
+                setShowCoords(false);
+              }
+            }}
           />
           <Hint>
             Start typing a system name. Coordinates default to (0, 0, 0) — the
