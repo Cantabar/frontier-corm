@@ -19,6 +19,9 @@ use sui::{
 };
 use world::character::Character;
 
+// === Version ===
+const CURRENT_VERSION: u64 = 1;
+
 // === Errors ===
 const ETribeNameEmpty: u64 = 0;
 const ENotAuthorized: u64 = 1;
@@ -31,6 +34,8 @@ const EInGameTribeIdInvalid: u64 = 7;
 const ECharacterTribeMismatch: u64 = 8;
 const ECannotTransferToSelf: u64 = 9;
 const ERoleStale: u64 = 10;
+const EVersionMismatch: u64 = 11;
+const EAlreadyMigrated: u64 = 12;
 
 // === Enums ===
 public enum Role has copy, drop, store {
@@ -41,10 +46,17 @@ public enum Role has copy, drop, store {
 
 // === Structs ===
 
+/// Admin capability for the tribe package. Transferred to the publisher on
+/// deploy. Required to authorise version migrations.
+public struct TribeAdminCap has key, store {
+    id: UID,
+}
+
 /// Shared singleton registry enforcing one on-chain Tribe per in-game tribe.
 /// Created once in the module `init` function.
 public struct TribeRegistry has key {
     id: UID,
+    version: u64,
     /// in_game_tribe_id (u32) -> on-chain Tribe object ID
     registry: Table<u32, ID>,
 }
@@ -53,6 +65,7 @@ public struct TribeRegistry has key {
 /// Shared object — one per tribe.
 public struct Tribe has key {
     id: UID,
+    version: u64,
     name: String,
     /// The in-game tribe ID from the world Character contract (1:1 with this Tribe)
     in_game_tribe_id: u32,
@@ -105,14 +118,20 @@ public struct LeadershipTransferredEvent has copy, drop {
 
 // === Init ===
 
-/// Creates the singleton TribeRegistry on module publish.
+/// Creates the singleton TribeRegistry and TribeAdminCap on module publish.
 fun init(ctx: &mut TxContext) {
     let registry = TribeRegistry {
         id: object::new(ctx),
+        version: CURRENT_VERSION,
         registry: table::new<u32, ID>(ctx),
     };
     event::emit(TribeRegistryCreatedEvent { registry_id: object::id(&registry) });
     transfer::share_object(registry);
+
+    transfer::transfer(
+        TribeAdminCap { id: object::new(ctx) },
+        ctx.sender(),
+    );
 }
 
 // === Public Functions ===
@@ -126,6 +145,7 @@ public fun create_tribe(
     name: String,
     ctx: &mut TxContext,
 ): TribeCap {
+    assert_registry_version(registry);
     assert!(name.length() > 0, ETribeNameEmpty);
 
     let in_game_tribe_id = character.tribe();
@@ -139,6 +159,7 @@ public fun create_tribe(
 
     let tribe = Tribe {
         id: object::new(ctx),
+        version: CURRENT_VERSION,
         name,
         in_game_tribe_id,
         leader_character_id: character_id,
@@ -180,6 +201,7 @@ public fun self_join(
     character: &Character,
     ctx: &mut TxContext,
 ): TribeCap {
+    assert_tribe_version(tribe);
     let in_game_id = character.tribe();
     assert!(in_game_id != 0, EInGameTribeIdInvalid);
     assert!(in_game_id == tribe.in_game_tribe_id, ECharacterTribeMismatch);
@@ -210,6 +232,7 @@ public fun add_member(
     role: Role,
     ctx: &mut TxContext,
 ): TribeCap {
+    assert_tribe_version(tribe);
     verify_tribe_cap(tribe, cap);
     assert!(is_leader_or_officer(cap), ENotAuthorized);
 
@@ -238,6 +261,7 @@ public fun remove_member(
     cap: &TribeCap,
     character_id: ID,
 ) {
+    assert_tribe_version(tribe);
     verify_tribe_cap(tribe, cap);
     assert!(cap.role == Role::Leader, ENotAuthorized);
     assert!(character_id != tribe.leader_character_id, ECannotRemoveLeader);
@@ -268,6 +292,7 @@ public fun transfer_leadership(
     new_leader_character_id: ID,
     ctx: &mut TxContext,
 ): (TribeCap, TribeCap) {
+    assert_tribe_version(tribe);
     verify_tribe_cap(tribe, cap);
     assert!(cap.role == Role::Leader, ENotAuthorized);
     assert!(cap.character_id == tribe.leader_character_id, ENotAuthorized);
@@ -310,11 +335,37 @@ public fun transfer_leadership(
     (new_leader_cap, old_leader_cap)
 }
 
+// === Migration Functions ===
+
+/// Migrate the TribeRegistry to the current version. Admin-gated.
+/// In V1 this is a no-op placeholder for future dynamic-field migrations.
+public fun migrate_registry(
+    registry: &mut TribeRegistry,
+    _admin_cap: &TribeAdminCap,
+) {
+    assert!(registry.version < CURRENT_VERSION, EAlreadyMigrated);
+    // Future: attach new dynamic fields here.
+    registry.version = CURRENT_VERSION;
+}
+
+/// Migrate a Tribe to the current version. Admin-gated.
+/// In V1 this is a no-op placeholder for future dynamic-field migrations.
+public fun migrate_tribe(
+    tribe: &mut Tribe,
+    _admin_cap: &TribeAdminCap,
+) {
+    assert!(tribe.version < CURRENT_VERSION, EAlreadyMigrated);
+    // Future: attach new dynamic fields here.
+    tribe.version = CURRENT_VERSION;
+}
+
 // === View Functions ===
 
 public fun tribe_id(cap: &TribeCap): ID { cap.tribe_id }
 public fun cap_character_id(cap: &TribeCap): ID { cap.character_id }
 public fun cap_role(cap: &TribeCap): Role { cap.role }
+public fun tribe_version(tribe: &Tribe): u64 { tribe.version }
+public fun registry_version(registry: &TribeRegistry): u64 { registry.version }
 
 public fun tribe_name(tribe: &Tribe): String { tribe.name }
 public fun in_game_tribe_id(tribe: &Tribe): u32 { tribe.in_game_tribe_id }
@@ -341,6 +392,14 @@ public fun member_role(tribe: &Tribe, character_id: ID): Role {
 
 // === Private Helpers ===
 
+fun assert_registry_version(registry: &TribeRegistry) {
+    assert!(registry.version == CURRENT_VERSION, EVersionMismatch);
+}
+
+fun assert_tribe_version(tribe: &Tribe) {
+    assert!(tribe.version == CURRENT_VERSION, EVersionMismatch);
+}
+
 fun verify_tribe_cap(tribe: &Tribe, cap: &TribeCap) {
     assert!(cap.tribe_id == object::id(tribe), ETribeMismatch);
     assert!(tribe.members.contains(cap.character_id), ENotMember);
@@ -363,6 +422,12 @@ public fun role_member(): Role { Role::Member }
 #[test_only]
 public fun destroy_tribe_cap_for_testing(cap: TribeCap) {
     let TribeCap { id, .. } = cap;
+    id.delete();
+}
+
+#[test_only]
+public fun destroy_admin_cap_for_testing(cap: TribeAdminCap) {
+    let TribeAdminCap { id } = cap;
     id.delete();
 }
 

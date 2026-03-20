@@ -12,6 +12,7 @@ use world::{
 use tribe::tribe::{
     Self,
     Tribe,
+    TribeAdminCap,
     TribeCap,
     TribeRegistry,
 };
@@ -103,12 +104,13 @@ fun create_tribe_success() {
         ts::return_shared(leader);
     };
 
-    // Verify the tribe was shared
+    // Verify the tribe was shared with correct version
     ts::next_tx(&mut ts, user_a());
     {
         let tribe = ts::take_shared<Tribe>(&ts);
         assert!(tribe::member_count(&tribe) == 1);
         assert!(tribe::in_game_tribe_id(&tribe) == 100);
+        assert!(tribe::tribe_version(&tribe) == 1);
         ts::return_shared(tribe);
     };
 
@@ -582,6 +584,59 @@ fun create_duplicate_in_game_tribe_fails() {
         tribe::destroy_tribe_cap_for_testing(cap);
         ts::return_shared(tribe_registry);
         ts::return_shared(member);
+    };
+
+    ts::end(ts);
+}
+
+#[test]
+fun version_tracking_on_init() {
+    let mut ts = ts::begin(@0x0);
+    let (_, _) = setup_characters(&mut ts);
+
+    // Registry version should be 1 after init
+    ts::next_tx(&mut ts, admin());
+    {
+        let registry = ts::take_shared<TribeRegistry>(&ts);
+        assert!(tribe::registry_version(&registry) == 1);
+        ts::return_shared(registry);
+    };
+
+    // TribeAdminCap should exist at admin address
+    ts::next_tx(&mut ts, admin());
+    {
+        let admin_cap = ts::take_from_sender<TribeAdminCap>(&ts);
+        ts::return_to_sender(&ts, admin_cap);
+    };
+
+    ts::end(ts);
+}
+
+#[test]
+#[expected_failure(abort_code = 12)] // EAlreadyMigrated
+fun migrate_already_at_current_version_fails() {
+    let mut ts = ts::begin(@0x0);
+    let (leader_id, _) = setup_characters(&mut ts);
+
+    // Create a tribe
+    ts::next_tx(&mut ts, user_a());
+    {
+        let leader = ts::take_shared_by_id<Character>(&ts, leader_id);
+        let mut tribe_registry = ts::take_shared<TribeRegistry>(&ts);
+        let cap = tribe::create_tribe(&mut tribe_registry, &leader, utf8(TRIBE_NAME), ts::ctx(&mut ts));
+        transfer::public_transfer(cap, user_a());
+        ts::return_shared(tribe_registry);
+        ts::return_shared(leader);
+    };
+
+    // Attempt to migrate tribe that's already at CURRENT_VERSION — should abort
+    ts::next_tx(&mut ts, admin());
+    {
+        let admin_cap = ts::take_from_sender<TribeAdminCap>(&ts);
+        let mut tribe = ts::take_shared<Tribe>(&ts);
+        tribe::migrate_tribe(&mut tribe, &admin_cap);
+        ts::return_shared(tribe);
+        ts::return_to_sender(&ts, admin_cap);
     };
 
     ts::end(ts);
