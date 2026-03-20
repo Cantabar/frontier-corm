@@ -1455,10 +1455,11 @@ function appendBorrowWithdrawReturn(
 function structureMoveInfo(moveType: StructureMoveType) {
   const pkg = worldPkg();
   const map: Record<StructureMoveType, { module: string; typeArg: string }> = {
-    Assembly:    { module: "assembly",     typeArg: `${pkg}::assembly::Assembly` },
-    StorageUnit: { module: "storage_unit", typeArg: `${pkg}::storage_unit::StorageUnit` },
-    Gate:        { module: "gate",         typeArg: `${pkg}::gate::Gate` },
-    Turret:      { module: "turret",       typeArg: `${pkg}::turret::Turret` },
+    Assembly:    { module: "assembly",      typeArg: `${pkg}::assembly::Assembly` },
+    StorageUnit: { module: "storage_unit",  typeArg: `${pkg}::storage_unit::StorageUnit` },
+    Gate:        { module: "gate",          typeArg: `${pkg}::gate::Gate` },
+    Turret:      { module: "turret",        typeArg: `${pkg}::turret::Turret` },
+    NetworkNode: { module: "network_node",  typeArg: `${pkg}::network_node::NetworkNode` },
   };
   return map[moveType];
 }

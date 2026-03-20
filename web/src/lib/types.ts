@@ -212,7 +212,7 @@ export interface NetworkNodeData {
 }
 
 /** Which Move module the structure belongs to — needed to target the correct on-chain entry function. */
-export type StructureMoveType = "Assembly" | "StorageUnit" | "Gate" | "Turret";
+export type StructureMoveType = "Assembly" | "StorageUnit" | "Gate" | "Turret" | "NetworkNode";
 
 export interface AssemblyData {
   id: string;

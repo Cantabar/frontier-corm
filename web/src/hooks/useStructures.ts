@@ -21,6 +21,7 @@ const STRUCTURE_TYPES = [
   "storage_unit::StorageUnit",
   "gate::Gate",
   "turret::Turret",
+  "network_node::NetworkNode",
 ] as const;
 
 /** Maps STRUCTURE_TYPES index → StructureMoveType. */
@@ -29,6 +30,7 @@ const MOVE_TYPE_BY_INDEX: StructureMoveType[] = [
   "StorageUnit",
   "Gate",
   "Turret",
+  "NetworkNode",
 ];
 
 // ---------------------------------------------------------------------------
