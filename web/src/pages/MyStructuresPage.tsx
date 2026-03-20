@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import styled from "styled-components";
-import { useCurrentAccount, useSignAndExecuteTransaction } from "@mysten/dapp-kit";
+import { useCurrentAccount, useSignAndExecuteTransaction, useSuiClient } from "@mysten/dapp-kit";
 import { useMyStructures } from "../hooks/useStructures";
 import { useNetworkNodes } from "../hooks/useNetworkNodes";
 import { useIdentity } from "../hooks/useIdentity";
@@ -11,7 +11,7 @@ import { EmptyState } from "../components/shared/EmptyState";
 import { SsuInventoryPanel } from "../components/structures/SsuInventoryPanel";
 import { NetworkNodeGroup } from "../components/structures/NetworkNodeGroup";
 import { RegisterLocationModal } from "../components/locations/RegisterLocationModal";
-import { buildOnlineStructure, buildOfflineStructure } from "../lib/sui";
+import { buildOnlineStructure, buildOfflineStructure, buildAuthorizeExtension } from "../lib/sui";
 import { config } from "../config";
 import { truncateAddress } from "../lib/format";
 import { CopyableId } from "../components/shared/CopyableId";
@@ -280,9 +280,28 @@ const ActionButton = styled.button<{ $variant: "online" | "offline" }>`
   }
 `;
 
+const ExtensionBadge = styled.span<{ $enabled: boolean }>`
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: ${({ theme }) => theme.radii.sm};
+  background: ${({ $enabled, theme }) =>
+    $enabled ? theme.colors.success + "22" : theme.colors.surface.bg};
+  color: ${({ $enabled, theme }) =>
+    $enabled ? theme.colors.success : theme.colors.text.disabled};
+  white-space: nowrap;
+`;
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+const CORM_EXT = "corm_auth::CormAuth";
+
+function hasCormExtension(structure: AssemblyData): boolean {
+  return structure.extension?.includes(CORM_EXT) ?? false;
+}
 
 function getTypeCategory(typeId: number): string {
   const entry = ASSEMBLY_TYPES[typeId];
@@ -367,6 +386,9 @@ export function MyStructuresPage() {
   const onlineCount = structures.filter((s) => s.status === "Online").length;
   const offlineCount = structures.filter((s) => s.status !== "Online").length;
 
+  const ssuStructures = structures.filter((s) => getTypeCategory(s.typeId) === "Storage");
+  const cormEnabledCount = ssuStructures.filter(hasCormExtension).length;
+
   // Aggregate energy across all network nodes
   const energyTotals = useMemo(() => {
     let reserved = 0;
@@ -415,6 +437,12 @@ export function MyStructuresPage() {
           <CardLabel>Energy</CardLabel>
           <CardValue>
             {energyTotals.reserved} / {energyTotals.max} GJ
+          </CardValue>
+        </SummaryCard>
+        <SummaryCard>
+          <CardLabel>CORM Enabled</CardLabel>
+          <CardValue>
+            {cormEnabledCount} / {ssuStructures.length} SSUs
           </CardValue>
         </SummaryCard>
       </SummaryGrid>
@@ -548,11 +576,14 @@ function StructureRow({
   onAddLocation: (structureId: string) => void;
 }) {
   const { mutateAsync: signAndExecute } = useSignAndExecuteTransaction();
+  const suiClient = useSuiClient();
   const [pending, setPending] = useState(false);
+  const [enablingExt, setEnablingExt] = useState(false);
   const displayName = structure.name || truncateAddress(structure.id, 10, 6);
   const [iconError, setIconError] = useState(false);
   const isSsu = getTypeCategory(structure.typeId) === "Storage";
   const isExpanded = isSsu && selectedSsuId === structure.id;
+  const hasCorm = hasCormExtension(structure);
 
   const canOnline =
     structure.status === "Offline" && !!structure.energySourceId && !!characterId;
@@ -583,6 +614,30 @@ function StructureRow({
       console.error(`Failed to ${action} structure:`, err);
     } finally {
       setPending(false);
+    }
+  }
+
+  async function handleEnableExtension() {
+    if (!characterId) return;
+    setEnablingExt(true);
+    try {
+      // Fetch fresh OwnerCap version/digest to avoid stale Receiving<T> refs
+      const capObj = await suiClient.getObject({ id: structure.ownerCapId });
+      const tx = buildAuthorizeExtension({
+        characterId,
+        structureId: structure.id,
+        ownerCapId: structure.ownerCapId,
+        ownerCapVersion: capObj.data?.version ?? structure.ownerCapVersion,
+        ownerCapDigest: capObj.data?.digest ?? structure.ownerCapDigest,
+      });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result = await signAndExecute({ transaction: tx as any });
+      await suiClient.waitForTransaction({ digest: result.digest });
+      onRefresh();
+    } catch (err) {
+      console.error("Failed to enable CORM extension:", err);
+    } finally {
+      setEnablingExt(false);
     }
   }
 
@@ -621,6 +676,26 @@ function StructureRow({
       <EnergyIndicator $connected={!!structure.energySourceId}>
         {structure.energySourceId ? "⚡ Connected" : "— No energy"}
       </EnergyIndicator>
+
+      {isSsu && (
+        <ExtensionBadge $enabled={hasCorm}>
+          {hasCorm ? "CORM ✓" : "No Extension"}
+        </ExtensionBadge>
+      )}
+
+      {isSsu && !hasCorm && characterId && structure.status !== "Unanchoring" && (
+        <ActionButton
+          $variant="online"
+          disabled={enablingExt}
+          title="Authorize CormAuth extension on this SSU"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleEnableExtension();
+          }}
+        >
+          {enablingExt ? "…" : "Enable CORM"}
+        </ActionButton>
+      )}
 
       {hasLocation ? (
         <LocationBadge title="Location POD registered">📍 Location</LocationBadge>
