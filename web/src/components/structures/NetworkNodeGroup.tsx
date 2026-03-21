@@ -1,7 +1,11 @@
 import { useState } from "react";
 import styled from "styled-components";
+import { useSignAndExecuteTransaction } from "@mysten/dapp-kit";
 import { CopyableId } from "../shared/CopyableId";
-import type { AssemblyStatus, NetworkNodeData } from "../../lib/types";
+import { buildOnlineStructure, buildOfflineStructure } from "../../lib/sui";
+import { config } from "../../config";
+import { truncateAddress } from "../../lib/format";
+import type { AssemblyData, AssemblyStatus, NetworkNodeData } from "../../lib/types";
 
 // ---------------------------------------------------------------------------
 // Styled components
@@ -13,38 +17,77 @@ const GroupContainer = styled.div<{ $accentColor: string }>`
   margin-bottom: ${({ theme }) => theme.spacing.md};
 `;
 
-const GroupHeader = styled.button`
+const CardHeader = styled.button<{ $expanded: boolean }>`
   display: flex;
   align-items: center;
-  gap: ${({ theme }) => theme.spacing.sm};
+  gap: ${({ theme }) => theme.spacing.md};
   width: 100%;
-  padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.md};
-  background: ${({ theme }) => theme.colors.surface.overlay};
-  border: 1px solid ${({ theme }) => theme.colors.surface.border};
+  padding: ${({ theme }) => theme.spacing.md};
+  background: ${({ theme }) => theme.colors.surface.raised};
+  border: 1px solid
+    ${({ $expanded, theme }) =>
+      $expanded ? theme.colors.primary.subtle : theme.colors.surface.border};
   border-left: none;
-  border-radius: 0 ${({ theme }) => theme.radii.md} ${({ theme }) => theme.radii.md} 0;
+  border-radius: ${({ $expanded, theme }) =>
+    $expanded
+      ? `0 ${theme.radii.md} 0 0`
+      : `0 ${theme.radii.md} ${theme.radii.md} 0`};
   color: ${({ theme }) => theme.colors.text.primary};
   cursor: pointer;
   font-family: inherit;
   text-align: left;
-  transition: background 0.15s;
+  transition: border-color 0.15s;
 
   &:hover {
-    background: ${({ theme }) => theme.colors.surface.raised};
+    border-color: ${({ theme }) => theme.colors.primary.main};
   }
 `;
 
-const NodeName = styled.span`
-  font-size: 14px;
-  font-weight: 700;
+const StructureIcon = styled.img`
+  width: 40px;
+  height: 40px;
+  border-radius: ${({ theme }) => theme.radii.sm};
+  background: ${({ theme }) => theme.colors.surface.bg};
+  object-fit: contain;
+  flex-shrink: 0;
+`;
+
+const StructureIconPlaceholder = styled.div`
+  width: 40px;
+  height: 40px;
+  border-radius: ${({ theme }) => theme.radii.sm};
+  background: ${({ theme }) => theme.colors.surface.bg};
+  flex-shrink: 0;
+`;
+
+const NodeInfo = styled.div`
+  flex: 1;
+  min-width: 0;
+`;
+
+const NodeName = styled.div`
+  font-size: 15px;
+  font-weight: 600;
+  color: ${({ theme }) => theme.colors.text.primary};
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 `;
 
-const NodeMeta = styled.span`
+const NodeMeta = styled.div`
   font-size: 12px;
   color: ${({ theme }) => theme.colors.text.muted};
+  margin-top: 2px;
+`;
+
+const TypeBadge = styled.span`
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: ${({ theme }) => theme.radii.sm};
+  background: ${({ theme }) => theme.colors.secondary.accentMuted};
+  color: ${({ theme }) => theme.colors.secondary.accent};
   white-space: nowrap;
 `;
 
@@ -53,7 +96,7 @@ const StatusDot = styled.span<{ $status: AssemblyStatus }>`
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  flex-shrink: 0;
+  margin-right: 6px;
   background: ${({ $status, theme }) => {
     switch ($status) {
       case "Online":
@@ -66,6 +109,15 @@ const StatusDot = styled.span<{ $status: AssemblyStatus }>`
         return theme.colors.danger;
     }
   }};
+`;
+
+const StatusLabel = styled.span`
+  font-size: 12px;
+  font-weight: 600;
+  color: ${({ theme }) => theme.colors.text.secondary};
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
 `;
 
 const BarGroup = styled.span`
@@ -89,7 +141,6 @@ const BarInner = styled.div<{ $pct: number; $invert?: boolean }>`
   width: ${({ $pct }) => Math.min($pct, 100)}%;
   border-radius: 2px;
   background: ${({ $pct, $invert, theme }) => {
-    // When $invert is true, higher % = worse (energy load)
     const effective = $invert ? $pct : 100 - $pct;
     if (effective > 85) return theme.colors.danger;
     if (effective > 60) return theme.colors.warning;
@@ -105,10 +156,6 @@ const BarLabel = styled.span`
   white-space: nowrap;
 `;
 
-const Spacer = styled.span`
-  flex: 1;
-`;
-
 const LocationBadge = styled.span`
   display: inline-flex;
   align-items: center;
@@ -117,6 +164,39 @@ const LocationBadge = styled.span`
   font-weight: 600;
   color: ${({ theme }) => theme.colors.primary.main};
   white-space: nowrap;
+`;
+
+const ConnectedMeta = styled.span`
+  font-size: 12px;
+  color: ${({ theme }) => theme.colors.text.muted};
+  white-space: nowrap;
+`;
+
+const ActionButton = styled.button<{ $variant: "online" | "offline" }>`
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: ${({ theme }) => theme.radii.sm};
+  border: 1px solid
+    ${({ $variant, theme }) =>
+      $variant === "online" ? theme.colors.success : theme.colors.text.muted};
+  background: transparent;
+  color: ${({ $variant, theme }) =>
+    $variant === "online" ? theme.colors.success : theme.colors.text.secondary};
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+
+  &:hover:not(:disabled) {
+    background: ${({ $variant, theme }) =>
+      $variant === "online" ? theme.colors.success : theme.colors.text.muted};
+    color: ${({ theme }) => theme.colors.surface.raised};
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
 `;
 
 const Chevron = styled.span<{ $open: boolean }>`
@@ -134,6 +214,38 @@ const GroupBody = styled.div<{ $open: boolean }>`
   padding: ${({ theme }) => theme.spacing.sm} 0 0 ${({ theme }) => theme.spacing.md};
 `;
 
+// Unconnected bucket uses the simpler old-style header
+const UnconnectedHeader = styled.button`
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.sm};
+  width: 100%;
+  padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.md};
+  background: ${({ theme }) => theme.colors.surface.overlay};
+  border: 1px solid ${({ theme }) => theme.colors.surface.border};
+  border-left: none;
+  border-radius: 0 ${({ theme }) => theme.radii.md} ${({ theme }) => theme.radii.md} 0;
+  color: ${({ theme }) => theme.colors.text.primary};
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: background 0.15s;
+
+  &:hover {
+    background: ${({ theme }) => theme.colors.surface.raised};
+  }
+`;
+
+const UnconnectedName = styled.span`
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+`;
+
+const Spacer = styled.span`
+  flex: 1;
+`;
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -141,13 +253,13 @@ const GroupBody = styled.div<{ $open: boolean }>`
 function accentColorForStatus(status: AssemblyStatus): string {
   switch (status) {
     case "Online":
-      return "#69F0AE"; // theme.colors.success
+      return "#69F0AE";
     case "Offline":
-      return "#78909C"; // theme.colors.text.muted
+      return "#78909C";
     case "Anchored":
-      return "#FFD740"; // theme.colors.warning
+      return "#FFD740";
     case "Unanchoring":
-      return "#FF5252"; // theme.colors.danger
+      return "#FF5252";
   }
 }
 
@@ -158,8 +270,13 @@ function accentColorForStatus(status: AssemblyStatus): string {
 interface NetworkNodeGroupProps {
   /** `null` for the "Unconnected" bucket. */
   node: NetworkNodeData | null;
+  /** Matching AssemblyData for this network node (null for unconnected bucket). */
+  assembly: AssemblyData | null;
   children: React.ReactNode;
   structureCount: number;
+  characterId: string | null;
+  onRefresh: () => void;
+  onRefreshNodes: () => void;
   /** Whether this network node has a registered location POD. */
   hasLocation?: boolean;
   /** Start expanded (default true). */
@@ -168,29 +285,36 @@ interface NetworkNodeGroupProps {
 
 export function NetworkNodeGroup({
   node,
+  assembly,
   children,
   structureCount,
+  characterId,
+  onRefresh,
+  onRefreshNodes,
   hasLocation = false,
   defaultOpen = true,
 }: NetworkNodeGroupProps) {
   const [open, setOpen] = useState(defaultOpen);
+  const { mutateAsync: signAndExecute } = useSignAndExecuteTransaction();
+  const [pending, setPending] = useState(false);
+  const [iconError, setIconError] = useState(false);
 
   if (!node) {
     // Unconnected bucket
     return (
       <GroupContainer $accentColor="#78909C">
-        <GroupHeader onClick={() => setOpen((o) => !o)}>
-          <NodeName>Unconnected</NodeName>
-          <NodeMeta>{structureCount} structure{structureCount !== 1 ? "s" : ""}</NodeMeta>
+        <UnconnectedHeader onClick={() => setOpen((o) => !o)}>
+          <UnconnectedName>Unconnected</UnconnectedName>
+          <ConnectedMeta>{structureCount} structure{structureCount !== 1 ? "s" : ""}</ConnectedMeta>
           <Spacer />
           <Chevron $open={open}>▶</Chevron>
-        </GroupHeader>
+        </UnconnectedHeader>
         <GroupBody $open={open}>{children}</GroupBody>
       </GroupContainer>
     );
   }
 
-  const displayName = node.name || null;
+  const displayName = node.name || truncateAddress(node.id, 10, 6);
   const accent = accentColorForStatus(node.status);
   const fuelPct =
     node.fuelMaxCapacity > 0
@@ -203,13 +327,64 @@ export function NetworkNodeGroup({
       ? (node.totalReservedEnergy / node.maxEnergyProduction) * 100
       : 0;
 
+  // A NetworkNode is its own energy source — use its own ID as the networkNodeId.
+  const canOnline = node.status === "Offline" && !!characterId && !!assembly;
+  const canOffline = node.status === "Online" && !!characterId && !!assembly;
+
+  async function handleToggle(action: "online" | "offline") {
+    if (!characterId || !assembly) return;
+    setPending(true);
+    try {
+      const builder = action === "online" ? buildOnlineStructure : buildOfflineStructure;
+      const tx = builder({
+        characterId,
+        structureId: assembly.id,
+        ownerCapId: assembly.ownerCapId,
+        ownerCapVersion: assembly.ownerCapVersion,
+        ownerCapDigest: assembly.ownerCapDigest,
+        networkNodeId: assembly.id, // NetworkNode is its own energy source
+        energyConfigId: config.energyConfigId,
+        moveType: "NetworkNode",
+      });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await signAndExecute({ transaction: tx as any });
+      await new Promise((r) => setTimeout(r, 1500));
+      onRefresh();
+      onRefreshNodes();
+    } catch (err) {
+      console.error(`Failed to ${action} network node:`, err);
+    } finally {
+      setPending(false);
+    }
+  }
+
   return (
     <GroupContainer $accentColor={accent}>
-      <GroupHeader onClick={() => setOpen((o) => !o)}>
-        <StatusDot $status={node.status} />
-        <NodeName>{displayName ?? <CopyableId id={node.id} startLen={10} endLen={6} />}</NodeName>
-        <NodeMeta>{node.status}</NodeMeta>
-        <NodeMeta>·</NodeMeta>
+      <CardHeader $expanded={open} onClick={() => setOpen((o) => !o)}>
+        {!iconError && assembly ? (
+          <StructureIcon
+            src={`/icons/type-${assembly.typeId}.png`}
+            alt="Network Node"
+            loading="lazy"
+            onError={() => setIconError(true)}
+          />
+        ) : (
+          <StructureIconPlaceholder />
+        )}
+        <NodeInfo>
+          <NodeName>{displayName}</NodeName>
+          <NodeMeta>
+            <CopyableId id={node.id} asCode />
+          </NodeMeta>
+        </NodeInfo>
+
+        <TypeBadge>Network Node</TypeBadge>
+
+        <StatusLabel>
+          <StatusDot $status={node.status} />
+          {node.status}
+        </StatusLabel>
+
         <BarGroup>
           <BarLabel>⛽</BarLabel>
           <BarOuter>
@@ -225,15 +400,44 @@ export function NetworkNodeGroup({
             {node.totalReservedEnergy} / {node.maxEnergyProduction} GJ
           </BarLabel>
         </BarGroup>
+
         {hasLocation && (
-          <LocationBadge title="Location POD registered">📍</LocationBadge>
+          <LocationBadge title="Location POD registered">📍 Location</LocationBadge>
         )}
-        <NodeMeta>
+
+        <ConnectedMeta>
           {node.connectedAssemblyCount} connected · {structureCount} shown
-        </NodeMeta>
-        <Spacer />
+        </ConnectedMeta>
+
+        {canOnline && (
+          <ActionButton
+            $variant="online"
+            disabled={pending}
+            title="Bring this network node online"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleToggle("online");
+            }}
+          >
+            {pending ? "…" : "Online"}
+          </ActionButton>
+        )}
+        {canOffline && (
+          <ActionButton
+            $variant="offline"
+            disabled={pending}
+            title="Take this network node offline"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleToggle("offline");
+            }}
+          >
+            {pending ? "…" : "Offline"}
+          </ActionButton>
+        )}
+
         <Chevron $open={open}>▶</Chevron>
-      </GroupHeader>
+      </CardHeader>
       <GroupBody $open={open}>{children}</GroupBody>
     </GroupContainer>
   );

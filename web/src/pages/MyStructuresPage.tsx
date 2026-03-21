@@ -363,6 +363,15 @@ export function MyStructuresPage() {
 
   const { nodes: networkNodes, refetch: refetchNodes } = useNetworkNodes(nodeIds);
 
+  // Lookup of NetworkNode AssemblyData by ID (needed by NetworkNodeGroup for online/offline)
+  const nodeAssemblyMap = useMemo(() => {
+    const map = new Map<string, AssemblyData>();
+    for (const s of structures) {
+      if (s.moveType === "NetworkNode") map.set(s.id, s);
+    }
+    return map;
+  }, [structures]);
+
   // Group filtered structures by energySourceId
   const groupedEntries = useMemo(() => {
     if (!groupByNode) return null;
@@ -493,7 +502,13 @@ export function MyStructuresPage() {
               node={
                 key === UNCONNECTED_KEY ? null : networkNodes.get(key) ?? null
               }
+              assembly={
+                key === UNCONNECTED_KEY ? null : nodeAssemblyMap.get(key) ?? null
+              }
               structureCount={group.length}
+              characterId={characterId}
+              onRefresh={refetch}
+              onRefreshNodes={refetchNodes}
               hasLocation={key !== UNCONNECTED_KEY && locationIds.has(key)}
             >
               <Grid>
