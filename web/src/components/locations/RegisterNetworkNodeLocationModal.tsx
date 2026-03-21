@@ -24,13 +24,6 @@ import type { SolarSystemEntry } from "../../lib/solarSystems";
 import type { LocationData } from "../../lib/locationCrypto";
 
 // ============================================================
-// Constants
-// ============================================================
-
-/** Network Node typeId from ASSEMBLY_TYPES. */
-const NETWORK_NODE_TYPE_ID = 88092;
-
-// ============================================================
 // Styled primitives
 // ============================================================
 
@@ -183,22 +176,24 @@ export function RegisterNetworkNodeLocationModal({
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ structureCount: number } | null>(null);
 
-  // Filter to only Network Nodes
-  const networkNodes = useMemo(
-    () => structures.filter((s) => s.typeId === NETWORK_NODE_TYPE_ID),
-    [structures],
-  );
+  // Discover network node IDs from two sources:
+  // 1. Structures with moveType "NetworkNode" (from OwnerCap<NetworkNode> query)
+  // 2. energySourceId values from owned structures (works even if OwnerCap query fails)
+  const discoveredNodeIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const s of structures) {
+      if (s.moveType === "NetworkNode") ids.add(s.id);
+      if (s.energySourceId) ids.add(s.energySourceId);
+    }
+    return Array.from(ids);
+  }, [structures]);
 
-  // Fetch Network Node data for connected assembly counts
-  const networkNodeIds = useMemo(
-    () => networkNodes.map((n) => n.id),
-    [networkNodes],
-  );
-  const { nodes: networkNodeData } = useNetworkNodes(networkNodeIds);
+  // Fetch actual NetworkNode objects for all discovered IDs
+  const { nodes: networkNodeData, isLoading: nodesLoading } = useNetworkNodes(discoveredNodeIds);
 
-  const selectedNode = networkNodes.find((n) => n.id === networkNodeId);
   const selectedNodeData = networkNodeId ? networkNodeData.get(networkNodeId) : null;
   const connectedCount = selectedNodeData?.connectedAssemblyCount ?? 0;
+  const isLoadingNodes = structuresLoading || nodesLoading;
   const canProceed = !!networkNodeId && !!solarSystem;
 
   async function handleSubmit() {
@@ -238,11 +233,11 @@ export function RegisterNetworkNodeLocationModal({
         <>
           {/* Network Node picker */}
           <Label>Network Node</Label>
-          {structuresLoading ? (
+          {isLoadingNodes ? (
             <Select disabled>
               <option>Loading…</option>
             </Select>
-          ) : networkNodes.length === 0 ? (
+          ) : networkNodeData.size === 0 ? (
             <>
               <Select disabled>
                 <option>No Network Nodes found</option>
@@ -257,16 +252,14 @@ export function RegisterNetworkNodeLocationModal({
               onChange={(e) => setNetworkNodeId(e.target.value)}
             >
               <option value="">Select a Network Node…</option>
-              {networkNodes.map((n) => {
-                const nodeData = networkNodeData.get(n.id);
-                const count = nodeData?.connectedAssemblyCount ?? 0;
-                return (
-                  <option key={n.id} value={n.id}>
-                    {n.name || "Network Node"} — {truncateAddress(n.id, 8, 6)}
-                    {count > 0 ? ` (${count} connected)` : ""}
-                  </option>
-                );
-              })}
+              {Array.from(networkNodeData.entries()).map(([id, nodeData]) => (
+                <option key={id} value={id}>
+                  {nodeData.name || "Network Node"} — {truncateAddress(id, 8, 6)}
+                  {nodeData.connectedAssemblyCount > 0
+                    ? ` (${nodeData.connectedAssemblyCount} connected)`
+                    : ""}
+                </option>
+              ))}
             </Select>
           )}
 
@@ -355,7 +348,7 @@ export function RegisterNetworkNodeLocationModal({
             <div>
               <SummaryLabel>Network Node</SummaryLabel>
               <SummaryValue>
-                {selectedNode?.name || truncateAddress(networkNodeId, 10, 6)}
+                {selectedNodeData?.name || truncateAddress(networkNodeId, 10, 6)}
               </SummaryValue>
             </div>
             <div>
