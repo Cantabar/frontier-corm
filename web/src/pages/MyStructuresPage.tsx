@@ -341,6 +341,8 @@ export function MyStructuresPage() {
   const filtered = useMemo(
     () =>
       structures.filter((s) => {
+        // NetworkNodes are represented by the group header, not as structure cards
+        if (s.moveType === "NetworkNode") return false;
         if (typeFilter !== "all" && getTypeCategory(s.typeId) !== typeFilter) return false;
         if (statusFilter !== "all" && s.status !== statusFilter) return false;
         return true;
@@ -353,6 +355,8 @@ export function MyStructuresPage() {
     const ids = new Set<string>();
     for (const s of structures) {
       if (s.energySourceId) ids.add(s.energySourceId);
+      // Owned NetworkNode structures are energy sources themselves
+      if (s.moveType === "NetworkNode") ids.add(s.id);
     }
     return Array.from(ids);
   }, [structures]);
