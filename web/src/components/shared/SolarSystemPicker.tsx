@@ -17,6 +17,7 @@ import {
   SOLAR_SYSTEMS,
   type SolarSystemEntry,
 } from "../../lib/solarSystems";
+import { regionName, constellationName } from "../../lib/regions";
 
 // ============================================================
 // Styled primitives
@@ -78,8 +79,22 @@ const Option = styled.li<{ $active: boolean }>`
   }
 `;
 
+const OptionLeft = styled.div`
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+`;
+
 const SystemName = styled.span`
   font-weight: 500;
+`;
+
+const SystemMeta = styled.span`
+  font-size: 10px;
+  color: ${({ theme }) => theme.colors.text.muted};
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 `;
 
 const SystemId = styled.span`
@@ -242,7 +257,12 @@ export function SolarSystemPicker({
                 $active={i === activeIdx}
                 onMouseDown={() => handleSelect(entry)}
               >
-                <SystemName>{entry.name}</SystemName>
+                <OptionLeft>
+                  <SystemName>{entry.name}</SystemName>
+                  <SystemMeta>
+                    {constellationName(entry.constellationId)} · {regionName(entry.regionId)}
+                  </SystemMeta>
+                </OptionLeft>
                 <SystemId>#{entry.id}</SystemId>
               </Option>
             ))}

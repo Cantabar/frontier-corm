@@ -22,6 +22,8 @@ import { edwardsToMontgomeryPub } from "@noble/curves/ed25519";
 
 export interface LocationData {
   solarSystemId: number;
+  regionId?: number;
+  constellationId?: number;
   x: number;
   y: number;
   z: number;
@@ -84,6 +86,8 @@ export async function encryptLocation(
   const plaintext = new TextEncoder().encode(
     JSON.stringify({
       solarSystemId: location.solarSystemId,
+      regionId: location.regionId,
+      constellationId: location.constellationId,
       x: location.x,
       y: location.y,
       z: location.z,

@@ -18,6 +18,7 @@ import { ASSEMBLY_TYPES } from "../../lib/types";
 import { truncateAddress } from "../../lib/format";
 import { solarSystemName } from "../../lib/solarSystems";
 import type { SolarSystemEntry } from "../../lib/solarSystems";
+import { regionName, constellationName } from "../../lib/regions";
 import type { LocationData } from "../../lib/locationCrypto";
 
 // ============================================================
@@ -178,6 +179,8 @@ export function RegisterLocationModal({
 
     const location: LocationData = {
       solarSystemId: solarSystem.id,
+      regionId: solarSystem.regionId,
+      constellationId: solarSystem.constellationId,
       x: Number(x) || 0,
       y: Number(y) || 0,
       z: Number(z) || 0,
@@ -312,6 +315,18 @@ export function RegisterLocationModal({
               <SummaryLabel>Solar System</SummaryLabel>
               <SummaryValue>
                 {solarSystemName(solarSystem.id)}
+              </SummaryValue>
+            </div>
+            <div>
+              <SummaryLabel>Constellation</SummaryLabel>
+              <SummaryValue>
+                {constellationName(solarSystem.constellationId)}
+              </SummaryValue>
+            </div>
+            <div>
+              <SummaryLabel>Region</SummaryLabel>
+              <SummaryValue>
+                {regionName(solarSystem.regionId)}
               </SummaryValue>
             </div>
             <div>
