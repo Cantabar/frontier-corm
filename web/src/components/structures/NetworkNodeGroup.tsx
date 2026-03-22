@@ -364,9 +364,9 @@ export function NetworkNodeGroup({
   return (
     <GroupContainer $accentColor={accent}>
       <CardHeader $expanded={open} onClick={() => setOpen((o) => !o)}>
-        {!iconError && assembly ? (
+        {!iconError && node ? (
           <StructureIcon
-            src={`/icons/type-${assembly.typeId}.png`}
+            src={`/icons/type-${node.typeId}.png`}
             alt="Network Node"
             loading="lazy"
             onError={() => setIconError(true)}
