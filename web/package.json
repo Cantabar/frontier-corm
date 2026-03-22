@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --mode local",
+    "dev": "vite --mode localnet",
     "dev:stillness": "vite --mode stillness",
     "dev:utopia": "vite --mode utopia",
     "build": "tsc -b && vite build",
