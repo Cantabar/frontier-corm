@@ -1,0 +1,13 @@
+{
+  "name": "keep-scraper",
+  "version": "1.0.0",
+  "description": "Scrapes lore entries from Eve Frontier's The Keep (https://evefrontier.com/en/thekeep)",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "scrape": "node scrape-keep.js"
+  },
+  "dependencies": {
+    "playwright": "^1.49.0"
+  }
+}

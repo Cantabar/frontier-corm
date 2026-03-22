@@ -1,0 +1,25 @@
+{
+  "baseUrl": "https://evefrontier.com/en/thekeep",
+  "entries": [
+    { "slug": "megastructure-project-report", "category": "keepedia" },
+    { "slug": "vault", "category": "keepedia" },
+    { "slug": "exclave", "category": "keepedia" },
+    { "slug": "keeper", "category": "keepedia" },
+    { "slug": "crude-matter", "category": "keepedia" },
+    { "slug": "stillness", "category": "keepedia" },
+    { "slug": "fabricators", "category": "keepedia" },
+    { "slug": "trinary", "category": "keepedia" },
+    { "slug": "the-ferals", "category": "stories" },
+    { "slug": "ghosts-and-machines", "category": "stories" },
+    { "slug": "locked-gate", "category": "stories" },
+    { "slug": "rock-and-bones", "category": "stories" },
+    { "slug": "exclave-shipping-terminal-notification", "category": "fragments" },
+    { "slug": "k4t-y-61-infomorphic-data-intercept", "category": "fragments" },
+    { "slug": "exclave-jump-drive-tests-archive", "category": "fragments" },
+    { "slug": "cydias-data-intercept", "category": "fragments" },
+    { "slug": "archeology-i", "category": "fragments" },
+    { "slug": "archeology-ii", "category": "fragments" },
+    { "slug": "archeology-iii", "category": "fragments" },
+    { "slug": "archeology-iv", "category": "fragments" }
+  ]
+}
