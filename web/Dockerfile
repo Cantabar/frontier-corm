@@ -7,6 +7,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
+ARG VITE_APP_ENV=local
 ARG VITE_SUI_NETWORK=localnet
 ARG VITE_TRIBE_PACKAGE_ID=0x0
 ARG VITE_CORM_AUTH_PACKAGE_ID=0x0

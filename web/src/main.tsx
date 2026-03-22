@@ -14,6 +14,7 @@ import { theme } from "./styles/theme";
 import { GlobalStyles } from "./styles/globalStyles";
 import { config } from "./config";
 import { NotificationProvider } from "./hooks/useNotifications";
+import { ready as apiReady } from "./lib/api";
 import App from "./App";
 
 import "@mysten/dapp-kit/dist/index.css";
@@ -30,21 +31,24 @@ const { networkConfig } = createNetworkConfig({
   testnet: { url: getFullnodeUrl("testnet") },
 });
 
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <SuiClientProvider networks={networkConfig} defaultNetwork={config.network}>
-        <WalletProvider autoConnect>
-          <ThemeProvider theme={theme}>
-            <GlobalStyles />
-            <BrowserRouter>
-              <NotificationProvider>
-                <App />
-              </NotificationProvider>
-            </BrowserRouter>
-          </ThemeProvider>
-        </WalletProvider>
-      </SuiClientProvider>
-    </QueryClientProvider>
-  </StrictMode>,
-);
+// Ensure mock overrides (if appEnv === "local") are loaded before first render.
+apiReady.then(() => {
+  createRoot(document.getElementById("root")!).render(
+    <StrictMode>
+      <QueryClientProvider client={queryClient}>
+        <SuiClientProvider networks={networkConfig} defaultNetwork={config.network}>
+          <WalletProvider autoConnect>
+            <ThemeProvider theme={theme}>
+              <GlobalStyles />
+              <BrowserRouter>
+                <NotificationProvider>
+                  <App />
+                </NotificationProvider>
+              </BrowserRouter>
+            </ThemeProvider>
+          </WalletProvider>
+        </SuiClientProvider>
+      </QueryClientProvider>
+    </StrictMode>,
+  );
+});

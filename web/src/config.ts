@@ -5,9 +5,64 @@
  * For local development, update these after `sui client publish`.
  */
 
+// ---------------------------------------------------------------------------
+// Environment type
+// ---------------------------------------------------------------------------
+
+export type AppEnv = "utopia" | "stillness" | "local";
+
+/** Active application environment, controlled by VITE_APP_ENV. */
+const appEnv: AppEnv =
+  (["utopia", "stillness", "local"] as const).includes(
+    import.meta.env.VITE_APP_ENV as AppEnv,
+  )
+    ? (import.meta.env.VITE_APP_ENV as AppEnv)
+    : "local";
+
+// ---------------------------------------------------------------------------
+// Per-environment defaults
+// ---------------------------------------------------------------------------
+
+interface EnvDefaults {
+  network: "localnet" | "devnet" | "testnet";
+  worldApiUrl: string;
+  indexerUrl: string;
+  webUiHost: string;
+}
+
+const envDefaults: Record<AppEnv, EnvDefaults> = {
+  utopia: {
+    network: "testnet",
+    worldApiUrl: "https://world-api-utopia.live.tech.evefrontier.com",
+    indexerUrl: "/api/v1",
+    webUiHost: "https://corm-utopia.evefrontier.com",
+  },
+  stillness: {
+    network: "testnet",
+    worldApiUrl: "https://world-api-stillness.live.tech.evefrontier.com",
+    indexerUrl: "/api/v1",
+    webUiHost: "https://corm-stillness.evefrontier.com",
+  },
+  local: {
+    network: "localnet",
+    worldApiUrl: "",
+    indexerUrl: "/api/v1",
+    webUiHost: "http://localhost:5173",
+  },
+};
+
+const defaults = envDefaults[appEnv];
+
+// ---------------------------------------------------------------------------
+// Exported config (explicit VITE_* overrides always win)
+// ---------------------------------------------------------------------------
+
 export const config = {
+  /** Active application environment */
+  appEnv,
+
   /** Sui network to connect to */
-  network: (import.meta.env.VITE_SUI_NETWORK as "localnet" | "devnet" | "testnet") ?? "localnet",
+  network: (import.meta.env.VITE_SUI_NETWORK as "localnet" | "devnet" | "testnet") ?? defaults.network,
 
   /** On-chain package IDs (set after deployment) */
   packages: {
@@ -28,10 +83,10 @@ export const config = {
   fillCoinType: import.meta.env.VITE_FILL_COIN_TYPE ?? import.meta.env.VITE_COIN_TYPE ?? "0x2::sui::SUI",
 
   /** Event indexer base URL */
-  indexerUrl: import.meta.env.VITE_INDEXER_URL ?? "/api/v1",
+  indexerUrl: import.meta.env.VITE_INDEXER_URL ?? defaults.indexerUrl,
   /** Web UI host used to compose in-game dApp URLs for SSUs */
-  webUiHost: import.meta.env.VITE_WEB_UI_HOST ?? "http://localhost:5173",
+  webUiHost: import.meta.env.VITE_WEB_UI_HOST ?? defaults.webUiHost,
 
-  /** Stillness World API base URL (for tribe name backfill) */
-  worldApiUrl: import.meta.env.VITE_WORLD_API_URL ?? "https://world-api-stillness.live.tech.evefrontier.com",
+  /** World API base URL (for tribe name backfill) */
+  worldApiUrl: import.meta.env.VITE_WORLD_API_URL ?? defaults.worldApiUrl,
 } as const;
