@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import styled from "styled-components";
 import { useSignAndExecuteTransaction } from "@mysten/dapp-kit";
 import { CopyableId } from "../shared/CopyableId";
@@ -300,7 +300,12 @@ export function NetworkNodeGroup({
   const [open, setOpen] = useState(defaultOpen);
   const { mutateAsync: signAndExecute } = useSignAndExecuteTransaction();
   const [pending, setPending] = useState(false);
-  const [iconError, setIconError] = useState(false);
+  const [iconFallback, setIconFallback] = useState<"primary" | "canonical" | "none">("primary");
+
+  // Reset icon fallback state when the node changes
+  useEffect(() => {
+    setIconFallback("primary");
+  }, [node?.id]);
 
   if (!node) {
     // Unconnected bucket
@@ -364,12 +369,18 @@ export function NetworkNodeGroup({
   return (
     <GroupContainer $accentColor={accent}>
       <CardHeader $expanded={open} onClick={() => setOpen((o) => !o)}>
-        {!iconError && node ? (
+        {iconFallback !== "none" && node ? (
           <StructureIcon
-            src={`/icons/type-${node.typeId}.png`}
+            src={
+              iconFallback === "primary"
+                ? `/icons/type-${node.typeId}.png`
+                : `/icons/type-88092.png`
+            }
             alt="Network Node"
             loading="lazy"
-            onError={() => setIconError(true)}
+            onError={() =>
+              setIconFallback((prev) => (prev === "primary" ? "canonical" : "none"))
+            }
           />
         ) : (
           <StructureIconPlaceholder />
