@@ -1,7 +1,8 @@
 import { useState, useMemo, useEffect } from "react";
 import styled from "styled-components";
+import { useParams, Navigate } from "react-router-dom";
 import { useCurrentAccount, useSignAndExecuteTransaction, useSuiClient } from "@mysten/dapp-kit";
-import { useMyStructures } from "../hooks/useStructures";
+import { useStructures } from "../hooks/useStructures";
 import { useNetworkNodes } from "../hooks/useNetworkNodes";
 import { useIdentity } from "../hooks/useIdentity";
 import { useStructureLocationIds } from "../hooks/useStructureLocationIds";
@@ -31,10 +32,36 @@ const Header = styled.div`
   margin-bottom: ${({ theme }) => theme.spacing.lg};
 `;
 
+const TitleRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.sm};
+`;
+
 const Title = styled.h1`
   font-size: 24px;
   font-weight: 700;
   color: ${({ theme }) => theme.colors.text.primary};
+`;
+
+const CopyLinkButton = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: ${({ theme }) => theme.radii.sm};
+  border: 1px solid ${({ theme }) => theme.colors.surface.border};
+  background: ${({ theme }) => theme.colors.surface.raised};
+  color: ${({ theme }) => theme.colors.text.muted};
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &:hover {
+    color: ${({ theme }) => theme.colors.text.primary};
+    border-color: ${({ theme }) => theme.colors.primary.main};
+  }
 `;
 
 const ConnectPrompt = styled.div`
@@ -318,20 +345,49 @@ function getTypeLabel(typeId: number): string {
 
 const UNCONNECTED_KEY = "__unconnected__";
 
-export function MyStructuresPage() {
+/**
+ * Redirect component for `/structures` (no character ID in URL).
+ * Redirects to `/structures/:characterId` for the logged-in user,
+ * or shows a connect prompt.
+ */
+export function StructuresRedirect() {
   const account = useCurrentAccount();
-  const { characterId, tribeCaps } = useIdentity();
-  const tribeId = tribeCaps[0]?.tribeId ?? null;
-  const { structures, isLoading, refetch } = useMyStructures();
+  const { characterId } = useIdentity();
+
+  if (!account) {
+    return (
+      <Page>
+        <Title>Structures</Title>
+        <ConnectPrompt>Connect your wallet to view your structures.</ConnectPrompt>
+      </Page>
+    );
+  }
+
+  if (!characterId) {
+    return <LoadingSpinner />;
+  }
+
+  return <Navigate to={`/structures/${characterId}`} replace />;
+}
+
+export function MyStructuresPage() {
+  const { characterId: urlCharacterId } = useParams<{ characterId: string }>();
+  const account = useCurrentAccount();
+  const { characterId: myCharacterId, tribeCaps } = useIdentity();
+  const targetCharacterId = urlCharacterId ?? null;
+  const isOwner = !!myCharacterId && myCharacterId === targetCharacterId;
+  const tribeId = isOwner ? (tribeCaps[0]?.tribeId ?? null) : null;
+  const { structures, isLoading, refetch } = useStructures(targetCharacterId);
   const { locationIds, refetch: refetchLocations } = useStructureLocationIds();
   const tlk = useTlkStatus();
   const [addLocationForId, setAddLocationForId] = useState<string | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
 
-  // Fetch TLK status when tribe is known
+  // Fetch TLK status when tribe is known (owner-only)
   useEffect(() => {
-    if (tribeId) tlk.fetchStatus(tribeId);
+    if (isOwner && tribeId) tlk.fetchStatus(tribeId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tribeId]);
+  }, [isOwner, tribeId]);
 
   const [typeFilter, setTypeFilter] = useState<AssemblyTypeFilter>("all");
   const [statusFilter, setStatusFilter] = useState<AssemblyStatus | "all">("all");
@@ -413,11 +469,23 @@ export function MyStructuresPage() {
     return { reserved, max };
   }, [networkNodes]);
 
-  if (!account) {
+  const pageTitle = isOwner
+    ? "My Structures"
+    : `Structures · ${truncateAddress(targetCharacterId ?? "", 10, 6)}`;
+
+  function handleCopyLink() {
+    const url = `${window.location.origin}/structures/${targetCharacterId}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    });
+  }
+
+  if (!targetCharacterId) {
     return (
       <Page>
-        <Title>My Structures</Title>
-        <ConnectPrompt>Connect your wallet to view your structures.</ConnectPrompt>
+        <Title>Structures</Title>
+        <EmptyState title="No character specified" description="Provide a character ID in the URL to view structures." />
       </Page>
     );
   }
@@ -425,7 +493,12 @@ export function MyStructuresPage() {
   return (
     <Page>
       <Header>
-        <Title>My Structures</Title>
+        <TitleRow>
+          <Title>{pageTitle}</Title>
+          <CopyLinkButton onClick={handleCopyLink} title="Copy shareable link">
+            {linkCopied ? "✓ Copied" : "🔗 Copy link"}
+          </CopyLinkButton>
+        </TitleRow>
       </Header>
 
       {/* Summary cards */}
@@ -490,7 +563,9 @@ export function MyStructuresPage() {
           title="No structures found"
           description={
             structures.length === 0
-              ? "You don't own any on-chain structures yet."
+              ? isOwner
+                ? "You don't own any on-chain structures yet."
+                : "This character doesn't own any on-chain structures."
               : "No structures match the current filters."
           }
         />
@@ -506,17 +581,18 @@ export function MyStructuresPage() {
                 key === UNCONNECTED_KEY ? null : nodeAssemblyMap.get(key) ?? null
               }
               structureCount={group.length}
-              characterId={characterId}
+              characterId={isOwner ? myCharacterId : null}
               onRefresh={refetch}
               onRefreshNodes={refetchNodes}
               hasLocation={key !== UNCONNECTED_KEY && locationIds.has(key)}
+              isOwner={isOwner}
             >
               <Grid>
                 {group.map((s) => (
               <StructureRow
                     key={s.id}
                     structure={s}
-                    characterId={characterId}
+                    characterId={isOwner ? myCharacterId : null}
                     onRefresh={refetch}
                     onRefreshNodes={refetchNodes}
                     selectedSsuId={selectedSsuId}
@@ -525,6 +601,7 @@ export function MyStructuresPage() {
                     hasTribeId={!!tribeId}
                     tlkUnlocked={!!tlk.tlkBytes}
                     onAddLocation={(id) => setAddLocationForId(id)}
+                    isOwner={isOwner}
                   />
                 ))}
               </Grid>
@@ -537,7 +614,7 @@ export function MyStructuresPage() {
             <StructureRow
               key={s.id}
               structure={s}
-              characterId={characterId}
+              characterId={isOwner ? myCharacterId : null}
               onRefresh={refetch}
               onRefreshNodes={refetchNodes}
               selectedSsuId={selectedSsuId}
@@ -546,13 +623,14 @@ export function MyStructuresPage() {
               hasTribeId={!!tribeId}
               tlkUnlocked={!!tlk.tlkBytes}
               onAddLocation={(id) => setAddLocationForId(id)}
+              isOwner={isOwner}
             />
           ))}
         </Grid>
       )}
 
-      {/* Register Location modal */}
-      {addLocationForId && tribeId && tlk.tlkBytes && tlk.tlkVersion != null && (
+      {/* Register Location modal (owner-only) */}
+      {isOwner && addLocationForId && tribeId && tlk.tlkBytes && tlk.tlkVersion != null && (
         <RegisterLocationModal
           tribeId={tribeId}
           tlkBytes={tlk.tlkBytes}
@@ -583,6 +661,7 @@ function StructureRow({
   hasTribeId,
   tlkUnlocked,
   onAddLocation,
+  isOwner = true,
 }: {
   structure: AssemblyData;
   characterId: string | null;
@@ -594,6 +673,7 @@ function StructureRow({
   hasTribeId: boolean;
   tlkUnlocked: boolean;
   onAddLocation: (structureId: string) => void;
+  isOwner?: boolean;
 }) {
   const { mutateAsync: signAndExecute } = useSignAndExecuteTransaction();
   const suiClient = useSuiClient();
@@ -606,8 +686,8 @@ function StructureRow({
   const hasCorm = hasCormExtension(structure);
 
   const canOnline =
-    structure.status === "Offline" && !!structure.energySourceId && !!characterId;
-  const canOffline = structure.status === "Online" && !!characterId;
+    isOwner && structure.status === "Offline" && !!structure.energySourceId && !!characterId;
+  const canOffline = isOwner && structure.status === "Online" && !!characterId;
 
   async function handleToggle(action: "online" | "offline") {
     if (!characterId || !structure.energySourceId) return;
@@ -703,7 +783,7 @@ function StructureRow({
         </ExtensionBadge>
       )}
 
-      {isSsu && !hasCorm && characterId && structure.status !== "Unanchoring" && (
+      {isOwner && isSsu && !hasCorm && characterId && structure.status !== "Unanchoring" && (
         <ActionButton
           $variant="online"
           disabled={enablingExt}
@@ -719,7 +799,7 @@ function StructureRow({
 
       {hasLocation ? (
         <LocationBadge title="Location POD registered">📍 Location</LocationBadge>
-      ) : hasTribeId ? (
+      ) : isOwner && hasTribeId ? (
         <AddLocationButton
           disabled={!tlkUnlocked}
           title={tlkUnlocked ? "Register a location for this structure" : "Unlock TLK on Locations page first"}

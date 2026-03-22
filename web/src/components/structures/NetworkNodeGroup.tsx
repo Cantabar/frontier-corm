@@ -281,6 +281,8 @@ interface NetworkNodeGroupProps {
   hasLocation?: boolean;
   /** Start expanded (default true). */
   defaultOpen?: boolean;
+  /** Whether the viewer owns these structures (enables write actions). */
+  isOwner?: boolean;
 }
 
 export function NetworkNodeGroup({
@@ -293,6 +295,7 @@ export function NetworkNodeGroup({
   onRefreshNodes,
   hasLocation = false,
   defaultOpen = true,
+  isOwner = true,
 }: NetworkNodeGroupProps) {
   const [open, setOpen] = useState(defaultOpen);
   const { mutateAsync: signAndExecute } = useSignAndExecuteTransaction();
@@ -328,8 +331,8 @@ export function NetworkNodeGroup({
       : 0;
 
   // A NetworkNode is its own energy source — use its own ID as the networkNodeId.
-  const canOnline = node.status === "Offline" && !!characterId && !!assembly;
-  const canOffline = node.status === "Online" && !!characterId && !!assembly;
+  const canOnline = isOwner && node.status === "Offline" && !!characterId && !!assembly;
+  const canOffline = isOwner && node.status === "Online" && !!characterId && !!assembly;
 
   async function handleToggle(action: "online" | "offline") {
     if (!characterId || !assembly) return;

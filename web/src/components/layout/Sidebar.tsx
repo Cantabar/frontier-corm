@@ -98,7 +98,7 @@ const DisabledNavItem = styled.span`
 `;
 
 export function Sidebar() {
-  const { tribeCaps } = useIdentity();
+  const { characterId, tribeCaps } = useIdentity();
   const { unreadCount } = useNotifications();
   const userTribeId = tribeCaps[0]?.tribeId;
 
@@ -114,7 +114,7 @@ export function Sidebar() {
       ) : (
         <DisabledNavItem>My Tribe</DisabledNavItem>
       )}
-      <StyledLink to="/structures">My Structures</StyledLink>
+      <StyledLink to={characterId ? `/structures/${characterId}` : "/structures"}>My Structures</StyledLink>
       <SectionLabel>Modules</SectionLabel>
       <StyledLink to="/contracts">Contracts</StyledLink>
       {userTribeId ? (

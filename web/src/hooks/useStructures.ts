@@ -112,8 +112,13 @@ function parseAssemblyFields(
 // Hook
 // ---------------------------------------------------------------------------
 
-export function useMyStructures() {
-  const { characterId } = useIdentity();
+/**
+ * Query structures owned by an arbitrary character.
+ * When no `targetCharacterId` is provided, falls back to the current user's character.
+ */
+export function useStructures(targetCharacterId?: string | null) {
+  const { characterId: myCharacterId } = useIdentity();
+  const characterId = targetCharacterId !== undefined ? targetCharacterId : myCharacterId;
   const pkg = worldPkg();
   const enabled = !!characterId && pkg !== "0x0";
 
@@ -213,4 +218,9 @@ export function useMyStructures() {
       assemblyResults.refetch();
     },
   };
+}
+
+/** Convenience alias – queries structures for the current user's character. */
+export function useMyStructures() {
+  return useStructures();
 }

@@ -17,7 +17,7 @@ import { CreateContractPage } from "./pages/CreateContractPage";
 import { ContractDetailPage } from "./pages/ContractDetailPage";
 import { TribeListPage } from "./pages/TribeListPage";
 import { NotificationsPage } from "./pages/NotificationsPage";
-import { MyStructuresPage } from "./pages/MyStructuresPage";
+import { StructuresRedirect, MyStructuresPage } from "./pages/MyStructuresPage";
 import { LocationsPage } from "./pages/LocationsPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { ToastContainer } from "./components/shared/Toast";
@@ -90,7 +90,8 @@ export default function App() {
               <Route path="/contracts/create" element={<CreateContractPage />} />
               <Route path="/contracts/:contractId" element={<ContractDetailPage />} />
               <Route path="/events" element={<EventExplorer />} />
-              <Route path="/structures" element={<MyStructuresPage />} />
+              <Route path="/structures" element={<StructuresRedirect />} />
+              <Route path="/structures/:characterId" element={<MyStructuresPage />} />
               <Route path="/locations" element={<LocationsPage />} />
               <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
