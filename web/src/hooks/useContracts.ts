@@ -6,7 +6,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSuiClient, useSuiClientQuery } from "@mysten/dapp-kit";
 import { config } from "../config";
-import { getTrustlessContractHistory } from "../lib/indexer";
+import { getTrustlessContractHistory } from "../lib/api";
 import type {
   PaginationParams,
   TrustlessContractData,

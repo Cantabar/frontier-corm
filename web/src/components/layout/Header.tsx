@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useIdentity } from "../../hooks/useIdentity";
 import { useNotifications } from "../../hooks/useNotifications";
 import { truncateAddress, generateAvatarColor } from "../../lib/format";
+import { config } from "../../config";
 import { Logo as LogoSvg } from "../shared/Logo";
 
 const HeaderBar = styled.header`
@@ -94,6 +95,24 @@ const UnreadBadge = styled.span`
   padding: 0 4px;
 `;
 
+const ENV_COLORS: Record<string, string> = {
+  utopia: "#7C4DFF",
+  stillness: "#00E5FF",
+  local: "#FFB74D",
+};
+
+const EnvBadge = styled.span<{ $color: string }>`
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: ${({ $color }) => $color};
+  background: ${({ $color }) => $color}18;
+  border: 1px solid ${({ $color }) => $color}44;
+  border-radius: 4px;
+  padding: 2px 6px;
+`;
+
 export function Header() {
   const { address, characterId, characterName, characterPortraitUrl } = useIdentity();
   const { unreadCount } = useNotifications();
@@ -107,6 +126,9 @@ export function Header() {
     <HeaderBar>
       <Brand onClick={() => navigate("/")}>
         <LogoSvg height={28} />
+        <EnvBadge $color={ENV_COLORS[config.appEnv] ?? "#78909C"}>
+          {config.appEnv}
+        </EnvBadge>
       </Brand>
       <Controls>
         {showCharacter && (

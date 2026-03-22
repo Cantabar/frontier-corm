@@ -5,7 +5,7 @@ import styled from "styled-components";
 import { IdentityContext, useIdentityResolver } from "./hooks/useIdentity";
 import { useNotifications } from "./hooks/useNotifications";
 import { usePayoutWatcher } from "./hooks/usePayoutWatcher";
-import { onIndexerError } from "./lib/indexer";
+import { onIndexerError } from "./lib/api";
 import { Header } from "./components/layout/Header";
 import { Sidebar } from "./components/layout/Sidebar";
 import { AutoJoinBanner } from "./components/tribe/AutoJoinBanner";

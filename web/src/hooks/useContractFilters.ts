@@ -7,7 +7,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { canViewContract } from "../lib/contractVisibility";
-import { getStructuresByLocationTag, type StructureTagResult } from "../lib/indexer";
+import { getStructuresByLocationTag, type StructureTagResult } from "../lib/api";
 import type {
   TrustlessContractData,
   TrustlessContractVariant,

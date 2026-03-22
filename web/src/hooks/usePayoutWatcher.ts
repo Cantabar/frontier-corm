@@ -15,7 +15,7 @@ import { useEffect, useRef, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useIdentity } from "./useIdentity";
 import { useNotifications, type NotificationLevel } from "./useNotifications";
-import { getPayoutEvents, getContractContext } from "../lib/indexer";
+import { getPayoutEvents, getContractContext } from "../lib/api";
 import { truncateAddress, formatAmount } from "../lib/format";
 import type { ArchivedEvent } from "../lib/types";
 

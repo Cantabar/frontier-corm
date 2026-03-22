@@ -22,7 +22,7 @@ import {
   getZkRegionResults,
   getZkProximityResults,
   type ZkFilteredResult,
-} from "../lib/indexer";
+} from "../lib/api";
 import {
   getRegionBounds,
   getConstellationBounds,

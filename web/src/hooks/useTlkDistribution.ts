@@ -17,7 +17,7 @@ import {
   getPendingMembers as fetchPendingMembers,
   wrapTlkForMember,
   type PendingMember,
-} from "../lib/indexer";
+} from "../lib/api";
 import {
   base64ToBytes,
   wrapTlk,

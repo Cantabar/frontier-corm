@@ -1,7 +1,7 @@
 import { useState } from "react";
 import styled from "styled-components";
 import { useQuery } from "@tanstack/react-query";
-import { getEvents } from "../lib/indexer";
+import { getEvents } from "../lib/api";
 import { timeAgo } from "../lib/format";
 import { CopyableId } from "../components/shared/CopyableId";
 import { ProofViewer } from "../components/events/ProofViewer";

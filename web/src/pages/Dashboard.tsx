@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { useIdentity } from "../hooks/useIdentity";
 import { useTribe } from "../hooks/useTribe";
-import { getStats, getEvents } from "../lib/indexer";
+import { getStats, getEvents } from "../lib/api";
 import { timeAgo, formatAmount } from "../lib/format";
 import { useCoinDecimals } from "../hooks/useCoinDecimals";
 import { CopyableId } from "../components/shared/CopyableId";

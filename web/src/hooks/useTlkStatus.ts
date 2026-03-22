@@ -9,7 +9,7 @@
 
 import { useState, useCallback, useRef } from "react";
 import { useLocationPods } from "./useLocationPods";
-import { getTlkStatus as fetchTlkStatusApi } from "../lib/indexer";
+import { getTlkStatus as fetchTlkStatusApi } from "../lib/api";
 
 // ============================================================
 // Types

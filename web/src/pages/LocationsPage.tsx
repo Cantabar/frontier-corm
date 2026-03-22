@@ -22,7 +22,7 @@ import { CopyableId } from "../components/shared/CopyableId";
 import { solarSystemName } from "../lib/solarSystems";
 import { truncateAddress, timeAgo } from "../lib/format";
 import { ASSEMBLY_TYPES } from "../lib/types";
-import { registerPublicKey } from "../lib/indexer";
+import { registerPublicKey } from "../lib/api";
 import {
   bytesToBase64,
   getKeygenMessageBytes,

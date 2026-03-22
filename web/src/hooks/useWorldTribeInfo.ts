@@ -13,6 +13,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { config } from "../config";
+import { mockWorldTribes } from "../lib/mock/data";
 import type { WorldTribeInfo } from "../lib/types";
 
 interface TribeApiResponse {
@@ -61,6 +62,11 @@ export function clearWorldTribeInfoCache(): string {
 // ---------------------------------------------------------------------------
 
 async function fetchAllTribes(): Promise<Map<number, WorldTribeInfo>> {
+  // In local mode, return mock tribe data without hitting any API.
+  if (config.appEnv === "local") {
+    return new Map(mockWorldTribes.map((t) => [t.id, t]));
+  }
+
   // Start with whatever is already persisted
   const cached = loadFromStorage();
 

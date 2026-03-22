@@ -194,6 +194,9 @@ export function SettingsPage() {
           variables at build time.
         </CardDescription>
         <ConfigGrid>
+          <ConfigLabel>Environment</ConfigLabel>
+          <ConfigValue>{config.appEnv}</ConfigValue>
+
           <ConfigLabel>Network</ConfigLabel>
           <ConfigValue>{config.network}</ConfigValue>
 

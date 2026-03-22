@@ -6,7 +6,7 @@
  */
 
 import { useQuery } from "@tanstack/react-query";
-import { getEvents } from "../lib/indexer";
+import { getEvents } from "../lib/api";
 import type { TribeListItem } from "../lib/types";
 
 export function useTribes(options?: { refetchInterval?: number | false }) {

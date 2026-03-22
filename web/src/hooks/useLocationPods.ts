@@ -20,7 +20,7 @@ import {
   submitNetworkNodeLocationPod,
   refreshNetworkNodeLocationPod,
   type LocationPodResponse,
-} from "../lib/indexer";
+} from "../lib/api";
 import {
   buildAuthChallenge,
   buildAuthHeader,
