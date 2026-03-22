@@ -113,7 +113,11 @@ const EnvBadge = styled.span<{ $color: string }>`
   padding: 2px 6px;
 `;
 
-export function Header() {
+interface HeaderProps {
+  sidebarOpenButton?: React.ReactNode;
+}
+
+export function Header({ sidebarOpenButton }: HeaderProps) {
   const { address, characterId, characterName, characterPortraitUrl } = useIdentity();
   const { unreadCount } = useNotifications();
   const navigate = useNavigate();
@@ -125,6 +129,7 @@ export function Header() {
   return (
     <HeaderBar>
       <Brand onClick={() => navigate("/")}>
+        {sidebarOpenButton}
         <LogoSvg height={28} />
         <EnvBadge $color={ENV_COLORS[config.appEnv] ?? "#78909C"}>
           {config.appEnv}

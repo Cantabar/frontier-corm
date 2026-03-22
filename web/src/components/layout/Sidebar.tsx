@@ -1,10 +1,36 @@
 import { NavLink } from "react-router-dom";
-import styled from "styled-components";
+import styled, { css } from "styled-components";
+import {
+  LayoutDashboard,
+  Users,
+  Shield,
+  Building2,
+  FileText,
+  MapPin,
+  Activity,
+  Bell,
+  Settings,
+  ChevronsLeft,
+  ChevronsRight,
+  Menu,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { useIdentity } from "../../hooks/useIdentity";
 import { useNotifications } from "../../hooks/useNotifications";
+import type { SidebarMode } from "../../hooks/useSidebarState";
 
-const Nav = styled.nav`
-  width: 200px;
+/* ---------- types ---------- */
+
+interface SidebarProps {
+  mode: SidebarMode;
+  toggle: () => void;
+}
+
+/* ---------- styled ---------- */
+
+const ICON_SIZE = 18;
+
+const Nav = styled.nav<{ $mode: SidebarMode }>`
   flex-shrink: 0;
   background: ${({ theme }) => theme.colors.surface.raised};
   border-right: 1px solid ${({ theme }) => theme.colors.surface.border};
@@ -12,19 +38,52 @@ const Nav = styled.nav`
   display: flex;
   flex-direction: column;
   gap: ${({ theme }) => theme.spacing.xs};
+  transition: width 0.2s ease;
+  overflow: hidden;
+
+  ${({ $mode, theme }) =>
+    $mode === "expanded" &&
+    css`
+      width: ${theme.sidebar.expandedWidth}px;
+    `}
+
+  ${({ $mode, theme }) =>
+    $mode === "icons" &&
+    css`
+      width: ${theme.sidebar.iconWidth}px;
+    `}
+
+  ${({ $mode }) =>
+    $mode === "hidden" &&
+    css`
+      width: 0;
+      padding: 0;
+      border-right: none;
+    `}
 `;
 
-const StyledLink = styled(NavLink)`
+const linkBase = css`
   display: flex;
   align-items: center;
   gap: ${({ theme }) => theme.spacing.sm};
-  padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.lg};
   color: ${({ theme }) => theme.colors.text.secondary};
   font-size: 14px;
   font-weight: 500;
   text-decoration: none;
   border-left: 3px solid transparent;
   transition: all 0.15s ease;
+  white-space: nowrap;
+`;
+
+const StyledLink = styled(NavLink)<{ $mode: SidebarMode }>`
+  ${linkBase}
+
+  padding: ${({ theme, $mode }) =>
+    $mode === "icons"
+      ? `${theme.spacing.sm} 0`
+      : `${theme.spacing.sm} ${theme.spacing.lg}`};
+
+  justify-content: ${({ $mode }) => ($mode === "icons" ? "center" : "flex-start")};
 
   &:hover {
     color: ${({ theme }) => theme.colors.text.primary};
@@ -38,44 +97,16 @@ const StyledLink = styled(NavLink)`
   }
 `;
 
-const SectionLabel = styled.div`
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+const DisabledNavItem = styled.span<{ $mode: SidebarMode }>`
+  ${linkBase}
+
+  padding: ${({ theme, $mode }) =>
+    $mode === "icons"
+      ? `${theme.spacing.sm} 0`
+      : `${theme.spacing.sm} ${theme.spacing.lg}`};
+
+  justify-content: ${({ $mode }) => ($mode === "icons" ? "center" : "flex-start")};
   color: ${({ theme }) => theme.colors.text.muted};
-  padding: ${({ theme }) => theme.spacing.md} ${({ theme }) => theme.spacing.lg}
-    ${({ theme }) => theme.spacing.xs};
-`;
-
-const NotifBadge = styled.span`
-  background: ${({ theme }) => theme.colors.danger};
-  color: #fff;
-  font-size: 10px;
-  font-weight: 700;
-  min-width: 16px;
-  height: 16px;
-  border-radius: 8px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 4px;
-  margin-left: auto;
-`;
-
-const Spacer = styled.div`
-  margin-top: auto;
-`;
-
-const DisabledNavItem = styled.span`
-  display: flex;
-  align-items: center;
-  gap: ${({ theme }) => theme.spacing.sm};
-  padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.lg};
-  color: ${({ theme }) => theme.colors.text.muted};
-  font-size: 14px;
-  font-weight: 500;
-  border-left: 3px solid transparent;
   cursor: not-allowed;
   position: relative;
 
@@ -97,36 +128,189 @@ const DisabledNavItem = styled.span`
   }
 `;
 
-export function Sidebar() {
+const Label = styled.span<{ $visible: boolean }>`
+  display: ${({ $visible }) => ($visible ? "inline" : "none")};
+`;
+
+const SectionLabel = styled.div<{ $visible: boolean }>`
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: ${({ theme }) => theme.colors.text.muted};
+  padding: ${({ theme }) => theme.spacing.md} ${({ theme }) => theme.spacing.lg}
+    ${({ theme }) => theme.spacing.xs};
+  display: ${({ $visible }) => ($visible ? "block" : "none")};
+`;
+
+const NotifBadge = styled.span`
+  background: ${({ theme }) => theme.colors.danger};
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  margin-left: auto;
+`;
+
+/** Small dot overlay for icon-only mode */
+const NotifDot = styled.span`
+  position: absolute;
+  top: -2px;
+  right: -4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: ${({ theme }) => theme.colors.danger};
+`;
+
+const IconWrap = styled.span`
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+`;
+
+const Spacer = styled.div`
+  margin-top: auto;
+`;
+
+const ToggleButton = styled.button`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: ${({ theme }) => theme.colors.text.muted};
+  padding: ${({ theme }) => theme.spacing.sm};
+  cursor: pointer;
+  transition: color 0.15s;
+
+  &:hover {
+    color: ${({ theme }) => theme.colors.text.primary};
+  }
+`;
+
+/* ---------- helpers ---------- */
+
+interface NavEntry {
+  to: string;
+  label: string;
+  icon: LucideIcon;
+  end?: boolean;
+  disabled?: boolean;
+  badge?: number;
+}
+
+function NavItem({ entry, mode }: { entry: NavEntry; mode: SidebarMode }) {
+  const showLabel = mode === "expanded";
+
+  if (entry.disabled) {
+    return (
+      <DisabledNavItem $mode={mode} title={entry.label}>
+        <IconWrap>
+          <entry.icon size={ICON_SIZE} />
+        </IconWrap>
+        <Label $visible={showLabel}>{entry.label}</Label>
+      </DisabledNavItem>
+    );
+  }
+
+  return (
+    <StyledLink to={entry.to} end={entry.end} $mode={mode} title={entry.label}>
+      <IconWrap>
+        <entry.icon size={ICON_SIZE} />
+        {entry.badge != null && entry.badge > 0 && mode === "icons" && <NotifDot />}
+      </IconWrap>
+      <Label $visible={showLabel}>{entry.label}</Label>
+      {entry.badge != null && entry.badge > 0 && mode === "expanded" && (
+        <NotifBadge>{entry.badge}</NotifBadge>
+      )}
+    </StyledLink>
+  );
+}
+
+/* ---------- component ---------- */
+
+export function Sidebar({ mode, toggle }: SidebarProps) {
   const { characterId, tribeCaps } = useIdentity();
   const { unreadCount } = useNotifications();
   const userTribeId = tribeCaps[0]?.tribeId;
 
+  const mainEntries: NavEntry[] = [
+    { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
+    { to: "/tribes", label: "All Tribes", icon: Users },
+    {
+      to: userTribeId ? `/tribe/${userTribeId}` : "#",
+      label: "My Tribe",
+      icon: Shield,
+      disabled: !userTribeId,
+    },
+    {
+      to: characterId ? `/structures/${characterId}` : "/structures",
+      label: "My Structures",
+      icon: Building2,
+    },
+    { to: "/contracts", label: "Contracts", icon: FileText },
+    {
+      to: "/locations",
+      label: "Locations",
+      icon: MapPin,
+      disabled: !userTribeId,
+    },
+  ];
+
+  const systemEntries: NavEntry[] = [
+    { to: "/events", label: "Event Explorer", icon: Activity },
+    {
+      to: "/notifications",
+      label: "Notifications",
+      icon: Bell,
+      badge: unreadCount,
+    },
+    { to: "/settings", label: "Settings", icon: Settings },
+  ];
+
+  if (mode === "hidden") {
+    return null;
+  }
+
   return (
-    <Nav>
-      <StyledLink to="/" end>
-        Dashboard
-      </StyledLink>
-      <StyledLink to="/tribes">All Tribes</StyledLink>
-      {userTribeId ? (
-        <StyledLink to={`/tribe/${userTribeId}`}>My Tribe</StyledLink>
-      ) : (
-        <DisabledNavItem>My Tribe</DisabledNavItem>
-      )}
-      <StyledLink to={characterId ? `/structures/${characterId}` : "/structures"}>My Structures</StyledLink>
-      <StyledLink to="/contracts">Contracts</StyledLink>
-      {userTribeId ? (
-        <StyledLink to="/locations">Locations</StyledLink>
-      ) : (
-        <DisabledNavItem>Locations</DisabledNavItem>
-      )}
+    <Nav $mode={mode}>
+      {mainEntries.map((e) => (
+        <NavItem key={e.to + e.label} entry={e} mode={mode} />
+      ))}
+
       <Spacer />
-      <SectionLabel>System</SectionLabel>
-      <StyledLink to="/events">Event Explorer</StyledLink>
-      <StyledLink to="/notifications">
-        Notifications{unreadCount > 0 && <NotifBadge>{unreadCount}</NotifBadge>}
-      </StyledLink>
-      <StyledLink to="/settings">Settings</StyledLink>
+      <SectionLabel $visible={mode === "expanded"}>System</SectionLabel>
+      {systemEntries.map((e) => (
+        <NavItem key={e.to} entry={e} mode={mode} />
+      ))}
+
+      <ToggleButton
+        onClick={toggle}
+        title={mode === "expanded" ? "Collapse sidebar" : "Expand sidebar"}
+      >
+        {mode === "expanded" ? (
+          <ChevronsLeft size={ICON_SIZE} />
+        ) : (
+          <ChevronsRight size={ICON_SIZE} />
+        )}
+      </ToggleButton>
     </Nav>
+  );
+}
+
+/** Floating button rendered in the Header when sidebar is completely hidden */
+export function SidebarOpenButton({ onClick }: { onClick: () => void }) {
+  return (
+    <ToggleButton onClick={onClick} title="Open sidebar">
+      <Menu size={ICON_SIZE} />
+    </ToggleButton>
   );
 }

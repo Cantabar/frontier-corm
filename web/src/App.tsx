@@ -7,7 +7,8 @@ import { useNotifications } from "./hooks/useNotifications";
 import { usePayoutWatcher } from "./hooks/usePayoutWatcher";
 import { onIndexerError } from "./lib/api";
 import { Header } from "./components/layout/Header";
-import { Sidebar } from "./components/layout/Sidebar";
+import { Sidebar, SidebarOpenButton } from "./components/layout/Sidebar";
+import { useSidebarState } from "./hooks/useSidebarState";
 import { Footer } from "./components/layout/Footer";
 import { AutoJoinBanner } from "./components/tribe/AutoJoinBanner";
 import { Dashboard } from "./pages/Dashboard";
@@ -50,6 +51,7 @@ export default function App() {
   const identity = useIdentityResolver();
   const { push } = useNotifications();
   const location = useLocation();
+  const { mode: sidebarMode, toggle: toggleSidebar } = useSidebarState();
 
   // Poll for payout & item pickup notifications
   usePayoutWatcher();
@@ -78,10 +80,16 @@ export default function App() {
   return (
     <IdentityContext.Provider value={identity}>
       <Shell>
-        <Header />
+        <Header
+          sidebarOpenButton={
+            sidebarMode === "hidden" ? (
+              <SidebarOpenButton onClick={toggleSidebar} />
+            ) : undefined
+          }
+        />
         <AutoJoinBanner />
         <Main>
-          <Sidebar />
+          <Sidebar mode={sidebarMode} toggle={toggleSidebar} />
           <Content>
             <Routes>
               <Route path="/" element={<Dashboard />} />

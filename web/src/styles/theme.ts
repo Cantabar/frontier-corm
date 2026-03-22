@@ -70,6 +70,16 @@ export const theme = {
     xl: "32px",
     xxl: "48px",
   },
+  breakpoints: {
+    /** Below sm: sidebar hidden */
+    sm: 768,
+    /** Between sm and md: sidebar icons only; above md: fully expanded */
+    md: 1024,
+  },
+  sidebar: {
+    expandedWidth: 200,
+    iconWidth: 56,
+  },
 } as const;
 
 export type AppTheme = typeof theme;
