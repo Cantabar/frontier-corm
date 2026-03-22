@@ -6,6 +6,7 @@ import { useStructures } from "../hooks/useStructures";
 import { useNetworkNodes } from "../hooks/useNetworkNodes";
 import { useIdentity } from "../hooks/useIdentity";
 import { useStructureLocationIds } from "../hooks/useStructureLocationIds";
+import { useCharacterProfile } from "../hooks/useCharacterProfile";
 import { useTlkStatus } from "../hooks/useTlkStatus";
 import { LoadingSpinner } from "../components/shared/LoadingSpinner";
 import { EmptyState } from "../components/shared/EmptyState";
@@ -379,6 +380,7 @@ export function MyStructuresPage() {
   const tribeId = isOwner ? (tribeCaps[0]?.tribeId ?? null) : null;
   const { structures, isLoading, refetch } = useStructures(targetCharacterId);
   const { locationIds, refetch: refetchLocations } = useStructureLocationIds();
+  const { profile: targetProfile } = useCharacterProfile(isOwner ? null : targetCharacterId);
   const tlk = useTlkStatus();
   const [addLocationForId, setAddLocationForId] = useState<string | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
@@ -471,7 +473,7 @@ export function MyStructuresPage() {
 
   const pageTitle = isOwner
     ? "My Structures"
-    : `Structures · ${truncateAddress(targetCharacterId ?? "", 10, 6)}`;
+    : `Structures · ${targetProfile?.name || truncateAddress(targetCharacterId ?? "", 10, 6)}`;
 
   function handleCopyLink() {
     const url = `${window.location.origin}/structures/${targetCharacterId}`;
