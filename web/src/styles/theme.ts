@@ -2,7 +2,8 @@
  * Frontier Corm design tokens.
  *
  * "Rooted Trust" palette — cyan primary, violet accents, cold-gray surfaces.
- * Designed to stand apart from the default warm-orange Frontier theme.
+ * Scuffed with post-apocalyptic grit: harsh corners, industrial fonts,
+ * rust accents, and weathered surface tones.
  */
 
 export const theme = {
@@ -17,13 +18,18 @@ export const theme = {
       accent: "#7C4DFF", // electric violet — special badges, zkProof indicators
       accentMuted: "#4A2D99", // subdued violet — section highlights
     },
+    rust: {
+      main: "#BF5B3F", // corroded orange — hazard accents
+      muted: "#7A3D2A", // subdued rust — subtle marks
+    },
     surface: {
-      bg: "#0F1318", // near-black cold blue — page background
-      raised: "#161B22", // dark slate — cards, panels
+      bg: "#0B0E11", // deep void — page background
+      raised: "#13171D", // dark slate with faint warmth — cards, panels
       overlay: "#1C2330", // modal / dropdown background
-      border: "#2A3140", // cool steel — borders
+      border: "#2D3038", // warm steel — borders
       borderHover: "#3B4556", // lighter steel — border hover
       muted: "#4A5568", // disabled elements
+      scratched: "#1A1E25", // alternate panel striping
     },
     text: {
       primary: "#F0F4F8", // cool white — headings
@@ -54,13 +60,14 @@ export const theme = {
     },
   },
   fonts: {
-    body: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    heading: '"Rajdhani", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    body: '"Share Tech Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
     mono: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
   },
   radii: {
-    sm: "4px",
-    md: "8px",
-    lg: "12px",
+    sm: "0px",
+    md: "2px",
+    lg: "3px",
   },
   spacing: {
     xs: "4px",
