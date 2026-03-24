@@ -1,0 +1,515 @@
+!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ROBCO TERMINAL: SIGNAL TRACER</title>
+    <style>
+        :root {
+            --term-green: #00ff41;
+            --term-bg: #000500;
+            --term-red: #ff3333;
+            --term-blue: #00aaff;
+            --term-gold: #ffb400;
+        }
+
+        body {
+            background-color: #000;
+            color: var(--term-green);
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        #terminal-container {
+            position: relative;
+            display: flex;
+            gap: 20px;
+            padding: 20px;
+            border: 2px solid #004400;
+            background: var(--term-bg);
+            box-shadow: inset 0 0 100px rgba(0, 255, 0, 0.05), 0 0 20px rgba(0, 255, 0, 0.1);
+        }
+
+        /* Scanline Overlay */
+        #terminal-container::before {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            z-index: 10;
+            background-size: 100% 4px, 3px 100%;
+            pointer-events: none;
+        }
+
+        #canvas-wrap {
+            position: relative;
+            border: 1px solid #003300;
+        }
+
+        canvas {
+            display: block;
+            image-rendering: pixelated;
+        }
+
+        #sidebar {
+            width: 240px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 3;
+        }
+
+        .stat-block {
+            border: 1px solid #004400;
+            padding: 8px;
+            background: rgba(0, 20, 0, 0.5);
+        }
+
+        .meter {
+            height: 10px;
+            border: 1px solid #004400;
+            margin-top: 5px;
+            position: relative;
+            background: #001100;
+        }
+
+        .fill {
+            height: 100%;
+            width: 0%;
+            transition: width 0.3s ease, background 0.3s ease;
+        }
+
+        #corruption-bar { background: var(--term-red); box-shadow: 0 0 10px var(--term-red); }
+        #signal-bar { background: var(--term-green); box-shadow: 0 0 10px var(--term-green); }
+
+        .config-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.6em;
+            margin: 4px 0;
+            cursor: pointer;
+        }
+
+        .config-row input {
+            cursor: pointer;
+            accent-color: var(--term-green);
+        }
+
+        #input-zone {
+            margin-top: auto;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            background: transparent;
+            border: 1px solid var(--term-green);
+            color: var(--term-green);
+            padding: 8px;
+            font-family: inherit;
+            font-size: 1.1em;
+            text-transform: uppercase;
+            outline: none;
+            box-sizing: border-box;
+        }
+
+        input:focus {
+            background: rgba(0, 255, 0, 0.05);
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.2);
+        }
+
+        #overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.95);
+            z-index: 100;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        .btn {
+            background: none;
+            border: 1px solid var(--term-green);
+            color: var(--term-green);
+            padding: 12px 24px;
+            font-family: inherit;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: 0.2s;
+        }
+
+        .btn:hover {
+            background: var(--term-green);
+            color: #000;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="terminal-container">
+        <div id="canvas-wrap">
+            <canvas id="gameCanvas"></canvas>
+        </div>
+
+        <div id="sidebar">
+            <div class="stat-block">
+                <div style="font-size: 0.65em;">> SYSTEM CORRUPTION</div>
+                <div class="meter"><div id="corruption-bar" class="fill"></div></div>
+                <div style="font-size: 0.75em; margin-top: 5px;" id="corr-text">0.0%</div>
+            </div>
+
+            <div class="stat-block">
+                <div style="font-size: 0.65em;">> SIGNAL INTENSITY</div>
+                <div class="meter"><div id="signal-bar" class="fill"></div></div>
+                <div style="font-size: 0.75em; margin-top: 5px;" id="signal-text">OFFLINE</div>
+            </div>
+
+            <div class="stat-block">
+                <div style="font-size: 0.65em; margin-bottom: 5px;">> HINT CONFIGURATION</div>
+                <label class="config-row">
+                    <input type="checkbox" id="cfg-heatmap" checked> HEATMAP SENSORS
+                </label>
+                <label class="config-row">
+                    <input type="checkbox" id="cfg-vectors" checked> DIRECTIONAL VECTORS
+                </label>
+                <label class="config-row">
+                    <input type="checkbox" id="cfg-decode" checked> CHARACTER DECODING
+                </label>
+            </div>
+
+            <div class="stat-block" style="font-size: 0.65em; line-height: 1.5;">
+                > SCANNER: <span id="scanner-status" style="color: #fff;">IDLE</span><br>
+                > GRID SIZE: 20x20<br>
+                > ENCRYPTION: FULL ASCII SHIFT
+            </div>
+
+            <div id="input-zone">
+                <label style="font-size: 0.65em;">> SUBMIT BYPASS KEY:</label>
+                <input type="text" id="guess-input" placeholder="_____" maxlength="14" autocomplete="off">
+                <p style="font-size: 0.5em; color: #006600; margin-top: 6px;">
+                    DEDUCE CAESAR SHIFT OFFSET. SYMBOLS ARE ALSO ENCRYPTED IN THIS STREAM.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div id="overlay">
+        <h1 id="over-msg" style="font-size: 2.5em; letter-spacing: 5px;"></h1>
+        <div id="final-stats" style="margin: 15px 0;"></div>
+        <button class="btn" onclick="location.reload()">INITIATE SYSTEM REBOOT</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const guessInput = document.getElementById('guess-input');
+        
+        const cfgHeatmap = document.getElementById('cfg-heatmap');
+        const cfgVectors = document.getElementById('cfg-vectors');
+        const cfgDecode = document.getElementById('cfg-decode');
+
+        const COLS = 20, ROWS = 20;
+        const CELL_SIZE = 30; 
+        canvas.width = COLS * CELL_SIZE;
+        canvas.height = ROWS * CELL_SIZE;
+
+        const WORDS = [
+            "INFRASTRUCTURE", "ARCHITECTURE", "DECRYPTOR", "FALSIFICATION", 
+            "MAINFRAME", "SYNCHRONIZER", "OSCILLATION", "ENCRYPTION",
+            "TRANSISTOR", "CYBERNETIC", "WAVELENGTH", "PROCESSING"
+        ];
+        // Standard ASCII symbols block
+        const SYMBOLS = "!@#$%^&*()_+-=[]{}|;:,.<>?/\\";
+        const TRAP_SYMBOLS = "¤§¶†‡"; 
+        
+        const TARGET_WORD = WORDS[Math.floor(Math.random() * WORDS.length)];
+        const WORD_LEN = TARGET_WORD.length;
+        const SHIFT = Math.floor(Math.random() * 8) + 1; 
+
+        // Unified shift function for all characters (ASCII)
+        // We use a safe range to ensure symbols stay symbols and letters stay letters where possible,
+        // or just a pure ASCII rotation for the symbols.
+        const getShifted = (char, offset) => {
+            const code = char.charCodeAt(0);
+            // Handle A-Z separately to maintain the alphabet wrap puzzle
+            if (code >= 65 && code <= 90) {
+                return String.fromCharCode(((code - 65 + offset) % 26) + 65);
+            }
+            // For symbols, we rotate within the typical symbol range (33-47 and 58-64)
+            // or just use a simple ASCII wrap for the requested "ASCII table numbering" feel
+            return String.fromCharCode(code + offset);
+        };
+        
+        const decoys = [];
+        for (let i = 0; i < 4; i++) {
+            let decoy = "";
+            for (let j = 0; j < WORD_LEN; j++) {
+                decoy += String.fromCharCode(65 + Math.floor(Math.random() * 26));
+            }
+            decoys.push(decoy);
+        }
+
+        let corruption = 0;
+        let isLocked = false;
+        const placementMap = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
+
+        function placeString(word, type) {
+            let placed = false;
+            let attempts = 0;
+            while (!placed && attempts < 100) {
+                const y = Math.floor(Math.random() * ROWS);
+                const startX = Math.floor(Math.random() * (COLS - word.length));
+                
+                let collision = false;
+                for (let i = 0; i < word.length; i++) {
+                    if (placementMap[y][startX + i] !== null) {
+                        collision = true;
+                        break;
+                    }
+                }
+
+                if (!collision) {
+                    for (let i = 0; i < word.length; i++) {
+                        placementMap[y][startX + i] = {
+                            char: word[i],
+                            type: type
+                        };
+                    }
+                    placed = true;
+                    if (type === 'target') return { x: startX, y: y, endX: startX + word.length - 1 };
+                }
+                attempts++;
+            }
+        }
+
+        const targetCoords = placeString(TARGET_WORD, 'target');
+        decoys.forEach(d => placeString(d, 'decoy'));
+
+        // Place Trap Nodes
+        for (let m = 0; m < 12; m++) {
+            let placed = false;
+            while(!placed) {
+                const rx = Math.floor(Math.random() * COLS);
+                const ry = Math.floor(Math.random() * ROWS);
+                if (placementMap[ry][rx] === null) {
+                    placementMap[ry][rx] = { type: 'trap', char: TRAP_SYMBOLS[Math.floor(Math.random() * TRAP_SYMBOLS.length)] };
+                    placed = true;
+                }
+            }
+        }
+
+        const grid = [];
+        for(let y=0; y<ROWS; y++) {
+            for(let x=0; x<COLS; x++) {
+                const cellData = placementMap[y][x];
+                let plainChar, encodedChar, type = 'noise';
+
+                if (cellData) {
+                    plainChar = cellData.char;
+                    type = cellData.type;
+                    encodedChar = getShifted(plainChar, SHIFT);
+                } else {
+                    if (Math.random() < 0.65) {
+                        plainChar = SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)];
+                        type = 'symbol';
+                    } else {
+                        plainChar = String.fromCharCode(65 + Math.floor(Math.random()*26));
+                        type = 'noise';
+                    }
+                    encodedChar = getShifted(plainChar, SHIFT);
+                }
+                
+                let dist;
+                if (x >= targetCoords.x && x <= targetCoords.endX) {
+                    dist = Math.abs(y - targetCoords.y);
+                } else {
+                    const horizontalDist = x < targetCoords.x ? (targetCoords.x - x) : (x - targetCoords.endX);
+                    dist = horizontalDist + Math.abs(y - targetCoords.y);
+                }
+                
+                grid.push({
+                    x, y, plain: plainChar, encoded: encodedChar,
+                    revealed: false, type: type, dist: dist
+                });
+            }
+        }
+
+        function drawSoftIndicator(x, y, type) {
+            const centerX = x * CELL_SIZE + CELL_SIZE/2;
+            const centerY = y * CELL_SIZE + CELL_SIZE/2;
+            const pulse = 0.8 + Math.sin(Date.now() / 200) * 0.2;
+            const radius = CELL_SIZE * 0.8 * pulse;
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.globalAlpha = 0.45 * pulse; 
+            const grad = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius);
+            grad.addColorStop(0, 'rgba(255, 180, 0, 1)');
+            grad.addColorStop(0.4, 'rgba(255, 120, 0, 0.4)');
+            grad.addColorStop(1, 'rgba(255, 80, 0, 0)');
+            ctx.fillStyle = grad;
+            let ox = 0, oy = 0;
+            const offset = CELL_SIZE * 0.35;
+            if (type.includes('N')) oy = -offset;
+            if (type.includes('S')) oy = offset;
+            if (type.includes('W')) ox = -offset;
+            if (type.includes('E')) ox = offset;
+            ctx.beginPath();
+            ctx.arc(centerX + ox, centerY + oy, radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+
+        function render() {
+            ctx.fillStyle = `rgba(0, 8, 0, ${0.92 + Math.random() * 0.08})`;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            grid.forEach(cell => {
+                const px = cell.x * CELL_SIZE;
+                const py = cell.y * CELL_SIZE;
+                ctx.strokeStyle = '#002200';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(px, py, CELL_SIZE, CELL_SIZE);
+
+                if (cell.revealed) {
+                    if (cfgHeatmap.checked) {
+                        if (cell.type === 'trap') {
+                            ctx.fillStyle = (Math.floor(Date.now()/100) % 2 === 0) ? 'rgba(255, 0, 0, 0.4)' : 'rgba(100, 0, 0, 0.2)';
+                        } else if (cell.dist === 0) {
+                            ctx.fillStyle = 'rgba(0, 255, 65, 0.45)';
+                        } else if (cell.dist < 5) {
+                            ctx.fillStyle = 'rgba(0, 255, 65, 0.25)';
+                        } else if (cell.dist > 12) {
+                            ctx.fillStyle = 'rgba(255, 51, 51, 0.22)';
+                        } else {
+                            ctx.fillStyle = 'rgba(0, 255, 65, 0.08)'; 
+                        }
+                        ctx.fillRect(px + 1, py + 1, CELL_SIZE - 2, CELL_SIZE - 2);
+                    }
+
+                    if (cfgVectors.checked && cell.type !== 'target' && cell.type !== 'trap') {
+                        let dir = "";
+                        const midX = targetCoords.x + (WORD_LEN / 2);
+                        if (cell.y > targetCoords.y) dir += "N";
+                        if (cell.y < targetCoords.y) dir += "S";
+                        if (cell.x > midX) dir += "W";
+                        if (cell.x < midX) dir += "E";
+                        if (dir) drawSoftIndicator(cell.x, cell.y, dir);
+                    }
+
+                    ctx.textAlign = "center";
+                    const fontSize = Math.floor(CELL_SIZE * 0.6);
+                    if (cfgDecode.checked) {
+                        ctx.font = `bold ${fontSize}px 'Courier New'`;
+                        ctx.fillStyle = cell.type === 'target' ? "#fff" : (cell.type === 'trap' ? "#ff0000" : "rgba(0, 255, 65, 0.95)");
+                        ctx.fillText(cell.plain, px + CELL_SIZE/2, py + CELL_SIZE/2 + (fontSize/3));
+                    } else {
+                        ctx.font = `bold ${fontSize}px 'Courier New'`;
+                        ctx.fillStyle = cell.type === 'trap' ? "#ff0000" : (cell.type === 'target' || cell.type === 'decoy' ? "#fff" : "rgba(0, 255, 65, 0.7)");
+                        ctx.fillText(cell.encoded, px + CELL_SIZE/2, py + CELL_SIZE/2 + (fontSize/3));
+                    }
+                } else {
+                    const fontSize = Math.floor(CELL_SIZE * 0.55);
+                    ctx.font = `${fontSize}px 'Courier New'`;
+                    ctx.fillStyle = "rgba(0, 255, 65, 0.55)";
+                    ctx.textAlign = "center";
+                    ctx.fillText(cell.encoded, px + CELL_SIZE/2, py + CELL_SIZE/2 + (fontSize/3));
+                }
+            });
+
+            if (!isLocked) requestAnimationFrame(render);
+        }
+
+        canvas.onclick = (e) => {
+            if (isLocked) return;
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            const cx = Math.floor(mouseX / (rect.width / COLS));
+            const cy = Math.floor(mouseY / (rect.height / ROWS));
+            const cell = grid.find(c => c.x === cx && c.y === cy);
+
+            if (cell && !cell.revealed) {
+                cell.revealed = true;
+                const signalBar = document.getElementById('signal-bar');
+                const signalText = document.getElementById('signal-text');
+                
+                if (cell.type === 'trap') {
+                    corruption += 40; 
+                    signalBar.style.width = "0%";
+                    signalBar.style.background = "var(--term-red)";
+                    signalText.innerText = "VOLTAGE SPIKE";
+                    document.getElementById('scanner-status').innerText = "SYSTEM TRAUMA";
+                } else if (cell.dist === 0) {
+                    corruption += 1.5; 
+                    signalBar.style.width = "100%";
+                    signalBar.style.background = "var(--term-green)";
+                    signalText.innerText = "CRITICAL MATCH";
+                } else if (cell.dist < 5) {
+                    corruption += 3;
+                    signalBar.style.width = "75%";
+                    signalBar.style.background = "var(--term-green)";
+                    signalText.innerText = "STRONG SIGNAL";
+                } else if (cell.dist > 12) {
+                    corruption += 10;
+                    signalBar.style.width = "10%";
+                    signalBar.style.background = "var(--term-red)";
+                    signalText.innerText = "NO SIGNAL";
+                } else {
+                    corruption += 6;
+                    signalBar.style.width = "40%";
+                    signalBar.style.background = "#88ff00";
+                    signalText.innerText = "WEAK SIGNAL";
+                }
+                updateStats();
+            }
+        };
+
+        function updateStats() {
+            if (corruption >= 100) {
+                corruption = 100;
+                endGame(false);
+            }
+            document.getElementById('corruption-bar').style.width = corruption + "%";
+            document.getElementById('corr-text').innerText = corruption.toFixed(1) + "%";
+        }
+
+        guessInput.onkeypress = (e) => {
+            if (e.key === 'Enter') {
+                const val = guessInput.value.toUpperCase().trim();
+                if (val === TARGET_WORD) endGame(true);
+                else {
+                    corruption += 25; 
+                    guessInput.value = "";
+                    updateStats();
+                    document.getElementById('scanner-status').innerText = "HASH MISMATCH";
+                }
+            }
+        };
+
+        function endGame(win) {
+            isLocked = true;
+            const ov = document.getElementById('overlay');
+            const msg = document.getElementById('over-msg');
+            ov.style.display = "flex";
+            if (win) {
+                msg.innerText = "ACCESS GRANTED";
+                msg.style.color = "var(--term-green)";
+            } else {
+                msg.innerText = "TERMINAL LOCKED";
+                msg.style.color = "var(--term-red)";
+            }
+        }
+
+        render();
+    </script>
+</body>
+</html>
