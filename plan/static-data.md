@@ -225,7 +225,7 @@ Physical file = `ResFiles/<physical_subpath>`
 
 ## Ship & Vehicle Type Mapping
 
-### Frontier-specific ships (craftable from frames)
+### Frontier-specific ships (craftable)
 
 | typeID | Name    | Frame Used                  | graphicID | SOF Hull              |
 |--------|---------|-----------------------------|-----------|-----------------------|
@@ -252,24 +252,55 @@ Physical file = `ResFiles/<physical_subpath>`
 | 77728  | Sophrogon |
 | 77753  | Embark    |
 
-### Ship frames (already had icons)
+### Ship frames
 
-| typeID | Name                        | Blueprint inputs                               |
-|--------|-----------------------------|------------------------------------------------|
-| 78416  | Apocalypse Protocol Frame   | Still Knot ×1, Echo Chamber ×1, Kerogen Tar ×128 |
-| 78417  | Bastion Program Frame       | Still Knot ×1, Echo Chamber ×1, Kerogen Tar ×38  |
-| 78418  | Nomad Program Frame         | Fossilized Exotronics ×5                         |
-| 78420  | Archangel Protocol Frame    | Still Knot ×1, Echo Chamber ×1, Kerogen Tar ×38  |
-| 78421  | Exterminata Protocol Frame  | Still Knot ×1, Echo Chamber ×1, Kerogen Tar ×38  |
-| 78422  | Equilibrium Program Frame   | Still Knot ×1, Echo Chamber ×1, Aromatic Carbon Weave ×1347 |
+| typeID | Name                        | Blueprint inputs                               | runTime |
+|--------|-----------------------------|------------------------------------------------|---------|
+| 78416  | Apocalypse Protocol Frame   | Still Knot ×1, Echo Chamber ×1, Kerogen Tar ×128 | 46s   |
+| 78417  | Bastion Program Frame       | Still Knot ×1, Echo Chamber ×1, Kerogen Tar ×38  | 31s   |
+| 78418  | Nomad Program Frame         | Fossilized Exotronics ×5                         | 20s    |
+| 78420  | Archangel Protocol Frame    | Still Knot ×1, Echo Chamber ×1, Kerogen Tar ×38  | 31s   |
+| 78421  | Exterminata Protocol Frame  | Still Knot ×1, Echo Chamber ×1, Kerogen Tar ×38  | 31s   |
+| 78422  | Equilibrium Program Frame   | Still Knot ×1, Echo Chamber ×1, Aromatic Carbon Weave ×1347 | 126s |
 
-### Shells (craftable from frames, already had icons)
+### Full Ship Blueprints
 
-| typeID | Name             | Frame Used                  |
-|--------|------------------|-----------------------------| 
-| 91749  | Reaping Shell    | Exterminata Protocol Frame  |
-| 91967  | Aggressive Shell | Nomad Program Frame         |
-| 91968  | Rugged Shell     | Apocalypse Protocol Frame   |
+Ships require a frame **plus** additional materials. Material tier scales with ship class:
+corvettes use raw materials, frigates use batched, cruiser/battlecruiser use packaged.
+
+**Corvettes** (Nomad Program Frame):
+- **Reflex** (87847, BP 1009, 50s) — Nomad Program Frame ×1, Reinforced Alloys ×28, Hydrocarbon Residue ×40
+- **Wend** (87698, BP 1227, 60s) — Nomad Program Frame ×1, Reinforced Alloys ×34, Carbon Weave ×17, Thermal Composites ×17
+- **Recurve** (87846, BP 1226, 130s) — Nomad Program Frame ×2, Reinforced Alloys ×45, Carbon Weave ×25, Thermal Composites ×25, Still Kernel ×2
+- **Reiver** (87848, BP 1224, 150s) — Nomad Program Frame ×2, Reinforced Alloys ×78, Carbon Weave ×33, Thermal Composites ×33
+- **Stride** (91106, BP 1470, 10630s) — Stride Stack ×1, Nomad Program Frame ×2, Reinforced Alloys ×96, Carbon Weave ×48, Thermal Composites ×48
+- **Carom** (91107, BP 1471, 10260s) — Carom Stack ×1, Nomad Program Frame ×2, Reinforced Alloys ×88, Carbon Weave ×44, Thermal Composites ×44
+
+**Frigates** (batched materials):
+- **USV** (81609, BP 1232, 8200s) — Archangel Protocol Frame ×1, Batched Reinforced Alloys ×56, Batched Carbon Weave ×28, Batched Thermal Composites ×28
+- **LORHA** (82426, BP 1228, 8320s) — Bastion Program Frame ×1, Batched Reinforced Alloys ×58, Batched Carbon Weave ×29, Batched Thermal Composites ×29
+- **LAI** (82425, BP 1483, 78000s) — Exterminata Protocol Frame ×1, Batched Reinforced Alloys ×80, Batched Carbon Weave ×70, Batched Thermal Composites ×70, Still Kernel ×4
+- **MCF** (81904, BP 1229, 79200s) — Exterminata Protocol Frame ×1, Batched Reinforced Alloys ×88, Batched Carbon Weave ×48, Batched Thermal Composites ×48, Still Kernel ×3
+- **HAF** (82424, BP 1231, 82800s) — Exterminata Protocol Frame ×1, Batched Reinforced Alloys ×160, Batched Carbon Weave ×74, Batched Thermal Composites ×74
+
+**Destroyer:**
+- **TADES** (81808, BP 1230, 151200s) — Apocalypse Protocol Frame ×1, Batched Reinforced Alloys ×124, Batched Carbon Weave ×72, Batched Thermal Composites ×72, Still Kernel ×4
+
+**Cruiser:**
+- **MAUL** (82430, BP 1233, 244800s) — Apocalypse Protocol Frame ×1, Packaged Reinforced Alloys ×46, Packaged Carbon Weave ×30, Packaged Thermal Composites ×30, Echo Chamber ×7, Still Knot ×2
+
+**Combat Battlecruiser:**
+- **Chumaq** (81611, BP 1234, 324000s) — Equilibrium Program Frame ×1, Packaged Reinforced Alloys ×256, Packaged Carbon Weave ×128, Packaged Thermal Composites ×128
+
+**No blueprint:** Forager (85156)
+
+### Shell Blueprints
+
+| typeID | Name             | BP   | Inputs | runTime |
+|--------|------------------|------|--------|---------|
+| 91967  | Aggressive Shell | 1475 | Nomad Program Frame ×1, Salt ×3, Still Kernel ×1 | 46400s |
+| 91968  | Rugged Shell     | 1476 | Apocalypse Protocol Frame ×1, Chitinous Organics ×6, Kerogen Tar ×4, Salt ×2, Still Kernel ×1, Water Ice ×4 | 37100s |
+| 91749  | Reaping Shell    | 1487 | Exterminata Protocol Frame ×1, Sophrogon ×3, Still Kernel ×1, Water Ice ×8 | 50800s |
 
 ---
 
