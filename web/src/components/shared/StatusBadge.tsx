@@ -19,10 +19,13 @@ const Badge = styled.span<{ $variant: BadgeVariant }>`
   padding: 2px 8px;
   font-size: 12px;
   font-weight: 600;
-  border-radius: ${({ theme }) => theme.radii.sm};
+  font-family: ${({ theme }) => theme.fonts.heading};
+  letter-spacing: 0.06em;
+  clip-path: polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px);
   background: ${({ $variant }) => variantColors[$variant].bg};
   color: ${({ $variant }) => variantColors[$variant].text};
-  text-transform: capitalize;
+  border-left: 2px solid ${({ $variant }) => variantColors[$variant].text};
+  text-transform: uppercase;
 `;
 
 export function StatusBadge({ status }: { status: BadgeVariant }) {

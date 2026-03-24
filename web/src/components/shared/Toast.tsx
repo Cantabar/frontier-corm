@@ -14,9 +14,12 @@ import { useNotifications, type SessionNotification } from "../../hooks/useNotif
 // Animations
 // ---------------------------------------------------------------------------
 
-const slideIn = keyframes`
-  from { transform: translateX(100%); opacity: 0; }
-  to   { transform: translateX(0);    opacity: 1; }
+const glitchIn = keyframes`
+  0%   { transform: translateX(100%); opacity: 0; }
+  40%  { transform: translateX(-2px);  opacity: 0.8; }
+  55%  { transform: translateX(3px);   opacity: 1; }
+  70%  { transform: translateX(-1px);  opacity: 0.9; }
+  100% { transform: translateX(0);     opacity: 1; }
 `;
 
 const fadeOut = keyframes`
@@ -65,10 +68,11 @@ const ToastItem = styled.div<{ $level: string; $exiting: boolean }>`
   border-radius: ${({ theme }) => theme.radii.md};
   padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.md};
   cursor: pointer;
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
   animation: ${({ $exiting }) =>
     $exiting
       ? css`${fadeOut} 0.25s ease forwards`
-      : css`${slideIn} 0.3s ease`};
+      : css`${glitchIn} 0.4s ease`};
 `;
 
 const ToastHeader = styled.div`

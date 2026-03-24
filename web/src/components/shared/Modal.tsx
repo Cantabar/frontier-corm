@@ -14,7 +14,8 @@ const Overlay = styled.div`
 const Panel = styled.div`
   background: ${({ theme }) => theme.colors.surface.overlay};
   border: 1px solid ${({ theme }) => theme.colors.surface.border};
-  border-radius: ${({ theme }) => theme.radii.lg};
+  border-top: 2px solid ${({ theme }) => theme.colors.rust.main};
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
   padding: ${({ theme }) => theme.spacing.lg};
   min-width: 400px;
   max-width: 560px;
@@ -31,7 +32,10 @@ const ModalHeader = styled.div`
 
 const ModalTitle = styled.h2`
   font-size: 18px;
-  font-weight: 600;
+  font-weight: 700;
+  font-family: ${({ theme }) => theme.fonts.heading};
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   color: ${({ theme }) => theme.colors.text.primary};
 `;
 
