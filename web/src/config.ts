@@ -69,6 +69,7 @@ export const config = {
     tribe: import.meta.env.VITE_TRIBE_PACKAGE_ID ?? "0x0",
     trustlessContracts: import.meta.env.VITE_TRUSTLESS_CONTRACTS_PACKAGE_ID ?? "0x0",
     cormAuth: import.meta.env.VITE_CORM_AUTH_PACKAGE_ID ?? "0x0",
+    cormState: import.meta.env.VITE_CORM_STATE_PACKAGE_ID ?? "0x0",
     world: import.meta.env.VITE_WORLD_PACKAGE_ID ?? "0x0",
   },
 
@@ -89,4 +90,10 @@ export const config = {
 
   /** World API base URL (for tribe name backfill) */
   worldApiUrl: import.meta.env.VITE_WORLD_API_URL ?? defaults.worldApiUrl,
+
+  /** Puzzle service URL (for Continuity Engine iframe) */
+  puzzleServiceUrl: import.meta.env.VITE_PUZZLE_SERVICE_URL ?? "http://localhost:3300",
+
+  /** CormState shared object ID (set after first corm creation) */
+  cormStateId: import.meta.env.VITE_CORM_STATE_ID ?? "",
 } as const;

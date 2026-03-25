@@ -11,6 +11,7 @@ import { WalletButton } from "./components/shared/WalletButton";
 
 import { IdentityContext, useIdentityResolver } from "./hooks/useIdentity";
 import { SsuDeliveryDapp } from "./pages/SsuDeliveryDapp";
+import { ContinuityEngineDappPage } from "./continuity-engine/ContinuityEngineDappPage";
 import { Footer } from "./components/layout/Footer";
 
 // ---------------------------------------------------------------------------
@@ -62,6 +63,8 @@ export default function DappApp() {
         <Content>
           <Routes>
             <Route path="deliver/:ssuId" element={<SsuDeliveryDapp />} />
+            <Route path="continuity" element={<ContinuityEngineDappPage />} />
+            <Route path="continuity/:entityId" element={<ContinuityEngineDappPage />} />
           </Routes>
         </Content>
         <Footer />

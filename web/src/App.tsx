@@ -23,6 +23,7 @@ import { NotificationsPage } from "./pages/NotificationsPage";
 import { StructuresRedirect, MyStructuresPage } from "./pages/MyStructuresPage";
 import { LocationsPage } from "./pages/LocationsPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { ContinuityEngine } from "./continuity-engine/ContinuityEngine";
 import { ToastContainer } from "./components/shared/Toast";
 import { LoadingSpinner } from "./components/shared/LoadingSpinner";
 
@@ -100,6 +101,7 @@ export default function App() {
               <Route path="/contracts" element={<TrustlessContracts />} />
               <Route path="/contracts/create" element={<CreateContractPage />} />
               <Route path="/contracts/:contractId" element={<ContractDetailPage />} />
+              <Route path="/continuity" element={<ContinuityEngine />} />
               <Route path="/events" element={<EventExplorer />} />
               <Route path="/structures" element={<StructuresRedirect />} />
               <Route path="/structures/:characterId" element={<MyStructuresPage />} />

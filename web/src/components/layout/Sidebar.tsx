@@ -6,6 +6,7 @@ import {
   Shield,
   Building2,
   FileText,
+  Cpu,
   MapPin,
   Activity,
   Bell,
@@ -259,6 +260,7 @@ export function Sidebar({ mode, toggle }: SidebarProps) {
       icon: Building2,
     },
     { to: "/contracts", label: "Contracts", icon: FileText },
+    { to: "/continuity", label: "Continuity", icon: Cpu },
     {
       to: "/locations",
       label: "Locations",
