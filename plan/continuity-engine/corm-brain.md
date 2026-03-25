@@ -70,7 +70,7 @@ DGX Spark (on-premise)
 │   └── Routes LLM requests to Super or Nano based on task type
 │   └── Pushes actions back to cloud puzzle-service
 │   └── Reads/writes corm state to local Postgres (pgx + pgvector)
-│   └── Executes SUI transactions (SIGNAL minting, CormState updates)
+│   └── Executes SUI transactions (CORM minting, CormState updates)
 │   └── In-process ONNX embeddings for episodic memory (nomic-embed-text, CPU)
 └── Postgres + pgvector (corm_events, corm_traits, corm_memories, corm_responses)
 ```
@@ -190,7 +190,7 @@ Each corm is a **distinct on-chain entity** with its own SUI object (`CormState`
 - A corm starts bound to a single `network_node_id` but can later expand to span multiple network nodes (Phase 4+ gate linking)
 - The `corm_network_nodes` table tracks the many-to-one relationship: multiple network nodes → one corm
 - Events arriving from any network node belonging to a corm are grouped under that corm's `corm_id`
-- The on-chain `CormState` contract (not yet written) will hold the corm's canonical phase, stability, corruption, and trust policies — the corm-brain caches these locally in `corm_traits`
+- The on-chain `CormState` contract (not yet written) will hold the corm's canonical phase, stability, and corruption — the corm-brain caches these locally in `corm_traits`
 
 No dedicated process or model instance per corm — dozens of corms are just partitions in the same Postgres tables, served by the same Nemotron models.
 
@@ -340,7 +340,7 @@ corm-brain/
 │   │   ├── client.go       # SUI RPC client wrapper (pattonkan/sui-go)
 │   │   ├── signer.go       # Ed25519 keypair management, transaction signing
 │   │   ├── cormstate.go    # Read/create/update CormState objects on-chain
-│   │   ├── signal.go       # SIGNAL minting via MintCap + CormSignal wrapping
+│   │   ├── coin.go         # CORM minting via MintCap
 │   │   ├── contracts.go    # Create trustless contracts (CoinForCoin, ItemForCoin, Transport, etc.)
 │   │   └── inventory.go    # Read player SSU inventories and balances
 │   ├── reasoning/
@@ -454,21 +454,20 @@ The corm-brain is the only component that writes to SUI. It holds a funded Ed255
 ### On-Chain Operations
 
 **Reading (no transaction, RPC only):**
-- `chain/cormstate.go` — `GetObject` to read a CormState shared object (phase, stability, corruption, trust policies). Cached in `corm_traits` and refreshed periodically.
+- `chain/cormstate.go` — `GetObject` to read a CormState shared object (phase, stability, corruption). Cached in `corm_traits` and refreshed periodically.
 - `chain/inventory.go` — `GetOwnedObjects` + `GetDynamicFields` to read player SSU inventories and balances. Used by Phase 2 contract generation to pick viable contract parameters (what the player has, what they can trade).
 
 **Writing (signed transactions via PTB):**
 - `chain/cormstate.go` — **Create CormState**: on first contact with a new network node, build a PTB that calls `corm_state::create(network_node_id)` to provision a new CormState shared object + MintCap. The returned object ID becomes the `corm_id`.
 - `chain/cormstate.go` — **Update CormState**: after stability/corruption changes, build a PTB that calls `corm_state::update_state(corm_state, new_phase, new_stability, new_corruption)`. Batched — multiple updates per corm are coalesced into one transaction per sync cycle.
-- `chain/signal.go` — **Mint SIGNAL**: on puzzle solve or contract completion, build a PTB that:
-  1. Calls `signal::mint(mint_cap, treasury_cap, amount)` to create a `Balance<SIGNAL>`
-  2. Calls `signal::wrap(corm_state, balance)` to produce a `CormSignal` tagged with the corm's ID
-  3. Calls `transfer::public_transfer(corm_signal, player_address)` to send it to the player
-  All three steps execute atomically in one PTB.
+- `chain/coin.go` — **Mint CORM**: on puzzle solve or contract completion, build a PTB that:
+  1. Calls `corm_coin::mint(mint_cap, treasury_cap, amount)` to create a `Coin<CORM>`
+  2. Calls `transfer::public_transfer(coin, player_address)` to send it to the player
+  Both steps execute atomically in one PTB.
 - `chain/contracts.go` — **Create trustless contract**: Phase 2+ contract generation. The corm-brain builds a PTB that calls the appropriate `trustless_contracts` module (`coin_for_coin::create`, `item_for_coin::create`, `transport::create`, etc.) with parameters chosen by the LLM + trait state. Contract parameters include:
   - Item types and amounts (informed by `inventory.go` reads)
   - Deadline (derived from corm patience trait)
-  - Reward amount (SIGNAL, scaled by pattern alignment)
+  - Reward amount (CORM, scaled by pattern alignment)
   - `allowed_characters` set to restrict to the active player
 
 ### Transaction Flow
@@ -685,7 +684,7 @@ Stack: two TRT-LLM containers (Super + Nano), one Go binary (with in-process ONN
 - `MEMORY_CAP_PER_CORM` — max episodic memories per corm before pruning (default: 500)
 - `DATABASE_URL` — local Postgres connection string (must be pgvector-enabled)
 - `SUI_RPC_URL` — SUI RPC endpoint for on-chain operations
-- `SUI_PRIVATE_KEY` — keypair for SIGNAL minting and CormState mutations
+- `SUI_PRIVATE_KEY` — keypair for CORM minting and CormState mutations
 - `CORM_STATE_PACKAGE_ID` — deployed corm_state package ID
 
 ## Resource Budget

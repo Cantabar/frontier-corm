@@ -111,7 +111,7 @@ This appears in the log panel alongside the contract appearing in the contracts 
 1. **Load puzzle** — `GET /puzzle` returns full page: rendered cipher grid (all cells encrypted), word input form, stability/corruption meters. Grid cells are `<button hx-post="/puzzle/decrypt" hx-vals='{"row":R,"col":C}' hx-target="#cell-R-C" hx-swap="outerHTML">`.
 2. **Decrypt cell** — Player clicks a cell. HTMX posts `{row, col}` to `/puzzle/decrypt`. Server looks up the session, applies the cipher to that cell, marks it decrypted, returns the updated `cell.html` partial with the plaintext character and a reveal animation class.
 3. **Submit word** — Player types a word and submits. HTMX posts `{word}` to `/puzzle/submit`. Server compares against the session's target word:
-   - **Correct**: Returns `result.html` with success state + updated `meters.html` (stability increased). Triggers SIGNAL reward via corm-brain.
+   - **Correct**: Returns `result.html` with success state + updated `meters.html` (stability increased). Triggers CORM reward via corm-brain.
    - **Incorrect**: Returns `result.html` with error state + updated `meters.html` (corruption increased).
 4. **Next puzzle** — On correct answer, a "Next" button appears that triggers `GET /puzzle` to load a fresh puzzle with higher difficulty tier.
 
@@ -252,7 +252,7 @@ puzzle-service:
 
 **Web app embedding**: The React app at `/continuity` embeds the puzzle UI via iframe pointing to `http://localhost:3300/puzzle`.
 
-**SIGNAL rewards**: Handled entirely by corm-brain. It observes `word_submit` success events in the dead drop stream (which include `player_address`) and executes SIGNAL minting and CormState updates on-chain from on-premise where it has SUI RPC access. The puzzle service has no SUI dependency.
+**CORM rewards**: Handled entirely by corm-brain. It observes `word_submit` success events in the dead-drop stream (which include `player_address`) and executes CORM minting and CormState updates on-chain from on-premise where it has SUI RPC access. The puzzle service has no SUI dependency.
 
 **Corm integration**: The corm log panel, boost effects, and contracts panel live inside the puzzle service's own UI (delivered via SSE as described above), not in the React parent.
 
@@ -269,6 +269,6 @@ A build-time script (can remain in TypeScript or be rewritten in Go) extracts wo
 
 ## Resolved Decisions
 
-- **Session persistence**: Sessions are ephemeral and in-memory only. A browser reload creates a fresh session. Corm-brain tracks long-lived player state (solve history, difficulty progression, SIGNAL balance) keyed by `player_address` across sessions. The puzzle service is stateless across restarts.
+- **Session persistence**: Sessions are ephemeral and in-memory only. A browser reload creates a fresh session. Corm-brain tracks long-lived player state (solve history, difficulty progression, CORM balance) keyed by `player_address` across sessions. The puzzle service is stateless across restarts.
 - **Embedding approach**: All services share a root domain (`ef-corm.com`) with subdomains (e.g., `puzzle.ef-corm.com`, `app.ef-corm.com`). Same root domain avoids cross-origin issues with cookies and `postMessage`. No iframe sandboxing needed.
 - **On-chain state for difficulty calibration**: Corm-brain pushes CormState values (phase, stability, corruption) via `POST /corm/actions` with a `state_sync` action type. The puzzle service stores these on the session and uses them to influence puzzle generation.
