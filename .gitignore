@@ -35,6 +35,9 @@ Pub.local.toml
 Pub.localnet.toml
 Pub.testnet.toml
 
+# ONNX model weights (large binaries, downloaded at runtime)
+models/
+
 # mprocs runtime log
 mprocs.log
 

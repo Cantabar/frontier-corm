@@ -1,0 +1,119 @@
+# Frontier Corm — DGX Spark Deployment
+#
+# All-TRT-LLM inference, in-process ONNX embeddings, no Ollama.
+#
+# Usage:  docker compose -f docker-compose.dgx.yml up -d
+# Logs:   docker compose -f docker-compose.dgx.yml logs -f corm-brain
+# Stop:   docker compose -f docker-compose.dgx.yml down
+
+services:
+  trtllm-super:
+    image: nvcr.io/nvidia/tensorrt-llm/release:1.3.0rc8
+    runtime: nvidia
+    ports:
+      - "8000:8000"
+    volumes:
+      - hf-cache:/root/.cache
+      - ./corm-brain/configs/trtllm-spark.yaml:/data/config-spark.yaml:ro
+    command: >
+      trtllm-serve nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4
+      --host 0.0.0.0 --port 8000
+      --max_batch_size 4
+      --trust_remote_code
+      --reasoning_parser nano-v3
+      --tool_parser qwen3_coder
+      --config /data/config-spark.yaml
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 300s
+
+  trtllm-nano:
+    image: nvcr.io/nvidia/tensorrt-llm/release:1.3.0rc8
+    runtime: nvidia
+    ports:
+      - "8001:8001"
+    volumes:
+      - hf-cache:/root/.cache
+      - ./corm-brain/configs/trtllm-spark-nano.yaml:/data/config-spark-nano.yaml:ro
+    command: >
+      trtllm-serve nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-NVFP4
+      --host 0.0.0.0 --port 8001
+      --max_batch_size 8
+      --trust_remote_code
+      --reasoning_parser nano-v3
+      --tool_parser qwen3_coder
+      --config /data/config-spark-nano.yaml
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 180s
+
+  corm-brain:
+    build:
+      context: ./corm-brain
+      dockerfile: Dockerfile
+    depends_on:
+      trtllm-super:
+        condition: service_healthy
+      trtllm-nano:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./models/nomic-embed:/models/nomic-embed:ro
+    environment:
+      - LLM_SUPER_URL=http://trtllm-super:8000
+      - LLM_FAST_URL=http://trtllm-nano:8001
+      - EMBED_MODEL_PATH=/models/nomic-embed
+      - PUZZLE_SERVICE_URL=${PUZZLE_SERVICE_URL}
+      - WS_RECONNECT_MAX_MS=30000
+      - FALLBACK_POLL_INTERVAL_MS=2000
+      - EVENT_COALESCE_MS=50
+      - CONSOLIDATION_INTERVAL_MS=60000
+      - MEMORY_CAP_PER_CORM=500
+      - DATABASE_URL=postgresql://corm:corm@postgres:5432/frontier_corm
+      - SUI_RPC_URL=${SUI_RPC_URL}
+      - SUI_PRIVATE_KEY=${SUI_PRIVATE_KEY}
+      - CORM_STATE_PACKAGE_ID=${CORM_STATE_PACKAGE_ID}
+    restart: unless-stopped
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: frontier_corm
+      POSTGRES_USER: corm
+      POSTGRES_PASSWORD: corm
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U corm -d frontier_corm"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  hf-cache:
+  pgdata:
