@@ -1,0 +1,192 @@
+/* ── Reset + base ──────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg: #0e0e10;
+  --surface: #1a1a1f;
+  --surface-hover: #222228;
+  --border: #2a2a32;
+  --text: #e0e0e6;
+  --muted: #888892;
+  --accent: #6e9eff;
+  --green: #3ddc84;
+  --yellow: #f5c542;
+  --red: #f5564a;
+  --font-mono: "SF Mono", "Cascadia Code", "Fira Code", monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --radius: 8px;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  padding: 2rem;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+code, .mono {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  background: var(--surface);
+  padding: 0.15em 0.4em;
+  border-radius: 4px;
+}
+
+/* ── Header ────────────────────────────────────────────────────── */
+.app-header { margin-bottom: 2rem; }
+.app-header h1 { font-size: 1.6rem; margin-bottom: 0.25rem; }
+.subtitle { color: var(--muted); font-size: 0.9rem; margin-bottom: 0.75rem; }
+.header-actions { display: flex; align-items: center; gap: 1rem; }
+.muted { color: var(--muted); font-size: 0.8rem; }
+
+.btn {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 0.4rem 1rem;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.btn:hover { background: var(--surface-hover); }
+
+/* ── Loading / Error ───────────────────────────────────────────── */
+.loading { color: var(--muted); padding: 2rem 0; }
+.error-banner {
+  background: rgba(245, 86, 74, 0.12);
+  border: 1px solid var(--red);
+  color: var(--red);
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius);
+  margin-bottom: 1.5rem;
+  font-size: 0.85rem;
+}
+.hidden { display: none !important; }
+
+/* ── Environment Cards ─────────────────────────────────────────── */
+.env-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.env-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem 1.5rem;
+}
+
+.env-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.env-card-header h2 {
+  font-size: 1.15rem;
+  flex: 1;
+}
+
+/* Status badges */
+.badge {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.2em 0.65em;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.badge-in-sync { background: rgba(61, 220, 132, 0.15); color: var(--green); }
+.badge-repo-ahead { background: rgba(245, 197, 66, 0.15); color: var(--yellow); }
+.badge-chain-ahead { background: rgba(245, 86, 74, 0.15); color: var(--red); }
+.badge-unknown { background: rgba(136, 136, 146, 0.15); color: var(--muted); }
+
+/* Key-value rows */
+.kv-table {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.25rem 1rem;
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.kv-label { color: var(--muted); white-space: nowrap; }
+.kv-value { font-family: var(--font-mono); font-size: 0.8rem; word-break: break-all; }
+
+/* ── Changelog (collapsible) ───────────────────────────────────── */
+details { margin-top: 0.5rem; }
+details > summary {
+  cursor: pointer;
+  color: var(--accent);
+  font-size: 0.85rem;
+  list-style: none;
+}
+details > summary::before { content: "▸ "; }
+details[open] > summary::before { content: "▾ "; }
+
+.commit-list {
+  list-style: none;
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+}
+
+.commit-list li {
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  gap: 0.5rem;
+}
+
+.commit-list li:last-child { border-bottom: none; }
+.commit-sha { color: var(--accent); font-family: var(--font-mono); flex-shrink: 0; }
+.commit-date { color: var(--muted); flex-shrink: 0; min-width: 5.5rem; }
+
+/* ── Releases section ──────────────────────────────────────────── */
+.releases-section { margin-top: 1rem; }
+.releases-section h2 { font-size: 1.15rem; margin-bottom: 1rem; }
+
+.release-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.release-item h3 {
+  font-size: 0.95rem;
+  margin-bottom: 0.25rem;
+}
+
+.release-item .release-date {
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin-bottom: 0.5rem;
+}
+
+.release-item .release-body {
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: var(--text);
+}
+
+.release-item .release-body ul {
+  margin-left: 1.25rem;
+  margin-top: 0.25rem;
+}

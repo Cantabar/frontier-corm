@@ -47,6 +47,7 @@ mprocs.log
 dev-tools/*
 !dev-tools/dev-wallet
 !dev-tools/give-item-helper
+!dev-tools/world-contract-tracker
 
 # TypeScript incremental build cache
 *.tsbuildinfo
