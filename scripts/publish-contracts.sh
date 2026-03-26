@@ -1,14 +1,49 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Publish all Move packages to SUI localnet and write package IDs to .env
-# Called by mprocs contracts-publish or run standalone.
+# Publish all Move packages to SUI testnet for a specific game-world environment.
+#
+# Each environment (utopia, stillness) has its own world-contracts deployment,
+# so corm contracts must be published separately per environment.
+#
+# Prerequisites:
+#   - SUI CLI installed with a 'testnet' env configured:
+#       sui client new-env --alias testnet --rpc https://fullnode.testnet.sui.io:443
+#   - Active wallet funded with SUI on testnet
+#   - World package already deployed on testnet (auto-read from web/.env.{ENV})
+#
+# Usage:
+#   ./scripts/publish-contracts.sh utopia
+#   ./scripts/publish-contracts.sh stillness
+#   WORLD_PACKAGE_ID=0x... ./scripts/publish-contracts.sh utopia
+
+VALID_ENVS=("utopia" "stillness")
+
+if [ $# -lt 1 ]; then
+  echo "Usage: $0 <environment>"
+  echo "  Environments: ${VALID_ENVS[*]}"
+  exit 1
+fi
+
+ENV="$1"
+
+# Validate environment name
+VALID=false
+for e in "${VALID_ENVS[@]}"; do
+  if [ "$e" = "$ENV" ]; then VALID=true; break; fi
+done
+if [ "$VALID" = false ]; then
+  echo "ERROR: Invalid environment '$ENV'. Must be one of: ${VALID_ENVS[*]}" >&2
+  exit 1
+fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-ENV_FILE="$PROJECT_ROOT/.env"
-PUB_FILE="$PROJECT_ROOT/Pub.localnet.toml"
-GAS_BUDGET=2000000000  # 2 SUI — publishing with deps needs more than 0.5
+ENV_FILE="$PROJECT_ROOT/.env.${ENV}"
+WEB_ENV_FILE="$PROJECT_ROOT/web/.env.${ENV}"
+PUB_FILE="$PROJECT_ROOT/Pub.${ENV}.toml"
+GAS_BUDGET=2000000000  # 2 SUI
+SUI_RPC="https://fullnode.testnet.sui.io:443"
 
 PACKAGES=("tribe" "corm_auth" "trustless_contracts")
 ENV_VARS=("PACKAGE_TRIBE" "PACKAGE_CORM_AUTH" "PACKAGE_TRUSTLESS_CONTRACTS")
@@ -19,102 +54,94 @@ write_env_var() {
   if grep -q "^${var}=" "$file" 2>/dev/null; then
     sed -i "s|^${var}=.*|${var}=${val}|" "$file"
   else
+    # Ensure file ends with a newline before appending
+    [ -s "$file" ] && [ -n "$(tail -c1 "$file")" ] && echo >> "$file"
     echo "${var}=${val}" >> "$file"
   fi
 }
 
-# ── Clear stale package IDs from previous runs ────────────────────
-if [ -f "$ENV_FILE" ]; then
-  echo "Clearing stale contract IDs from $ENV_FILE..."
-  for var in "${ENV_VARS[@]}" "${VITE_VARS[@]}" VITE_TRIBE_REGISTRY_ID; do
-    sed -i "s|^${var}=.*|${var}=|" "$ENV_FILE"
-  done
+echo "=== Publishing contracts for environment: $ENV ==="
+
+# ── Create .env.{ENV} from template if missing ─────────────────────
+if [ ! -f "$ENV_FILE" ]; then
+  if [ -f "$PROJECT_ROOT/.env.${ENV}.example" ]; then
+    cp "$PROJECT_ROOT/.env.${ENV}.example" "$ENV_FILE"
+    echo "Created $ENV_FILE from .env.${ENV}.example"
+  else
+    touch "$ENV_FILE"
+    echo "Created empty $ENV_FILE"
+  fi
 fi
 
-echo "Waiting for SUI localnet..."
-until curl -so /dev/null -w '%{http_code}' http://127.0.0.1:9000 >/dev/null 2>&1; do
-  sleep 2
-done
-
-# Ensure the client is pointing at localnet
-if ! sui client envs 2>/dev/null | grep -q 'local'; then
-  echo "Adding local env to SUI client..."
-  sui client new-env --alias local --rpc http://127.0.0.1:9000 2>/dev/null
+# ── Ensure SUI client is pointing at testnet ───────────────────────
+if ! sui client envs 2>/dev/null | grep -q 'testnet'; then
+  echo "Adding testnet env to SUI client..."
+  sui client new-env --alias testnet --rpc "$SUI_RPC" 2>/dev/null
 fi
-sui client switch --env local 2>/dev/null
-echo "Switched to local env"
+sui client switch --env testnet 2>/dev/null
+echo "Switched to testnet env"
 
-# Wait for faucet to be ready, then request gas
-echo "Waiting for faucet..."
-until curl -so /dev/null http://127.0.0.1:9123 2>/dev/null; do
-  sleep 2
-done
-echo "Requesting faucet funds..."
-sui client faucet 2>&1 || true
+# ── Verify gas is available ────────────────────────────────────────
+echo "Checking gas balance..."
+GAS_COUNT=$(sui client gas --json 2>/dev/null | jq 'length' 2>/dev/null || echo "0")
+if [ "$GAS_COUNT" = "0" ]; then
+  echo "ERROR: No gas coins found. Fund your active wallet on testnet first." >&2
+  echo "  Active address: $(sui client active-address)" >&2
+  exit 1
+fi
+echo "Gas available ($GAS_COUNT coin objects)"
 
-# Wait for coins to arrive
-echo "Waiting for gas coins..."
-until sui client gas --json 2>/dev/null | jq -e 'length > 0' >/dev/null 2>&1; do
-  sleep 2
-done
-echo "Gas available"
+# ── Resolve world package ID ──────────────────────────────────────
+WORLD_PKG_ID="${WORLD_PACKAGE_ID:-}"
+if [ -z "$WORLD_PKG_ID" ] && [ -f "$WEB_ENV_FILE" ]; then
+  WORLD_PKG_ID=$(grep '^VITE_WORLD_PACKAGE_ID=' "$WEB_ENV_FILE" 2>/dev/null | cut -d= -f2 || true)
+  if [ -n "$WORLD_PKG_ID" ]; then
+    echo "Read world package ID from $WEB_ENV_FILE"
+  fi
+fi
+if [ -z "$WORLD_PKG_ID" ] && [ -f "$ENV_FILE" ]; then
+  WORLD_PKG_ID=$(grep '^VITE_WORLD_PACKAGE_ID=' "$ENV_FILE" 2>/dev/null | cut -d= -f2 || true)
+fi
+if [ -z "$WORLD_PKG_ID" ] || [ "$WORLD_PKG_ID" = "0x0" ]; then
+  echo ""
+  echo "World package ID is required. The world-contracts must be deployed to"
+  echo "testnet before publishing frontier-corm contracts."
+  read -rp "Enter the world package ID (0x...): " WORLD_PKG_ID
+fi
+if [ -z "$WORLD_PKG_ID" ]; then
+  echo "ERROR: World package ID is required." >&2
+  exit 1
+fi
+echo "Using world package: $WORLD_PKG_ID"
+write_env_var "VITE_WORLD_PACKAGE_ID" "$WORLD_PKG_ID" "$ENV_FILE"
 
-# Remove stale ephemeral publication files (--force-regenesis means new chain each time)
-rm -f "$PUB_FILE" "$PROJECT_ROOT/Pub.local.toml"
+# ── Verify world package exists on testnet ─────────────────────────
+echo "Verifying world package on testnet..."
+WORLD_CHECK=$(curl -s "$SUI_RPC" -X POST \
+  -H 'Content-Type: application/json' \
+  -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"sui_getObject\",\"params\":[\"$WORLD_PKG_ID\"]}" \
+  | jq -r '.result.data.objectId // empty')
+if [ -z "$WORLD_CHECK" ]; then
+  echo "ERROR: World package $WORLD_PKG_ID not found on testnet." >&2
+  exit 1
+fi
+echo "World package verified on testnet"
 
-# ── Wait for the world deployment and seed Pub.localnet.toml ──────────
-# The world package is deployed separately by deploy-world-contracts.sh.
-# Without this, --with-unpublished-dependencies re-publishes the world
-# dependency as a new package, causing type mismatches (e.g. Character
-# objects from the original world deployment don't match the tribe
-# contract's bundled copy).
-#
-# Because both scripts start concurrently via mprocs, we must wait
-# until the world package actually exists on the current chain —
-# the extracted-object-ids.json may still contain a stale ID from a
-# previous --force-regenesis run.
-WORLD_IDS_FILE="$PROJECT_ROOT/../world-contracts/deployments/localnet/extracted-object-ids.json"
-WORLD_PATH=$(cd "$PROJECT_ROOT/../world-contracts/contracts/world" && pwd)
-SUI_VERSION=$(sui --version 2>/dev/null | grep -oP '\d+\.\d+\.\d+' || echo "1.65.2")
-CHAIN_ID=$(curl -s http://127.0.0.1:9000 -X POST \
+# ── Get chain ID and SUI version ──────────────────────────────────
+CHAIN_ID=$(curl -s "$SUI_RPC" -X POST \
   -H 'Content-Type: application/json' \
   -d '{"jsonrpc":"2.0","id":1,"method":"sui_getChainIdentifier","params":[]}' \
   | jq -r '.result')
+SUI_VERSION=$(sui --version 2>/dev/null | grep -oP '\d+\.\d+\.\d+' || echo "1.65.2")
+WORLD_PATH=$(cd "$PROJECT_ROOT/../world-contracts/contracts/world" && pwd)
 
-world_pkg_exists_on_chain() {
-  local pkg_id="$1"
-  [ -n "$pkg_id" ] && [ "$pkg_id" != "null" ] && \
-  curl -s http://127.0.0.1:9000 -X POST \
-    -H 'Content-Type: application/json' \
-    -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"sui_getObject\",\"params\":[\"$pkg_id\"]}" \
-  | jq -e '.result.data' >/dev/null 2>&1
-}
+echo "Chain ID: $CHAIN_ID"
 
-MAX_WAIT=180
-WAITED=0
-WORLD_PKG_ID=""
-echo "Waiting for world package to be deployed on chain $CHAIN_ID..."
-while true; do
-  if [ -f "$WORLD_IDS_FILE" ]; then
-    WORLD_PKG_ID=$(jq -r '.world.packageId' "$WORLD_IDS_FILE")
-    if world_pkg_exists_on_chain "$WORLD_PKG_ID"; then
-      echo "World package $WORLD_PKG_ID verified on chain"
-      break
-    fi
-  fi
-  if [ "$WAITED" -ge "$MAX_WAIT" ]; then
-    echo "ERROR: World package not found on chain after ${MAX_WAIT}s" >&2
-    echo "Make sure deploy-world-contracts.sh has completed successfully." >&2
-    exit 1
-  fi
-  sleep 5
-  WAITED=$((WAITED + 5))
-done
-
-echo "Seeding Pub.localnet.toml with world package: $WORLD_PKG_ID"
+# ── Generate Pub.{ENV}.toml with world dependency pinned ───────────
+rm -f "$PUB_FILE"
 cat > "$PUB_FILE" <<EOF
-# generated by Move / publish-contracts.sh
-build-env = "localnet"
+# generated by publish-contracts.sh for $ENV
+build-env = "$ENV"
 chain-id = "$CHAIN_ID"
 
 [[published]]
@@ -125,39 +152,61 @@ version = 1
 toolchain-version = "$SUI_VERSION"
 build-config = { flavor = "sui", edition = "2024" }
 EOF
+echo "Generated $PUB_FILE"
 
+# ── Clear stale package IDs ────────────────────────────────────────
+echo "Clearing stale contract IDs from $ENV_FILE..."
+for var in "${ENV_VARS[@]}" "${VITE_VARS[@]}" VITE_TRIBE_REGISTRY_ID; do
+  if grep -q "^${var}=" "$ENV_FILE" 2>/dev/null; then
+    sed -i "s|^${var}=.*|${var}=|" "$ENV_FILE"
+  fi
+done
+
+# ── Publish each package ──────────────────────────────────────────
 for i in "${!PACKAGES[@]}"; do
   pkg="${PACKAGES[$i]}"
   var="${ENV_VARS[$i]}"
   pkg_path="$PROJECT_ROOT/contracts/$pkg"
 
+  echo ""
   echo "Publishing $pkg..."
-  sui client test-publish "$pkg_path" \
+  sui client publish "$pkg_path" \
     --gas-budget "$GAS_BUDGET" \
-    --build-env localnet \
+    --build-env "$ENV" \
     --with-unpublished-dependencies \
-    > /dev/null 2>&1 || {
-    echo "ERROR: test-publish failed for $pkg" >&2
-    # Retry without suppressing output so the error is visible
-    sui client test-publish "$pkg_path" \
-      --gas-budget "$GAS_BUDGET" \
-      --build-env localnet \
-      --with-unpublished-dependencies 2>&1 || true
+    --json > /tmp/publish-result.json 2>&1 || {
+    echo "ERROR: publish failed for $pkg" >&2
+    cat /tmp/publish-result.json >&2
     exit 1
   }
 
-  # test-publish records the package ID in Pub.localnet.toml — read it from there
-  PACKAGE_ID=$(grep -A1 "$pkg_path" "$PUB_FILE" | grep 'published-at' | sed 's/.*"\(0x[^"]*\)".*/\1/')
+  # Extract package ID from publish transaction result
+  PACKAGE_ID=$(jq -r '.objectChanges[] | select(.type == "published") | .packageId' /tmp/publish-result.json)
+  if [ -z "$PACKAGE_ID" ] || [ "$PACKAGE_ID" = "null" ]; then
+    # Fallback: try reading from Pub.{ENV}.toml
+    PACKAGE_ID=$(grep -A1 "$pkg_path" "$PUB_FILE" | grep 'published-at' | sed 's/.*"\(0x[^"]*\)".*/\1/')
+  fi
+
+  if [ -z "$PACKAGE_ID" ] || [ "$PACKAGE_ID" = "null" ]; then
+    echo "ERROR: Could not extract package ID for $pkg" >&2
+    exit 1
+  fi
+
   vite_var="${VITE_VARS[$i]}"
   echo "  $var=$PACKAGE_ID"
   write_env_var "$var" "$PACKAGE_ID" "$ENV_FILE"
   write_env_var "$vite_var" "$PACKAGE_ID" "$ENV_FILE"
 
+  # Also update the web env file so vite picks up the IDs
+  if [ -f "$WEB_ENV_FILE" ]; then
+    write_env_var "$vite_var" "$PACKAGE_ID" "$WEB_ENV_FILE"
+  fi
+
   # ── Extract shared object IDs created during init ────────────────
   if [ "$pkg" = "tribe" ]; then
     echo "  Querying TribeRegistry shared object ID..."
     TRIBE_REGISTRY_ID=$(
-      curl -s http://127.0.0.1:9000 -X POST \
+      curl -s "$SUI_RPC" -X POST \
         -H 'Content-Type: application/json' \
         -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"suix_queryEvents\",\"params\":[{\"MoveEventType\":\"${PACKAGE_ID}::tribe::TribeRegistryCreatedEvent\"},null,1,false]}" \
       | jq -r '.result.data[0].parsedJson.registry_id'
@@ -165,11 +214,18 @@ for i in "${!PACKAGES[@]}"; do
     if [ -n "$TRIBE_REGISTRY_ID" ] && [ "$TRIBE_REGISTRY_ID" != "null" ]; then
       echo "  VITE_TRIBE_REGISTRY_ID=$TRIBE_REGISTRY_ID"
       write_env_var "VITE_TRIBE_REGISTRY_ID" "$TRIBE_REGISTRY_ID" "$ENV_FILE"
+      if [ -f "$WEB_ENV_FILE" ]; then
+        write_env_var "VITE_TRIBE_REGISTRY_ID" "$TRIBE_REGISTRY_ID" "$WEB_ENV_FILE"
+      fi
     else
       echo "  WARNING: Could not extract TribeRegistry ID from publish events" >&2
     fi
   fi
 done
 
+rm -f /tmp/publish-result.json
+
 echo ""
-echo "All contracts published. Package IDs written to $ENV_FILE"
+echo "All contracts published to testnet ($ENV). Package IDs written to:"
+echo "  $ENV_FILE"
+[ -f "$WEB_ENV_FILE" ] && echo "  $WEB_ENV_FILE"

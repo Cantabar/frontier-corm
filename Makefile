@@ -1,31 +1,42 @@
 # Frontier Corm — Makefile
 #
 # Usage:
-#   make local            Start local dev environment (docker compose)
-#   make local-down       Stop local dev, keep data
-#   make local-reset      Stop local dev + delete volumes
+#   make local              Start local dev environment (docker compose)
+#   make local-down         Stop local dev, keep data
+#   make local-reset        Stop local dev + delete volumes
 #
-#   make infra-init       First-time CDK bootstrap (once per account/region)
-#   make deploy           Deploy all infrastructure + services + frontend
-#   make deploy-testnet   Deploy everything targeting SUI testnet
-#   make teardown         Destroy all AWS resources
+#   make infra-init         First-time CDK bootstrap (once per account/region)
+#   make deploy-env ENV=utopia   Deploy all infra + services + frontend for an environment
+#   make deploy-utopia      Shorthand for deploy-env ENV=utopia
+#   make deploy-stillness   Shorthand for deploy-env ENV=stillness
+#   make teardown ENV=utopia Destroy all AWS resources for an environment
 #
-#   make deploy-images    Build + push Docker images to ECR
-#   make deploy-frontend  Build + sync frontend to S3 + invalidate cache
-#   make deploy-infra     CDK deploy only (no image push)
-#   make publish-testnet  Publish Move contracts to SUI testnet
+#   make deploy-images      Build + push Docker images to ECR
+#   make deploy-frontend    Build + sync frontend to S3 + invalidate cache
+#   make deploy-infra       CDK deploy only (no image push)
+#   make publish-contracts ENV=utopia  Publish Move contracts for an environment
+#   make publish-utopia     Shorthand for publish-contracts ENV=utopia
+#   make publish-stillness  Shorthand for publish-contracts ENV=stillness
 #
-#   make build            Build all TypeScript projects locally
-#   make clean            Remove all build artifacts
+#   make build              Build all TypeScript projects locally
+#   make clean              Remove all build artifacts
 
 .PHONY: local local-down local-reset \
-        infra-init deploy deploy-infra deploy-images deploy-frontend teardown \
-        deploy-testnet publish-testnet \
+        infra-init deploy-env deploy-infra deploy-images deploy-frontend teardown \
+        deploy-utopia deploy-stillness \
+        publish-contracts publish-utopia publish-stillness \
         build clean enrich-items seed-ores zk-build zk-clean help
 
 SHELL := /bin/bash
 AWS_REGION ?= us-east-1
-STACK_NAME := FrontierCorm
+
+# ENV selects the game-world environment: utopia (default) or stillness.
+# Each environment gets its own CDK stack, contracts, and frontend build.
+ENV ?= utopia
+
+# Derive the CDK stack name from ENV (e.g. FrontierCormUtopia)
+ENV_TITLE := $(shell echo '$(ENV)' | sed 's/./\U&/')
+STACK_NAME := FrontierCorm$(ENV_TITLE)
 
 # Resolve values from CDK outputs (cached after first deploy)
 define get_output
@@ -59,8 +70,8 @@ infra-init: ## First-time CDK + npm setup
 	npm --prefix infra ci
 	npx --prefix infra cdk bootstrap aws://$(shell aws sts get-caller-identity --query Account --output text)/$(AWS_REGION)
 
-deploy-infra: ## Deploy CDK stack (infra only)
-	npx --prefix infra cdk deploy --all --require-approval never
+deploy-infra: ## Deploy CDK stack for ENV (infra only)
+	npx --prefix infra cdk deploy $(STACK_NAME) --require-approval never -c appEnv=$(ENV) -c suiNetwork=testnet
 
 # ── Docker Images ──────────────────────────────────────────────────
 
@@ -74,54 +85,57 @@ deploy-images: ## Build and push Docker images to ECR
 	docker build -t $(INDEXER_ECR):latest ./indexer
 	docker push $(INDEXER_ECR):latest
 	@echo "Forcing ECS redeployment..."
-	aws ecs update-service --cluster fc-cluster --service $(STACK_NAME)-IndexerServiceE6A6AFC3-* \
+	aws ecs update-service --cluster fc-$(ENV)-cluster --service $(STACK_NAME)-IndexerServiceE6A6AFC3-* \
 		--force-new-deployment --region $(AWS_REGION) > /dev/null
 	@echo "Done. ECS indexer is redeploying."
 
 # ── Frontend ───────────────────────────────────────────────────────
 
-deploy-frontend: ## Build frontend and sync to S3 + invalidate CloudFront
+deploy-frontend: ## Build frontend for ENV and sync to S3 + invalidate CloudFront
 	$(eval UI_BUCKET := $(call get_output,UiBucketName))
 	$(eval CF_DIST := $(call get_output,CloudFrontDistributionId))
-	@echo "Building frontend..."
-	npm --prefix web run build
+	@echo "Building frontend (mode=$(ENV))..."
+	npm --prefix web run build -- --mode $(ENV)
 	@echo "Syncing to s3://$(UI_BUCKET)..."
 	aws s3 sync web/dist/ s3://$(UI_BUCKET) --delete --region $(AWS_REGION)
 	@echo "Invalidating CloudFront cache..."
 	aws cloudfront create-invalidation --distribution-id $(CF_DIST) --paths "/*" > /dev/null
-	@echo "Frontend deployed."
+	@echo "Frontend deployed ($(ENV))."
 
-# ── Full Deploy / Teardown ─────────────────────────────────────────
+# ── Environment Deployment ─────────────────────────────────────────
 
-deploy: deploy-infra deploy-images deploy-frontend ## Deploy everything
+publish-contracts: ## Publish Move contracts for ENV (utopia or stillness)
+	bash scripts/publish-contracts.sh $(ENV)
+
+publish-utopia: ## Publish Move contracts for Utopia
+	$(MAKE) publish-contracts ENV=utopia
+
+publish-stillness: ## Publish Move contracts for Stillness
+	$(MAKE) publish-contracts ENV=stillness
+
+deploy-env: ## Deploy everything for ENV (no seeding)
+	@test -f .env.$(ENV) || (echo "No .env.$(ENV) found. Run: cp .env.$(ENV).example .env.$(ENV)" && exit 1)
+	@echo "=== Deploying $(ENV) ==="
+	$(MAKE) deploy-infra ENV=$(ENV)
+	$(MAKE) deploy-images ENV=$(ENV)
+	@set -a && . ./.env.$(ENV) && set +a && $(MAKE) deploy-frontend ENV=$(ENV)
 	@echo ""
-	@echo "=== Deployment Complete ==="
+	@echo "=== $(ENV) Deployment Complete ==="
 	@echo "  Frontend: $(call get_output,CloudFrontUrl)"
 	@echo "  API:      http://$(call get_output,AlbDns)"
 	@echo ""
 
-# ── Testnet Deployment ─────────────────────────────────────────────
+deploy-utopia: ## Deploy everything for Utopia
+	$(MAKE) deploy-env ENV=utopia
 
-publish-testnet: ## Publish Move contracts to SUI testnet
-	bash scripts/publish-testnet.sh
+deploy-stillness: ## Deploy everything for Stillness
+	$(MAKE) deploy-env ENV=stillness
 
-deploy-testnet: ## Deploy everything targeting SUI testnet (no seeding)
-	@test -f .env.testnet || (echo "No .env.testnet found. Run: cp .env.testnet.example .env.testnet" && exit 1)
-	@echo "=== Deploying to SUI testnet ==="
-	npx --prefix infra cdk deploy --all --require-approval never -c suiNetwork=testnet
-	$(MAKE) deploy-images
-	@set -a && . ./.env.testnet && set +a && $(MAKE) deploy-frontend
-	@echo ""
-	@echo "=== Testnet Deployment Complete ==="
-	@echo "  Frontend: $(call get_output,CloudFrontUrl)"
-	@echo "  API:      http://$(call get_output,AlbDns)"
-	@echo ""
-
-teardown: ## Destroy all AWS resources
-	@echo "This will destroy ALL Frontier Corm AWS resources."
+teardown: ## Destroy all AWS resources for ENV
+	@echo "This will destroy ALL Frontier Corm $(ENV) AWS resources (stack: $(STACK_NAME))."
 	@read -p "Type 'yes' to confirm: " confirm && [ "$$confirm" = "yes" ] || exit 1
-	npx --prefix infra cdk destroy --all --force
-	@echo "All resources destroyed."
+	npx --prefix infra cdk destroy $(STACK_NAME) --force -c appEnv=$(ENV)
+	@echo "$(STACK_NAME) resources destroyed."
 
 # ── Static Data ────────────────────────────────────────────────────
 

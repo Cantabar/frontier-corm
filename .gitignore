@@ -7,7 +7,8 @@ dist/
 
 # Environment (contains secrets)
 .env
-.env.testnet
+.env.utopia
+.env.stillness
 
 # CDK
 infra/cdk.out/
@@ -33,7 +34,8 @@ static-data/data/phobos/fsd_built/*
 # Move ephemeral publication metadata (regenerated on each publish)
 Pub.local.toml
 Pub.localnet.toml
-Pub.testnet.toml
+Pub.utopia.toml
+Pub.stillness.toml
 
 # ONNX model weights (large binaries, downloaded at runtime)
 models/

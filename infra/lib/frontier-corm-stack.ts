@@ -15,11 +15,12 @@ export class FrontierCormStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-    const prefix = "fc"; // short prefix for resource names
+    // ================================================================
+    // Context — app environment + SUI network
+    // ================================================================
+    const appEnv: string = this.node.tryGetContext("appEnv") ?? "utopia";
+    const prefix = `fc-${appEnv}`; // e.g. fc-utopia, fc-stillness
 
-    // ================================================================
-    // Context — SUI network (testnet | mainnet)
-    // ================================================================
     const suiNetwork = this.node.tryGetContext("suiNetwork") ?? "testnet";
     const suiRpcUrls: Record<string, string> = {
       testnet: "https://fullnode.testnet.sui.io:443",
