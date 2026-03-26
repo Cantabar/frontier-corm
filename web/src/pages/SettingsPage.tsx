@@ -212,6 +212,9 @@ export function SettingsPage() {
           <ConfigLabel>Tribe Registry ID</ConfigLabel>
           <ConfigValue>{config.tribeRegistryId}</ConfigValue>
 
+          <ConfigLabel>CORM Coin Type</ConfigLabel>
+          <ConfigValue>{config.cormCoinType || "(not configured)"}</ConfigValue>
+
           <ConfigLabel>Coin Type</ConfigLabel>
           <ConfigValue>{config.coinType}</ConfigValue>
 

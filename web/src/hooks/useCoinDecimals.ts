@@ -41,15 +41,33 @@ export function useCoinDecimals(coinType: string): CoinDecimalsResult {
 }
 
 /**
+ * Returns the preferred default coin type: CORM if configured, otherwise
+ * the static escrow coin type from config (typically SUI).
+ */
+export function defaultCoinType(): string {
+  return config.cormCoinType || config.coinType;
+}
+
+/**
  * Convenience wrapper: returns decimals for the configured escrow coin type (CE).
+ * Prefers CORM when configured.
  */
 export function useEscrowCoinDecimals(): CoinDecimalsResult {
-  return useCoinDecimals(config.coinType);
+  return useCoinDecimals(defaultCoinType());
 }
 
 /**
  * Convenience wrapper: returns decimals for the configured fill coin type (CF).
+ * Prefers CORM when configured.
  */
 export function useFillCoinDecimals(): CoinDecimalsResult {
-  return useCoinDecimals(config.fillCoinType);
+  return useCoinDecimals(config.cormCoinType || config.fillCoinType);
+}
+
+/**
+ * Convenience wrapper: returns decimals for the CORM coin type specifically.
+ * Falls back to default escrow coin if CORM is not configured.
+ */
+export function useCormCoinDecimals(): CoinDecimalsResult {
+  return useCoinDecimals(defaultCoinType());
 }

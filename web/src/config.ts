@@ -77,6 +77,9 @@ export const config = {
   tribeRegistryId: import.meta.env.VITE_TRIBE_REGISTRY_ID ?? "0x0",
   energyConfigId: import.meta.env.VITE_ENERGY_CONFIG_ID ?? "0x0",
 
+  /** CORM coin type. When set, this becomes the preferred default for contracts. */
+  cormCoinType: import.meta.env.VITE_CORM_COIN_TYPE ?? "",
+
   /** Coin type for escrow/treasury (EVE token on testnet, or test coin on localnet) */
   coinType: import.meta.env.VITE_COIN_TYPE ?? "0x2::sui::SUI",
 

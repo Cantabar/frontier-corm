@@ -9,6 +9,7 @@
 import { useCurrentAccount, useSuiClientQuery } from "@mysten/dapp-kit";
 import { useMemo } from "react";
 import { extractCoinTypeFromObjectType } from "../lib/coinUtils";
+import { config } from "../config";
 
 export interface CoinTypeEntry {
   /** Full coin type string, e.g. "0x2::sui::SUI" */
@@ -36,9 +37,8 @@ export function useCoinTypes() {
 
   const coinTypes: CoinTypeEntry[] = useMemo(() => {
     const seen = new Set<string>();
-    // Always include native SUI
-    seen.add("0x2::sui::SUI");
 
+    // Discover all coin types from owned objects
     for (const obj of data?.data ?? []) {
       const objType = obj.data?.type;
       if (!objType) continue;
@@ -46,7 +46,28 @@ export function useCoinTypes() {
       if (ct) seen.add(ct);
     }
 
-    return Array.from(seen).map((coinType) => ({ coinType }));
+    // Always include native SUI
+    seen.add("0x2::sui::SUI");
+
+    // Always include CORM when configured
+    const corm = config.cormCoinType;
+    if (corm) seen.add(corm);
+
+    // Build ordered list: CORM first (if configured), then SUI, then the rest
+    const ordered: CoinTypeEntry[] = [];
+    if (corm) {
+      ordered.push({ coinType: corm });
+      seen.delete(corm);
+    }
+    if (seen.has("0x2::sui::SUI")) {
+      ordered.push({ coinType: "0x2::sui::SUI" });
+      seen.delete("0x2::sui::SUI");
+    }
+    for (const coinType of seen) {
+      ordered.push({ coinType });
+    }
+
+    return ordered;
   }, [data]);
 
   return { coinTypes, isLoading };

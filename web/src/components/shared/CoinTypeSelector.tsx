@@ -2,6 +2,7 @@ import { useState } from "react";
 import styled from "styled-components";
 import { useCoinTypes } from "../../hooks/useCoinTypes";
 import { parseCoinSymbol, parseCoinModule } from "../../lib/coinUtils";
+import { config } from "../../config";
 
 const Wrapper = styled.div`
   margin-bottom: ${({ theme }) => theme.spacing.md};
@@ -87,11 +88,14 @@ export function CoinTypeSelector({ value, onChange, label = "Treasury Coin Type"
         value={isCustom ? CUSTOM_VALUE : isKnown ? value : CUSTOM_VALUE}
         onChange={handleSelectChange}
       >
-        {coinTypes.map((c) => (
-          <option key={c.coinType} value={c.coinType}>
-            {parseCoinSymbol(c.coinType)} ({parseCoinModule(c.coinType)})
-          </option>
-        ))}
+        {coinTypes.map((c) => {
+          const isCormDefault = config.cormCoinType && c.coinType === config.cormCoinType;
+          return (
+            <option key={c.coinType} value={c.coinType}>
+              {parseCoinSymbol(c.coinType)} ({parseCoinModule(c.coinType)}){isCormDefault ? " — default" : ""}
+            </option>
+          );
+        })}
         <option value={CUSTOM_VALUE}>Custom coin type…</option>
       </Select>
       {(isCustom || (!isKnown && value)) && (

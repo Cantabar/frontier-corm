@@ -453,25 +453,29 @@ const tcTarget = (mod: string, fn: string) => `${tcPkg()}::${mod}::${fn}`;
  *   coin_for_item<C>       → 1 type (escrow coin = defaultCoinType)
  *   item_for_coin<C>       → 1 type (fill coin   = fillCoinType)
  *   item_for_item           → 0 types
+ *
+ * An optional `override` replaces the default coin type for all positions.
  */
-function tcModuleTypes(mod: string): string[] {
+function tcModuleTypes(mod: string, override?: string): string[] {
+  const ce = override ?? defaultCoinType;
+  const cf = override ?? fillCoinType;
   switch (mod) {
     case "coin_for_coin":
     case "transport":
-      return [defaultCoinType, fillCoinType];
+      return [ce, cf];
     case "coin_for_item":
-      return [defaultCoinType];
+      return [ce];
     case "item_for_coin":
-      return [fillCoinType];
+      return [cf];
     case "item_for_item":
       return [];
     default:
-      return [defaultCoinType, fillCoinType];
+      return [ce, cf];
   }
 }
 
 /** Two-type shorthand kept for coin_for_coin & transport callers. */
-const tcTypes = () => [defaultCoinType, fillCoinType];
+const tcTypes = (override?: string) => [override ?? defaultCoinType, override ?? fillCoinType];
 
 /** Map contract variant to its on-chain Move module name. */
 const VARIANT_MODULE: Record<string, string> = {
@@ -492,12 +496,13 @@ export function buildCreateCoinForCoin(params: {
   deadlineMs: number;
   allowedCharacters: string[];
   allowedTribes: number[];
+  coinType?: string;
 }): Transaction {
   const tx = new Transaction();
   const [escrow] = tx.splitCoins(tx.gas, [params.escrowAmount]);
   tx.moveCall({
     target: tcTarget("coin_for_coin", "create"),
-    typeArguments: tcTypes(),
+    typeArguments: tcTypes(params.coinType),
     arguments: [
       tx.object(params.characterId),
       escrow,
@@ -523,12 +528,13 @@ export function buildCreateCoinForItem(params: {
   deadlineMs: number;
   allowedCharacters: string[];
   allowedTribes: number[];
+  coinType?: string;
 }): Transaction {
   const tx = new Transaction();
   const [escrow] = tx.splitCoins(tx.gas, [params.escrowAmount]);
   tx.moveCall({
     target: tcTarget("coin_for_item", "create"),
-    typeArguments: tcModuleTypes("coin_for_item"),
+    typeArguments: tcModuleTypes("coin_for_item", params.coinType),
     arguments: [
       tx.object(params.characterId),
       escrow,
@@ -557,6 +563,7 @@ export function buildCreateItemForCoin(params: {
   deadlineMs: number;
   allowedCharacters: string[];
   allowedTribes: number[];
+  coinType?: string;
 }): Transaction {
   const tx = new Transaction();
 
@@ -573,7 +580,7 @@ export function buildCreateItemForCoin(params: {
   // 2. Create the contract (consumes the transit Item)
   tx.moveCall({
     target: tcTarget("item_for_coin", "create"),
-    typeArguments: tcModuleTypes("item_for_coin"),
+    typeArguments: tcModuleTypes("item_for_coin", params.coinType),
     arguments: [
       tx.object(params.characterId),
       tx.object(params.sourceSsuId),
@@ -739,6 +746,7 @@ export function buildCreateTransport(params: {
   deadlineMs: number;
   allowedCharacters: string[];
   allowedTribes: number[];
+  coinType?: string;
 }): Transaction {
   const tx = new Transaction();
 
@@ -758,7 +766,7 @@ export function buildCreateTransport(params: {
   // 3. Create the transport contract (consumes transit Item, locks in open inventory)
   tx.moveCall({
     target: tcTarget("transport", "create"),
-    typeArguments: tcTypes(),
+    typeArguments: tcTypes(params.coinType),
     arguments: [
       tx.object(params.characterId),
       escrow,

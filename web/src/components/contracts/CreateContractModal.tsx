@@ -22,8 +22,9 @@ import { SsuItemPickerField } from "../shared/SsuItemPickerField";
 import { CharacterPickerField } from "../shared/CharacterPickerField";
 import { TribePickerField } from "../shared/TribePickerField";
 import { PrimaryButton } from "../shared/Button";
+import { CoinTypeSelector } from "../shared/CoinTypeSelector";
 import { toBaseUnits, fromBaseUnits } from "../../lib/coinUtils";
-import { useEscrowCoinDecimals, useFillCoinDecimals } from "../../hooks/useCoinDecimals";
+import { useCoinDecimals, defaultCoinType } from "../../hooks/useCoinDecimals";
 
 // ---------------------------------------------------------------------------
 // Creation-phase steps (shared stepper)
@@ -182,8 +183,12 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
   const { mutateAsync: signAndExecute, isPending } = useSignAndExecuteTransaction();
   const suiClient = useSuiClient();
   const { structures, refetch: refetchStructures } = useMyStructures();
-  const { decimals: ceDecimals, symbol: ceSymbol } = useEscrowCoinDecimals();
-  const { decimals: cfDecimals, symbol: cfSymbol } = useFillCoinDecimals();
+
+  // User-selectable coin type for this contract (defaults to CORM if configured, else SUI)
+  const [selectedCoinType, setSelectedCoinType] = useState(defaultCoinType);
+  const { decimals: ceDecimals, symbol: ceSymbol } = useCoinDecimals(selectedCoinType);
+  // For CoinForCoin the fill coin may differ; for now use the same selection
+  const { decimals: cfDecimals, symbol: cfSymbol } = useCoinDecimals(selectedCoinType);
 
   const getOwnerCapId = useCallback(
     (ssuId: string) => structures.find((s) => s.id === ssuId)?.ownerCapId ?? "",
@@ -408,6 +413,7 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
             deadlineMs,
             allowedCharacters: chars,
             allowedTribes: tribes,
+            coinType: selectedCoinType,
           });
           break;
         case "CoinForItem":
@@ -422,6 +428,7 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
             deadlineMs,
             allowedCharacters: chars,
             allowedTribes: tribes,
+            coinType: selectedCoinType,
           });
           break;
         case "ItemForCoin": {
@@ -437,6 +444,7 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
             deadlineMs,
             allowedCharacters: chars,
             allowedTribes: tribes,
+            coinType: selectedCoinType,
           });
           break;
         }
@@ -474,6 +482,7 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
             deadlineMs,
             allowedCharacters: chars,
             allowedTribes: tribes,
+            coinType: selectedCoinType,
           });
           break;
         }
@@ -621,6 +630,15 @@ export function CreateContractModal({ onClose, onCreated }: Props) {
         ))}
       </Select>
       <Hint>{VARIANT_DESCRIPTIONS[variant]}</Hint>
+
+      {/* Coin type selector — shown for all variants that involve coins */}
+      {variant !== "ItemForItem" && (
+        <CoinTypeSelector
+          value={selectedCoinType}
+          onChange={setSelectedCoinType}
+          label="Coin Type"
+        />
+      )}
 
       <Separator />
 
