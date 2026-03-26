@@ -92,3 +92,126 @@ procs:
       npm --prefix dev-tools/giveitem-helper run dev -- --port 5175 &
       wait
     stop: "SIGINT"
+
+  # ── DGX Spark — Setup (one-shot, syncs configs + pulls image) ──────────
+  dgx-setup:
+    shell: |
+      set -a && [ -f .env ] && . ./.env && set +a
+      : "${DGX_HOST:?Set DGX_HOST in .env}"
+      DGX_USER="${DGX_USER:-$USER}"
+      DGX_WORK_DIR="${DGX_WORK_DIR:-~/frontier-corm}"
+      echo "Creating remote work dir on $DGX_USER@$DGX_HOST:$DGX_WORK_DIR"
+      ssh "$DGX_USER@$DGX_HOST" "mkdir -p $DGX_WORK_DIR/configs"
+      echo "Syncing TRT-LLM configs..."
+      rsync -avz corm-brain/configs/ "$DGX_USER@$DGX_HOST:$DGX_WORK_DIR/configs/"
+      echo "Pulling TRT-LLM image (if not cached)..."
+      ssh "$DGX_USER@$DGX_HOST" "docker pull nvcr.io/nvidia/tensorrt-llm/release:1.3.0rc8"
+      echo "DGX setup complete."
+    autostart: false
+
+  # ── DGX Spark — Nemotron 3 Super (TRT-LLM, port 8000) ─────────────────
+  dgx-super:
+    shell: |
+      set -a && [ -f .env ] && . ./.env && set +a
+      : "${DGX_HOST:?Set DGX_HOST in .env}"
+      DGX_USER="${DGX_USER:-$USER}"
+      DGX_WORK_DIR="${DGX_WORK_DIR:-~/frontier-corm}"
+      CONTAINER=corm-trtllm-super
+      echo "Starting Nemotron 3 Super on $DGX_HOST..."
+      ssh "$DGX_USER@$DGX_HOST" "
+        docker rm -f $CONTAINER 2>/dev/null || true
+        docker run --name $CONTAINER --rm \
+          --runtime nvidia --gpus all --ipc host \
+          -p 8000:8000 \
+          -v hf-cache:/root/.cache \
+          -v $DGX_WORK_DIR/configs/trtllm-spark.yaml:/data/config-spark.yaml:ro \
+          nvcr.io/nvidia/tensorrt-llm/release:1.3.0rc8 \
+          trtllm-serve nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4 \
+            --host 0.0.0.0 --port 8000 \
+            --max_batch_size 4 \
+            --trust_remote_code \
+            --reasoning_parser nano-v3 \
+            --tool_parser qwen3_coder \
+            --config /data/config-spark.yaml
+      "
+    stop: "SIGINT"
+
+  # ── DGX Spark — Nemotron 3 Nano (TRT-LLM, port 8001) ──────────────────
+  dgx-nano:
+    shell: |
+      set -a && [ -f .env ] && . ./.env && set +a
+      : "${DGX_HOST:?Set DGX_HOST in .env}"
+      DGX_USER="${DGX_USER:-$USER}"
+      DGX_WORK_DIR="${DGX_WORK_DIR:-~/frontier-corm}"
+      CONTAINER=corm-trtllm-nano
+      echo "Starting Nemotron 3 Nano on $DGX_HOST..."
+      ssh "$DGX_USER@$DGX_HOST" "
+        docker rm -f $CONTAINER 2>/dev/null || true
+        docker run --name $CONTAINER --rm \
+          --runtime nvidia --gpus all --ipc host \
+          -p 8001:8001 \
+          -v hf-cache:/root/.cache \
+          -v $DGX_WORK_DIR/configs/trtllm-spark-nano.yaml:/data/config-spark-nano.yaml:ro \
+          nvcr.io/nvidia/tensorrt-llm/release:1.3.0rc8 \
+          trtllm-serve nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-NVFP4 \
+            --host 0.0.0.0 --port 8001 \
+            --max_batch_size 8 \
+            --trust_remote_code \
+            --reasoning_parser nano-v3 \
+            --tool_parser qwen3_coder \
+            --config /data/config-spark-nano.yaml
+      "
+    stop: "SIGINT"
+
+  # ── DGX Spark — SSH Tunnel (forwards model ports to localhost) ─────────
+  dgx-tunnel:
+    shell: |
+      set -a && [ -f .env ] && . ./.env && set +a
+      : "${DGX_HOST:?Set DGX_HOST in .env}"
+      DGX_USER="${DGX_USER:-$USER}"
+      echo "Waiting for Super (port 8000) on $DGX_HOST..."
+      until ssh "$DGX_USER@$DGX_HOST" "curl -sf http://localhost:8000/health" 2>/dev/null; do
+        sleep 5
+      done
+      echo "Waiting for Nano (port 8001) on $DGX_HOST..."
+      until ssh "$DGX_USER@$DGX_HOST" "curl -sf http://localhost:8001/health" 2>/dev/null; do
+        sleep 5
+      done
+      echo "Both models healthy — opening SSH tunnel"
+      ssh -N \
+        -L 8000:localhost:8000 \
+        -L 8001:localhost:8001 \
+        -o ServerAliveInterval=30 \
+        -o ServerAliveCountMax=3 \
+        "$DGX_USER@$DGX_HOST"
+    stop: "SIGINT"
+
+  # ── Corm Brain (local Go binary, connects to tunnelled DGX models) ─────
+  corm-brain:
+    shell: |
+      echo "Waiting for postgres..."
+      until docker exec frontier-corm-postgres-1 pg_isready -U corm -d frontier_corm -q 2>/dev/null; do
+        sleep 1
+      done
+      echo "Waiting for TRT-LLM tunnel (Super on :8000)..."
+      until curl -sf http://localhost:8000/health >/dev/null 2>&1; do
+        sleep 3
+      done
+      echo "Waiting for TRT-LLM tunnel (Nano on :8001)..."
+      until curl -sf http://localhost:8001/health >/dev/null 2>&1; do
+        sleep 3
+      done
+      echo "Dependencies ready — building corm-brain"
+      cd corm-brain
+      go build -o ./corm-brain . && echo "Running corm-brain" && ./corm-brain
+    env:
+      LLM_SUPER_URL: "http://localhost:8000"
+      LLM_FAST_URL: "http://localhost:8001"
+      EMBED_MODEL_PATH: "./models/nomic-embed"
+      DATABASE_URL: "postgresql://corm:corm@localhost:5432/frontier_corm"
+      CONSOLIDATION_INTERVAL_MS: "60000"
+      MEMORY_CAP_PER_CORM: "500"
+      EVENT_COALESCE_MS: "50"
+      WS_RECONNECT_MAX_MS: "30000"
+      FALLBACK_POLL_INTERVAL_MS: "2000"
+    stop: "SIGTERM"
