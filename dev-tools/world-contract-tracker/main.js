@@ -7,6 +7,7 @@ import {
   fetchPublishedTomlCommits,
   fetchCommitsSinceAnchor,
   fetchCompare,
+  fetchFileAtRef,
   setGithubToken,
 } from "./lib/github.js";
 
@@ -49,34 +50,44 @@ async function refresh() {
       }),
     );
 
-    // 3. Find the deploy-anchor commit (most recent commit touching Published.toml)
-    const tomlCommits = await fetchPublishedTomlCommits(5);
-    const deployAnchorSha = tomlCommits[0]?.sha;
+    // 3. Fetch commits that touched Published.toml
+    const tomlCommits = await fetchPublishedTomlCommits(10);
 
-    // 4. Get pending source commits since that anchor
-    let pendingCommits = [];
-    if (deployAnchorSha) {
-      try {
-        pendingCommits = await fetchCommitsSinceAnchor(deployAnchorSha);
-      } catch {
-        /* non-critical */
+    // 4. Build per-environment version history by reading Published.toml
+    //    at each commit to find when each env's version changed.
+    const envVersionHistory = await buildEnvVersionHistory(tomlCommits);
+
+    // 5. For each environment, fetch diffs between its version transitions
+    //    and pending commits since its last deploy.
+    const envDiffData = {};
+    for (const env of ENVIRONMENTS) {
+      const history = envVersionHistory[env.key] ?? [];
+      envDiffData[env.key] = { versionDiffs: [], pendingCommits: [] };
+
+      // Diffs between version transitions (e.g. v1→v2)
+      for (const transition of history) {
+        try {
+          const diff = await fetchCompare(transition.fromSha, transition.toSha);
+          if (diff) {
+            envDiffData[env.key].versionDiffs.push({
+              fromVersion: transition.fromVersion,
+              toVersion: transition.toVersion,
+              from: transition.fromCommit,
+              to: transition.toCommit,
+              diff,
+            });
+          }
+        } catch { /* non-critical */ }
       }
-    }
 
-    // 5. Fetch diffs between consecutive deploy commits (most recent first)
-    const deployDiffs = [];
-    for (let i = 0; i < tomlCommits.length - 1 && i < 3; i++) {
-      try {
-        const diff = await fetchCompare(tomlCommits[i + 1].sha, tomlCommits[i].sha);
-        if (diff) {
-          deployDiffs.push({
-            from: tomlCommits[i + 1],
-            to: tomlCommits[i],
-            diff,
-          });
-        }
-      } catch {
-        /* non-critical */
+      // Pending source commits since this env's last deploy
+      const lastDeploySha = history.length > 0
+        ? history[0].toSha                    // most recent version bump
+        : envVersionHistory[`${env.key}_initial`];  // initial publish
+      if (lastDeploySha) {
+        try {
+          envDiffData[env.key].pendingCommits = await fetchCommitsSinceAnchor(lastDeploySha);
+        } catch { /* non-critical */ }
       }
     }
 
@@ -92,7 +103,8 @@ async function refresh() {
     ENVIRONMENTS.forEach((env, i) => {
       const pub = published[env.key];
       const chain = chainData[i];
-      $envGrid.appendChild(renderEnvCard(env, pub, chain, tomlCommits, pendingCommits, deployDiffs));
+      const diffData = envDiffData[env.key];
+      $envGrid.appendChild(renderEnvCard(env, pub, chain, tomlCommits, diffData));
     });
 
     renderReleases(releases);
@@ -104,6 +116,72 @@ async function refresh() {
   } finally {
     $loading.classList.add("hidden");
   }
+}
+
+// ── Per-environment version history ───────────────────────────────
+
+/**
+ * Walk the Published.toml commit history and, for each environment, find
+ * the commits where that env's version number changed. Returns:
+ *   { "testnet_stillness": [ { fromVersion, toVersion, fromSha, toSha, fromCommit, toCommit } ],
+ *     "testnet_stillness_initial": "<sha>",   // commit that first introduced this env
+ *     ... }
+ */
+async function buildEnvVersionHistory(tomlCommits) {
+  const TOML_PATH = "contracts/world/Published.toml";
+
+  // Read Published.toml at each commit (newest first)
+  const snapshots = [];  // { commit, parsed }
+  for (const commit of tomlCommits) {
+    try {
+      const text = await fetchFileAtRef(TOML_PATH, commit.sha);
+      if (text) {
+        snapshots.push({ commit, parsed: parsePublishedToml(text) });
+      }
+    } catch {
+      // File might not exist at very old commits
+    }
+  }
+
+  const result = {};
+
+  for (const env of ENVIRONMENTS) {
+    const transitions = [];
+
+    for (let i = 0; i < snapshots.length - 1; i++) {
+      const newer = snapshots[i];
+      const older = snapshots[i + 1];
+      const newerVer = newer.parsed[env.key]?.version;
+      const olderVer = older.parsed[env.key]?.version;
+
+      // Skip if this env doesn't exist in either snapshot
+      if (newerVer == null) continue;
+
+      // Version changed between these two commits
+      if (newerVer !== olderVer && olderVer != null) {
+        transitions.push({
+          fromVersion: olderVer,
+          toVersion: newerVer,
+          fromSha: older.commit.sha,
+          toSha: newer.commit.sha,
+          fromCommit: older.commit,
+          toCommit: newer.commit,
+        });
+      }
+    }
+
+    result[env.key] = transitions;
+
+    // Record the initial publish commit (oldest commit where this env appears)
+    for (let i = snapshots.length - 1; i >= 0; i--) {
+      if (snapshots[i].parsed[env.key]?.version != null) {
+        result[`${env.key}_initial`] = snapshots[i].commit.sha;
+        break;
+      }
+    }
+  }
+
+  return result;
 }
 
 // ── Field descriptions (shown as tooltips) ─────────────────────────
@@ -121,7 +199,7 @@ const FIELD_TIPS = {
 };
 
 // ── Render: environment card ────────────────────────────────────────
-function renderEnvCard(env, pub, chain, tomlCommits, pendingCommits, deployDiffs) {
+function renderEnvCard(env, pub, chain, tomlCommits, diffData) {
   const card = el("div", "env-card");
 
   // Status
@@ -164,10 +242,11 @@ function renderEnvCard(env, pub, chain, tomlCommits, pendingCommits, deployDiffs
   addKV(kv, "Toolchain", pub?.["toolchain-version"] ?? "—", FIELD_TIPS["Toolchain"]);
   card.appendChild(kv);
 
-  // Deploy diffs
-  if (deployDiffs.length > 0) {
-    for (const { from, to, diff } of deployDiffs) {
-      card.appendChild(renderDeployDiff(from, to, diff));
+  // Per-environment version upgrade diffs
+  if (diffData.versionDiffs.length > 0) {
+    for (const vd of diffData.versionDiffs) {
+      card.appendChild(renderDeployDiff(vd.from, vd.to, vd.diff,
+        `v${vd.fromVersion} → v${vd.toVersion}`));
     }
   }
 
@@ -176,10 +255,11 @@ function renderEnvCard(env, pub, chain, tomlCommits, pendingCommits, deployDiffs
     card.appendChild(commitDetails("Recent deploy commits", tomlCommits));
   }
 
-  // Pending source changes (commits after last deploy)
+  // Pending source changes since this env's last deploy
+  const { pendingCommits } = diffData;
   if (pendingCommits.length > 0) {
     card.appendChild(commitDetails(
-      `${pendingCommits.length} source commit${pendingCommits.length === 1 ? "" : "s"} since last deploy`,
+      `${pendingCommits.length} source commit${pendingCommits.length === 1 ? "" : "s"} since last deploy to ${env.label}`,
       pendingCommits,
     ));
   }
@@ -254,15 +334,16 @@ function commitDetails(summary, commits) {
 }
 
 // ── Render: deploy diff ─────────────────────────────────────────────
-function renderDeployDiff(from, to, diff) {
+function renderDeployDiff(from, to, diff, versionLabel) {
   const sourceFiles = diff.files.filter((f) =>
     f.filename.startsWith("contracts/world/sources/"),
   );
   if (sourceFiles.length === 0 && diff.files.length === 0) return el("div");
 
-  const label = sourceFiles.length > 0
-    ? `Diff: ${from.shortSha} → ${to.shortSha} (${diff.commits} commits, ${sourceFiles.length} source files)`
-    : `Diff: ${from.shortSha} → ${to.shortSha} (${diff.commits} commits, ${diff.totalChanges} files)`;
+  const fileCount = sourceFiles.length > 0 ? sourceFiles.length : diff.totalChanges;
+  const fileWord = sourceFiles.length > 0 ? "source files" : "files";
+  const prefix = versionLabel ? `Upgrade ${versionLabel}` : "Diff";
+  const label = `${prefix}: ${from.shortSha} → ${to.shortSha} (${diff.commits} commits, ${fileCount} ${fileWord})`;
 
   const details = document.createElement("details");
   details.className = "diff-section";

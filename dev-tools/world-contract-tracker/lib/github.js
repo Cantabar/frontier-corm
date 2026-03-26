@@ -100,6 +100,19 @@ export async function fetchCommitsSinceAnchor(anchorSha) {
 }
 
 /**
+ * Fetch raw file content at a specific git ref (commit SHA, branch, tag).
+ * @param {string} path — file path within the repo
+ * @param {string} ref — git ref (SHA, branch name, tag)
+ * @returns {Promise<string | null>}
+ */
+export async function fetchFileAtRef(path, ref) {
+  const url = `https://raw.githubusercontent.com/evefrontier/world-contracts/${ref}/${path}`;
+  const res = await fetch(url);
+  if (!res.ok) return null;
+  return res.text();
+}
+
+/**
  * Fetch a comparison (diff) between two commits.
  * @param {string} base — SHA or tag
  * @param {string} head — SHA or tag
