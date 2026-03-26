@@ -6,6 +6,7 @@ import {
   fetchReleases,
   fetchPublishedTomlCommits,
   fetchCommitsSinceAnchor,
+  fetchCompare,
   setGithubToken,
 } from "./lib/github.js";
 
@@ -62,7 +63,24 @@ async function refresh() {
       }
     }
 
-    // 5. Fetch releases
+    // 5. Fetch diffs between consecutive deploy commits (most recent first)
+    const deployDiffs = [];
+    for (let i = 0; i < tomlCommits.length - 1 && i < 3; i++) {
+      try {
+        const diff = await fetchCompare(tomlCommits[i + 1].sha, tomlCommits[i].sha);
+        if (diff) {
+          deployDiffs.push({
+            from: tomlCommits[i + 1],
+            to: tomlCommits[i],
+            diff,
+          });
+        }
+      } catch {
+        /* non-critical */
+      }
+    }
+
+    // 6. Fetch releases
     let releases = [];
     try {
       releases = await fetchReleases();
@@ -70,11 +88,11 @@ async function refresh() {
       /* non-critical */
     }
 
-    // 6. Render everything
+    // 7. Render everything
     ENVIRONMENTS.forEach((env, i) => {
       const pub = published[env.key];
       const chain = chainData[i];
-      $envGrid.appendChild(renderEnvCard(env, pub, chain, tomlCommits, pendingCommits));
+      $envGrid.appendChild(renderEnvCard(env, pub, chain, tomlCommits, pendingCommits, deployDiffs));
     });
 
     renderReleases(releases);
@@ -88,8 +106,22 @@ async function refresh() {
   }
 }
 
+// ── Field descriptions (shown as tooltips) ─────────────────────────
+const FIELD_TIPS = {
+  "Repo version":
+    "The package version recorded in Published.toml on the main branch. " +
+    "Increments by 1 each time a \"sui client upgrade\" is performed and committed.",
+  "On-chain version":
+    "The live version stored in the UpgradeCap object on SUI testnet. " +
+    "Set by the chain itself when an upgrade transaction is executed. " +
+    "If this differs from repo version, either an upgrade is pending or Published.toml is stale.",
+  Toolchain:
+    "The sui CLI version (e.g. 1.68.0) used to compile and publish/upgrade the package. " +
+    "Mismatches between environments may indicate staggered rollouts.",
+};
+
 // ── Render: environment card ────────────────────────────────────────
-function renderEnvCard(env, pub, chain, tomlCommits, pendingCommits) {
+function renderEnvCard(env, pub, chain, tomlCommits, pendingCommits, deployDiffs) {
   const card = el("div", "env-card");
 
   // Status
@@ -105,8 +137,8 @@ function renderEnvCard(env, pub, chain, tomlCommits, pendingCommits) {
 
   // Key-value grid
   const kv = el("div", "kv-table");
-  addKV(kv, "Repo version", String(repoVersion));
-  addKV(kv, "On-chain version", String(chainVersion));
+  addKV(kv, "Repo version", String(repoVersion), FIELD_TIPS["Repo version"]);
+  addKV(kv, "On-chain version", String(chainVersion), FIELD_TIPS["On-chain version"]);
   addKV(kv, "Original ID", pub?.["original-id"] ?? "—");
   addKV(kv, "Published at", pub?.["published-at"] ?? "—");
 
@@ -129,8 +161,15 @@ function renderEnvCard(env, pub, chain, tomlCommits, pendingCommits) {
     addKV(kv, "Upgrade policy", policyLabels[chain.policy] ?? String(chain.policy));
   }
 
-  addKV(kv, "Toolchain", pub?.["toolchain-version"] ?? "—");
+  addKV(kv, "Toolchain", pub?.["toolchain-version"] ?? "—", FIELD_TIPS["Toolchain"]);
   card.appendChild(kv);
+
+  // Deploy diffs
+  if (deployDiffs.length > 0) {
+    for (const { from, to, diff } of deployDiffs) {
+      card.appendChild(renderDeployDiff(from, to, diff));
+    }
+  }
 
   // Deploy commits (most recent Published.toml touches)
   if (tomlCommits.length > 0) {
@@ -214,6 +253,59 @@ function commitDetails(summary, commits) {
   return details;
 }
 
+// ── Render: deploy diff ─────────────────────────────────────────────
+function renderDeployDiff(from, to, diff) {
+  const sourceFiles = diff.files.filter((f) =>
+    f.filename.startsWith("contracts/world/sources/"),
+  );
+  if (sourceFiles.length === 0 && diff.files.length === 0) return el("div");
+
+  const label = sourceFiles.length > 0
+    ? `Diff: ${from.shortSha} → ${to.shortSha} (${diff.commits} commits, ${sourceFiles.length} source files)`
+    : `Diff: ${from.shortSha} → ${to.shortSha} (${diff.commits} commits, ${diff.totalChanges} files)`;
+
+  const details = document.createElement("details");
+  details.className = "diff-section";
+  const summary = elText("summary", label);
+  details.appendChild(summary);
+
+  // Link to full diff on GitHub
+  const ghLink = document.createElement("a");
+  ghLink.href = diff.url;
+  ghLink.target = "_blank";
+  ghLink.textContent = "View full diff on GitHub ↗";
+  ghLink.className = "diff-gh-link";
+  details.appendChild(ghLink);
+
+  // Render each file's patch
+  const filesToShow = sourceFiles.length > 0 ? sourceFiles : diff.files;
+  for (const file of filesToShow) {
+    const fileBlock = el("div", "diff-file");
+
+    const fileHeader = el("div", "diff-file-header");
+    const statusBadge = elText("span", file.status, `diff-status diff-status-${file.status}`);
+    const fileName = elText("span", file.filename, "diff-filename");
+    const stats = elText("span", `+${file.additions} -${file.deletions}`, "diff-stats");
+    fileHeader.appendChild(statusBadge);
+    fileHeader.appendChild(fileName);
+    fileHeader.appendChild(stats);
+    fileBlock.appendChild(fileHeader);
+
+    if (file.patch) {
+      const pre = document.createElement("pre");
+      pre.className = "diff-patch";
+      const code = document.createElement("code");
+      code.textContent = file.patch;
+      pre.appendChild(code);
+      fileBlock.appendChild(pre);
+    }
+
+    details.appendChild(fileBlock);
+  }
+
+  return details;
+}
+
 /** Minimal markdown → HTML (handles **bold**, `code`, - lists, [links](url)) */
 function markdownToHtml(md) {
   return md
@@ -240,7 +332,12 @@ function elText(tag, text, className) {
   return e;
 }
 
-function addKV(parent, label, value) {
-  parent.appendChild(elText("span", label, "kv-label"));
+function addKV(parent, label, value, tooltip) {
+  const labelEl = elText("span", label, "kv-label");
+  if (tooltip) {
+    labelEl.title = tooltip;
+    labelEl.classList.add("has-tip");
+  }
+  parent.appendChild(labelEl);
   parent.appendChild(elText("span", value, "kv-value"));
 }

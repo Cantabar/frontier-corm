@@ -190,3 +190,81 @@ details[open] > summary::before { content: "▾ "; }
   margin-left: 1.25rem;
   margin-top: 0.25rem;
 }
+
+/* ── Tooltips on labels ────────────────────────────────────────── */
+.has-tip {
+  cursor: help;
+  border-bottom: 1px dotted var(--muted);
+}
+
+/* ── Deploy diff ───────────────────────────────────────────────── */
+.diff-section { margin-top: 0.75rem; }
+.diff-section > summary { font-weight: 600; }
+
+.diff-gh-link {
+  display: inline-block;
+  font-size: 0.8rem;
+  margin: 0.5rem 0;
+}
+
+.diff-file {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 0.5rem;
+  overflow: hidden;
+}
+
+.diff-file-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.75rem;
+  background: var(--surface-hover);
+  font-size: 0.8rem;
+}
+
+.diff-filename {
+  font-family: var(--font-mono);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diff-status {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 0.1em 0.4em;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.diff-status-added    { background: rgba(61, 220, 132, 0.2); color: var(--green); }
+.diff-status-modified { background: rgba(110, 158, 255, 0.2); color: var(--accent); }
+.diff-status-removed  { background: rgba(245, 86, 74, 0.2); color: var(--red); }
+.diff-status-renamed  { background: rgba(245, 197, 66, 0.2); color: var(--yellow); }
+
+.diff-stats {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.diff-patch {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  background: #111114;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  overflow-x: auto;
+  white-space: pre;
+  color: var(--muted);
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+/* Syntax-highlight diff lines via CSS — applied by textContent so we
+   rely on line-start matching in a future enhancement.  For now the
+   monochrome view is fine. */

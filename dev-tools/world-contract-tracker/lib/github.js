@@ -99,6 +99,33 @@ export async function fetchCommitsSinceAnchor(anchorSha) {
   return anchorIdx >= 0 ? commits.slice(0, anchorIdx) : commits;
 }
 
+/**
+ * Fetch a comparison (diff) between two commits.
+ * @param {string} base — SHA or tag
+ * @param {string} head — SHA or tag
+ * @returns {Promise<{ files: Array<{ filename: string, status: string, patch: string }>, totalChanges: number, url: string } | null>}
+ */
+export async function fetchCompare(base, head) {
+  const res = await fetch(
+    `${GITHUB_API_BASE}/compare/${base}...${head}`,
+    { headers: headers() },
+  );
+  if (!res.ok) return null;
+  const data = await res.json();
+  return {
+    files: (data.files ?? []).map((f) => ({
+      filename: f.filename,
+      status: f.status,
+      additions: f.additions,
+      deletions: f.deletions,
+      patch: f.patch ?? "",
+    })),
+    totalChanges: data.files?.length ?? 0,
+    commits: (data.commits ?? []).length,
+    url: data.html_url,
+  };
+}
+
 function mapCommit(c) {
   return {
     sha: c.sha,
