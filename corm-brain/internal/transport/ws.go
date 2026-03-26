@@ -19,6 +19,7 @@ import (
 
 // WSClient maintains a persistent outbound WebSocket to the puzzle-service.
 type WSClient struct {
+	environment    string
 	puzzleURL      string
 	reconnectMax   time.Duration
 	conn           *websocket.Conn
@@ -30,8 +31,10 @@ type WSClient struct {
 }
 
 // NewWSClient creates a WebSocket client targeting the puzzle-service /corm/ws endpoint.
-func NewWSClient(puzzleServiceURL string, reconnectMax time.Duration, eventChan chan types.CormEvent) *WSClient {
+// Events received on this connection are tagged with the given environment name.
+func NewWSClient(environment, puzzleServiceURL string, reconnectMax time.Duration, eventChan chan types.CormEvent) *WSClient {
 	return &WSClient{
+		environment:  environment,
 		puzzleURL:    puzzleServiceURL,
 		reconnectMax: reconnectMax,
 		eventChan:    eventChan,
@@ -114,9 +117,10 @@ func (w *WSClient) connectAndListen(ctx context.Context) error {
 
 		var evt types.CormEvent
 		if err := json.Unmarshal(data, &evt); err != nil {
-			log.Printf("ws: invalid event: %v", err)
+			log.Printf("ws [%s]: invalid event: %v", w.environment, err)
 			continue
 		}
+		evt.Environment = w.environment
 
 		select {
 		case w.eventChan <- evt:

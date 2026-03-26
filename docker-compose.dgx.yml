@@ -82,20 +82,29 @@ services:
         condition: service_healthy
     volumes:
       - ./models/nomic-embed:/models/nomic-embed:ro
+      - ./environments.json:/data/environments.json:ro
     environment:
+      # Shared config
       - LLM_SUPER_URL=http://trtllm-super:8000
       - LLM_FAST_URL=http://trtllm-nano:8001
       - EMBED_MODEL_PATH=/models/nomic-embed
-      - PUZZLE_SERVICE_URL=${PUZZLE_SERVICE_URL}
+      - DATABASE_URL=postgresql://corm:corm@postgres:5432/frontier_corm
       - WS_RECONNECT_MAX_MS=30000
       - FALLBACK_POLL_INTERVAL_MS=2000
       - EVENT_COALESCE_MS=50
       - CONSOLIDATION_INTERVAL_MS=60000
       - MEMORY_CAP_PER_CORM=500
-      - DATABASE_URL=postgresql://corm:corm@postgres:5432/frontier_corm
-      - SUI_RPC_URL=${SUI_RPC_URL}
-      - SUI_PRIVATE_KEY=${SUI_PRIVATE_KEY}
-      - CORM_STATE_PACKAGE_ID=${CORM_STATE_PACKAGE_ID}
+      # Multi-environment config (per-env puzzle-service URLs + SUI settings)
+      - ENVIRONMENTS_CONFIG=/data/environments.json
+      # Per-environment SUI private keys (referenced by environments.json)
+      - SUI_PRIVATE_KEY_DEV=${SUI_PRIVATE_KEY_DEV:-}
+      - SUI_PRIVATE_KEY_STAGING=${SUI_PRIVATE_KEY_STAGING:-}
+      - SUI_PRIVATE_KEY_PROD=${SUI_PRIVATE_KEY_PROD:-}
+      # Legacy single-env fallback (used if ENVIRONMENTS_CONFIG is not set)
+      - PUZZLE_SERVICE_URL=${PUZZLE_SERVICE_URL:-}
+      - SUI_RPC_URL=${SUI_RPC_URL:-}
+      - SUI_PRIVATE_KEY=${SUI_PRIVATE_KEY:-}
+      - CORM_STATE_PACKAGE_ID=${CORM_STATE_PACKAGE_ID:-}
     restart: unless-stopped
 
   postgres:

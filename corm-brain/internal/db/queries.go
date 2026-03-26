@@ -14,11 +14,11 @@ import (
 // --- Network Node → Corm mapping ---
 
 // ResolveCormID returns the corm_id for a network node, or empty string if not found.
-func (d *DB) ResolveCormID(ctx context.Context, networkNodeID string) (string, error) {
+func (d *DB) ResolveCormID(ctx context.Context, environment, networkNodeID string) (string, error) {
 	var cormID string
 	err := d.Pool.QueryRow(ctx,
-		"SELECT corm_id FROM corm_network_nodes WHERE network_node_id = $1",
-		networkNodeID,
+		"SELECT corm_id FROM corm_network_nodes WHERE environment = $1 AND network_node_id = $2",
+		environment, networkNodeID,
 	).Scan(&cormID)
 	if err == pgx.ErrNoRows {
 		return "", nil
@@ -27,10 +27,10 @@ func (d *DB) ResolveCormID(ctx context.Context, networkNodeID string) (string, e
 }
 
 // LinkNetworkNode associates a network node with a corm.
-func (d *DB) LinkNetworkNode(ctx context.Context, networkNodeID, cormID string) error {
+func (d *DB) LinkNetworkNode(ctx context.Context, environment, networkNodeID, cormID string) error {
 	_, err := d.Pool.Exec(ctx,
-		"INSERT INTO corm_network_nodes (network_node_id, corm_id) VALUES ($1, $2) ON CONFLICT (network_node_id) DO NOTHING",
-		networkNodeID, cormID,
+		"INSERT INTO corm_network_nodes (environment, network_node_id, corm_id) VALUES ($1, $2, $3) ON CONFLICT (environment, network_node_id) DO NOTHING",
+		environment, networkNodeID, cormID,
 	)
 	return err
 }
@@ -38,22 +38,22 @@ func (d *DB) LinkNetworkNode(ctx context.Context, networkNodeID, cormID string) 
 // --- Events ---
 
 // InsertEvent appends a raw event and returns the assigned ID.
-func (d *DB) InsertEvent(ctx context.Context, cormID string, evt types.CormEvent) (int64, error) {
+func (d *DB) InsertEvent(ctx context.Context, environment, cormID string, evt types.CormEvent) (int64, error) {
 	var id int64
 	err := d.Pool.QueryRow(ctx,
-		`INSERT INTO corm_events (corm_id, network_node_id, session_id, player_address, event_type, payload)
-		 VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-		cormID, evt.NetworkNodeID, evt.SessionID, evt.PlayerAddress, evt.EventType, evt.Payload,
+		`INSERT INTO corm_events (environment, corm_id, network_node_id, session_id, player_address, event_type, payload)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+		environment, cormID, evt.NetworkNodeID, evt.SessionID, evt.PlayerAddress, evt.EventType, evt.Payload,
 	).Scan(&id)
 	return id, err
 }
 
 // EventsSince returns events for a corm with id > afterID.
-func (d *DB) EventsSince(ctx context.Context, cormID string, afterID int64) ([]types.CormEvent, error) {
+func (d *DB) EventsSince(ctx context.Context, environment, cormID string, afterID int64) ([]types.CormEvent, error) {
 	rows, err := d.Pool.Query(ctx,
 		`SELECT id, corm_id, network_node_id, session_id, player_address, event_type, payload, created_at
-		 FROM corm_events WHERE corm_id = $1 AND id > $2 ORDER BY id`,
-		cormID, afterID,
+		 FROM corm_events WHERE environment = $1 AND corm_id = $2 AND id > $3 ORDER BY id`,
+		environment, cormID, afterID,
 	)
 	if err != nil {
 		return nil, err
@@ -76,13 +76,13 @@ func (d *DB) EventsSince(ctx context.Context, cormID string, afterID int64) ([]t
 // --- Traits ---
 
 // GetTraits returns the learned traits for a corm, or nil if not found.
-func (d *DB) GetTraits(ctx context.Context, cormID string) (*types.CormTraits, error) {
+func (d *DB) GetTraits(ctx context.Context, environment, cormID string) (*types.CormTraits, error) {
 	t := &types.CormTraits{CormID: cormID}
 	var agendaJSON, affinityJSON, playerJSON []byte
 	err := d.Pool.QueryRow(ctx,
 		`SELECT phase, stability, corruption, agenda_weights, contract_type_affinity,
 		        patience, paranoia, volatility, player_affinities, consolidation_checkpoint, updated_at
-		 FROM corm_traits WHERE corm_id = $1`, cormID,
+		 FROM corm_traits WHERE environment = $1 AND corm_id = $2`, environment, cormID,
 	).Scan(
 		&t.Phase, &t.Stability, &t.Corruption,
 		&agendaJSON, &affinityJSON,
@@ -104,21 +104,21 @@ func (d *DB) GetTraits(ctx context.Context, cormID string) (*types.CormTraits, e
 }
 
 // UpsertTraits creates or updates the traits row for a corm.
-func (d *DB) UpsertTraits(ctx context.Context, t *types.CormTraits) error {
+func (d *DB) UpsertTraits(ctx context.Context, environment string, t *types.CormTraits) error {
 	agendaJSON, _ := json.Marshal(t.AgendaWeights)
 	affinityJSON, _ := json.Marshal(t.ContractTypeAffinity)
 	playerJSON, _ := json.Marshal(t.PlayerAffinities)
 
 	_, err := d.Pool.Exec(ctx,
-		`INSERT INTO corm_traits (corm_id, phase, stability, corruption, agenda_weights,
+		`INSERT INTO corm_traits (environment, corm_id, phase, stability, corruption, agenda_weights,
 		  contract_type_affinity, patience, paranoia, volatility, player_affinities,
 		  consolidation_checkpoint, updated_at)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,now())
-		 ON CONFLICT (corm_id) DO UPDATE SET
-		  phase=$2, stability=$3, corruption=$4, agenda_weights=$5,
-		  contract_type_affinity=$6, patience=$7, paranoia=$8, volatility=$9,
-		  player_affinities=$10, consolidation_checkpoint=$11, updated_at=now()`,
-		t.CormID, t.Phase, t.Stability, t.Corruption,
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,now())
+		 ON CONFLICT (environment, corm_id) DO UPDATE SET
+		  phase=$3, stability=$4, corruption=$5, agenda_weights=$6,
+		  contract_type_affinity=$7, patience=$8, paranoia=$9, volatility=$10,
+		  player_affinities=$11, consolidation_checkpoint=$12, updated_at=now()`,
+		environment, t.CormID, t.Phase, t.Stability, t.Corruption,
 		agendaJSON, affinityJSON,
 		t.Patience, t.Paranoia, t.Volatility,
 		playerJSON, t.ConsolidationCheckpoint,
@@ -129,7 +129,7 @@ func (d *DB) UpsertTraits(ctx context.Context, t *types.CormTraits) error {
 // --- Memories ---
 
 // InsertMemory stores an episodic memory with its embedding.
-func (d *DB) InsertMemory(ctx context.Context, m *types.CormMemory) (int64, error) {
+func (d *DB) InsertMemory(ctx context.Context, environment string, m *types.CormMemory) (int64, error) {
 	sourceJSON, _ := json.Marshal(m.SourceEvents)
 	var emb *pgvector.Vector
 	if len(m.Embedding) > 0 {
@@ -139,30 +139,30 @@ func (d *DB) InsertMemory(ctx context.Context, m *types.CormMemory) (int64, erro
 
 	var id int64
 	err := d.Pool.QueryRow(ctx,
-		`INSERT INTO corm_memories (corm_id, memory_text, memory_type, importance, source_events, embedding)
-		 VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
-		m.CormID, m.MemoryText, m.MemoryType, m.Importance, sourceJSON, emb,
+		`INSERT INTO corm_memories (environment, corm_id, memory_text, memory_type, importance, source_events, embedding)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
+		environment, m.CormID, m.MemoryText, m.MemoryType, m.Importance, sourceJSON, emb,
 	).Scan(&id)
 	return id, err
 }
 
 // SearchMemories performs a pgvector similarity search for a corm's episodic memories.
 // Returns top-k memories ranked by: 0.5*similarity + 0.3*importance + 0.2*recency.
-func (d *DB) SearchMemories(ctx context.Context, cormID string, queryEmbedding []float32, topK int) ([]types.CormMemory, error) {
+func (d *DB) SearchMemories(ctx context.Context, environment, cormID string, queryEmbedding []float32, topK int) ([]types.CormMemory, error) {
 	qvec := pgvector.NewVector(queryEmbedding)
 
 	rows, err := d.Pool.Query(ctx,
 		`SELECT id, corm_id, memory_text, memory_type, importance, source_events, created_at, last_recalled_at,
 		        1 - (embedding <=> $1) AS similarity
 		 FROM corm_memories
-		 WHERE corm_id = $2 AND embedding IS NOT NULL
+		 WHERE environment = $2 AND corm_id = $3 AND embedding IS NOT NULL
 		 ORDER BY
 		   0.5 * (1 - (embedding <=> $1)) +
 		   0.3 * importance +
 		   0.2 * (1.0 / (1.0 + EXTRACT(EPOCH FROM (now() - last_recalled_at)) / 86400.0))
 		 DESC
-		 LIMIT $3`,
-		qvec, cormID, topK,
+		 LIMIT $4`,
+		qvec, environment, cormID, topK,
 	)
 	if err != nil {
 		return nil, err
@@ -184,20 +184,20 @@ func (d *DB) SearchMemories(ctx context.Context, cormID string, queryEmbedding [
 }
 
 // MemoryCount returns the number of memories for a corm.
-func (d *DB) MemoryCount(ctx context.Context, cormID string) (int, error) {
+func (d *DB) MemoryCount(ctx context.Context, environment, cormID string) (int, error) {
 	var count int
-	err := d.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM corm_memories WHERE corm_id = $1", cormID).Scan(&count)
+	err := d.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM corm_memories WHERE environment = $1 AND corm_id = $2", environment, cormID).Scan(&count)
 	return count, err
 }
 
 // PruneMemories deletes the lowest-ranked memories exceeding the cap.
-func (d *DB) PruneMemories(ctx context.Context, cormID string, cap int) (int64, error) {
+func (d *DB) PruneMemories(ctx context.Context, environment, cormID string, cap int) (int64, error) {
 	tag, err := d.Pool.Exec(ctx,
 		`DELETE FROM corm_memories WHERE id IN (
-		   SELECT id FROM corm_memories WHERE corm_id = $1
+		   SELECT id FROM corm_memories WHERE environment = $1 AND corm_id = $2
 		   ORDER BY importance ASC, last_recalled_at ASC
-		   LIMIT (SELECT GREATEST(COUNT(*) - $2, 0) FROM corm_memories WHERE corm_id = $1)
-		 )`, cormID, cap,
+		   LIMIT (SELECT GREATEST(COUNT(*) - $3, 0) FROM corm_memories WHERE environment = $1 AND corm_id = $2)
+		 )`, environment, cormID, cap,
 	)
 	if err != nil {
 		return 0, err
@@ -219,21 +219,21 @@ func (d *DB) TouchMemories(ctx context.Context, ids []int64) error {
 // --- Responses ---
 
 // InsertResponse logs a corm response.
-func (d *DB) InsertResponse(ctx context.Context, r *types.CormResponse) error {
+func (d *DB) InsertResponse(ctx context.Context, environment string, r *types.CormResponse) error {
 	_, err := d.Pool.Exec(ctx,
-		`INSERT INTO corm_responses (corm_id, session_id, action_type, payload)
-		 VALUES ($1,$2,$3,$4)`,
-		r.CormID, r.SessionID, r.ActionType, r.Payload,
+		`INSERT INTO corm_responses (environment, corm_id, session_id, action_type, payload)
+		 VALUES ($1,$2,$3,$4,$5)`,
+		environment, r.CormID, r.SessionID, r.ActionType, r.Payload,
 	)
 	return err
 }
 
 // RecentResponses returns the last N responses for a corm.
-func (d *DB) RecentResponses(ctx context.Context, cormID string, limit int) ([]types.CormResponse, error) {
+func (d *DB) RecentResponses(ctx context.Context, environment, cormID string, limit int) ([]types.CormResponse, error) {
 	rows, err := d.Pool.Query(ctx,
 		`SELECT id, corm_id, session_id, action_type, payload, created_at
-		 FROM corm_responses WHERE corm_id = $1 ORDER BY id DESC LIMIT $2`,
-		cormID, limit,
+		 FROM corm_responses WHERE environment = $1 AND corm_id = $2 ORDER BY id DESC LIMIT $3`,
+		environment, cormID, limit,
 	)
 	if err != nil {
 		return nil, err
@@ -251,13 +251,14 @@ func (d *DB) RecentResponses(ctx context.Context, cormID string, limit int) ([]t
 	return responses, rows.Err()
 }
 
-// ActiveCormIDs returns corm IDs with unconsolidated events.
-func (d *DB) ActiveCormIDs(ctx context.Context) ([]string, error) {
+// ActiveCormIDs returns corm IDs with unconsolidated events for a given environment.
+func (d *DB) ActiveCormIDs(ctx context.Context, environment string) ([]string, error) {
 	rows, err := d.Pool.Query(ctx,
 		`SELECT DISTINCT t.corm_id FROM corm_traits t
-		 WHERE EXISTS (
-		   SELECT 1 FROM corm_events e WHERE e.corm_id = t.corm_id AND e.id > t.consolidation_checkpoint
+		 WHERE t.environment = $1 AND EXISTS (
+		   SELECT 1 FROM corm_events e WHERE e.environment = $1 AND e.corm_id = t.corm_id AND e.id > t.consolidation_checkpoint
 		 )`,
+		environment,
 	)
 	if err != nil {
 		return nil, err
@@ -276,11 +277,11 @@ func (d *DB) ActiveCormIDs(ctx context.Context) ([]string, error) {
 }
 
 // RecentEvents returns the last N events for a corm.
-func (d *DB) RecentEvents(ctx context.Context, cormID string, limit int) ([]types.CormEvent, error) {
+func (d *DB) RecentEvents(ctx context.Context, environment, cormID string, limit int) ([]types.CormEvent, error) {
 	rows, err := d.Pool.Query(ctx,
 		`SELECT id, network_node_id, session_id, player_address, event_type, payload, created_at
-		 FROM corm_events WHERE corm_id = $1 ORDER BY id DESC LIMIT $2`,
-		cormID, limit,
+		 FROM corm_events WHERE environment = $1 AND corm_id = $2 ORDER BY id DESC LIMIT $3`,
+		environment, cormID, limit,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("recent events: %w", err)

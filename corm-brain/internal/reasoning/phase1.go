@@ -4,21 +4,22 @@ import (
 	"context"
 	"log"
 
+	"github.com/frontier-corm/corm-brain/internal/transport"
 	"github.com/frontier-corm/corm-brain/internal/types"
 )
 
 // handlePhase1Effects handles side effects for Phase 1 (cipher puzzles).
-func handlePhase1Effects(ctx context.Context, h *Handler, cormID string, traits *types.CormTraits, evt types.CormEvent) {
+func handlePhase1Effects(ctx context.Context, h *Handler, environment, cormID string, sender *transport.ActionSender, traits *types.CormTraits, evt types.CormEvent) {
 	switch evt.EventType {
 	case types.EventWordSubmit:
 		// Check if stability hit 100 → transition to Phase 2
 		if traits.Stability >= 100 {
 			traits.Phase = 2
-			if err := h.db.UpsertTraits(ctx, traits); err != nil {
+			if err := h.db.UpsertTraits(ctx, environment, traits); err != nil {
 				log.Printf("phase1: upsert traits: %v", err)
 			}
 
-			h.sender.SendPayload(ctx, types.ActionStateSync, evt.SessionID, types.StateSyncPayload{
+			sender.SendPayload(ctx, types.ActionStateSync, evt.SessionID, types.StateSyncPayload{
 				Phase:      2,
 				Stability:  int(traits.Stability),
 				Corruption: int(traits.Corruption),
@@ -29,13 +30,13 @@ func handlePhase1Effects(ctx context.Context, h *Handler, cormID string, traits 
 
 	case types.EventDecrypt:
 		// Optionally evaluate boost targeting
-		evaluateBoost(ctx, h, cormID, traits, evt)
+		evaluateBoost(ctx, h, environment, cormID, sender, traits, evt)
 	}
 }
 
 // evaluateBoost decides whether to send a boost hint to the player.
 // Boosts are more likely at higher stability and lower corruption.
-func evaluateBoost(ctx context.Context, h *Handler, cormID string, traits *types.CormTraits, evt types.CormEvent) {
+func evaluateBoost(ctx context.Context, h *Handler, environment, cormID string, sender *transport.ActionSender, traits *types.CormTraits, evt types.CormEvent) {
 	// Simple heuristic: boost when stability is moderate and corruption is low
 	if traits.Stability < 30 || traits.Corruption > 50 {
 		return

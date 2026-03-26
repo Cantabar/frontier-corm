@@ -29,7 +29,7 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	// --- Database ---
+	// --- Database (shared) ---
 	database, err := db.New(ctx, cfg.DatabaseURL)
 	if err != nil {
 		log.Fatalf("database: %v", err)
@@ -37,77 +37,63 @@ func main() {
 	defer database.Close()
 	log.Println("database connected, migrations applied")
 
-	// --- LLM Client ---
+	// --- LLM Client (shared) ---
 	llmClient := llm.NewClient(cfg.LLMSuperURL, cfg.LLMFastURL)
 
-	// --- Embedder ---
+	// --- Embedder (shared) ---
 	embedder := embed.NewEmbedder(cfg.EmbedModelPath)
 	defer embedder.Close()
 
-	// --- Chain Client ---
-	chainClient := chain.NewClient(cfg.SUIRpcURL, cfg.CormStatePackageID, cfg.SUIPrivateKey)
-	_ = chainClient // Used by reasoning package in future
+	// --- Per-environment chain clients ---
+	chainClients := make(map[string]*chain.Client, len(cfg.Environments))
+	for _, env := range cfg.Environments {
+		chainClients[env.Name] = chain.NewClient(env.SUIRpcURL, env.CormStatePackageID, env.SUIPrivateKey)
+		log.Printf("chain client initialized for environment %q", env.Name)
+	}
 
-	// --- Transport ---
+	// --- Transport (per-environment WS + fallback) ---
 	eventChan := make(chan types.CormEvent, 256)
 
-	wsClient := transport.NewWSClient(cfg.PuzzleServiceURL, cfg.WSReconnectMax, eventChan)
-	fallbackClient := transport.NewFallbackClient(cfg.PuzzleServiceURL, cfg.FallbackPollInterval, eventChan)
-	sender := transport.NewActionSender(wsClient, fallbackClient)
+	envSpecs := make([]struct {
+		Name             string
+		PuzzleServiceURL string
+	}, len(cfg.Environments))
+	for i, env := range cfg.Environments {
+		envSpecs[i].Name = env.Name
+		envSpecs[i].PuzzleServiceURL = env.PuzzleServiceURL
+	}
 
-	// Coordinate WS/fallback: start polling when WS drops, stop when reconnected
-	var fallbackCancel context.CancelFunc
-	var fallbackMu sync.Mutex
+	tm := transport.NewManager(envSpecs, cfg.WSReconnectMax, cfg.FallbackPollInterval, eventChan)
 
-	wsClient.SetCallbacks(
-		func() { // onDisconnect
-			fallbackMu.Lock()
-			defer fallbackMu.Unlock()
-			log.Println("switching to HTTP fallback polling")
-			fbCtx, fbCancel := context.WithCancel(ctx)
-			fallbackCancel = fbCancel
-			go fallbackClient.Poll(fbCtx)
-		},
-		func() { // onReconnect
-			fallbackMu.Lock()
-			defer fallbackMu.Unlock()
-			if fallbackCancel != nil {
-				log.Println("WebSocket reconnected, stopping fallback polling")
-				fallbackCancel()
-				fallbackCancel = nil
-			}
-		},
-	)
-
-	// --- Memory ---
+	// --- Memory (shared) ---
 	retriever := memory.NewRetriever(database, embedder)
 	consolidator := memory.NewConsolidator(database, llmClient, embedder, cfg.MemoryCapPerCorm)
 
 	// --- Reasoning ---
-	handler := reasoning.NewHandler(database, llmClient, retriever, sender)
+	handler := reasoning.NewHandler(database, llmClient, retriever, tm)
 
 	// --- Start goroutines ---
 	var wg sync.WaitGroup
 
-	// Goroutine 1: WebSocket listener (persistent, reconnecting)
+	// Goroutine 1: Transport manager (runs per-environment WS listeners)
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		wsClient.Run(ctx)
+		tm.Run(ctx)
 	}()
 
-	// Goroutine 2: Event processor (reads from eventChan)
+	// Goroutine 2: Event processor (reads from shared eventChan)
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		runEventProcessor(ctx, cfg, database, chainClient, handler, eventChan)
+		runEventProcessor(ctx, cfg, database, chainClients, handler, eventChan)
 	}()
 
-	// Goroutine 3: Slow consolidation loop
+	// Goroutine 3: Slow consolidation loop (iterates all environments)
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		runConsolidationLoop(ctx, cfg.ConsolidationInterval, database, consolidator)
+		runConsolidationLoop(ctx, cfg, database, consolidator, tm.Environments())
 	}()
 
 	log.Println("corm-brain running")
@@ -124,11 +110,10 @@ func runEventProcessor(
 	ctx context.Context,
 	cfg config.Config,
 	database *db.DB,
-	chainClient *chain.Client,
+	chainClients map[string]*chain.Client,
 	handler *reasoning.Handler,
 	eventChan <-chan types.CormEvent,
 ) {
-	// Brief coalescing window for batching rapid events
 	coalesce := cfg.EventCoalesceWindow
 
 	for {
@@ -152,9 +137,8 @@ func runEventProcessor(
 				}
 			}
 
-			// Process each event
 			for _, e := range batch {
-				processEvent(ctx, database, chainClient, handler, e)
+				processEvent(ctx, database, chainClients, handler, e)
 			}
 		}
 	}
@@ -164,14 +148,22 @@ func runEventProcessor(
 func processEvent(
 	ctx context.Context,
 	database *db.DB,
-	chainClient *chain.Client,
+	chainClients map[string]*chain.Client,
 	handler *reasoning.Handler,
 	evt types.CormEvent,
 ) {
-	// Resolve network_node_id → corm_id
-	cormID, err := database.ResolveCormID(ctx, evt.NetworkNodeID)
+	env := evt.Environment
+
+	chainClient, ok := chainClients[env]
+	if !ok {
+		log.Printf("no chain client for environment %q, dropping event", env)
+		return
+	}
+
+	// Resolve network_node_id → corm_id (scoped by environment)
+	cormID, err := database.ResolveCormID(ctx, env, evt.NetworkNodeID)
 	if err != nil {
-		log.Printf("resolve corm: %v", err)
+		log.Printf("[%s] resolve corm: %v", env, err)
 		return
 	}
 
@@ -179,30 +171,30 @@ func processEvent(
 		// First contact with this network node — provision a new corm
 		cormID, err = chainClient.CreateCormState(ctx, evt.NetworkNodeID)
 		if err != nil {
-			log.Printf("create corm state: %v", err)
-			// Generate a local-only corm ID as fallback
-			cormID = "local_" + evt.NetworkNodeID
+			log.Printf("[%s] create corm state: %v", env, err)
+			cormID = "local_" + env + "_" + evt.NetworkNodeID
 		}
 
-		if err := database.LinkNetworkNode(ctx, evt.NetworkNodeID, cormID); err != nil {
-			log.Printf("link network node: %v", err)
+		if err := database.LinkNetworkNode(ctx, env, evt.NetworkNodeID, cormID); err != nil {
+			log.Printf("[%s] link network node: %v", env, err)
 		}
-		log.Printf("new corm %s for node %s", cormID, evt.NetworkNodeID)
+		log.Printf("[%s] new corm %s for node %s", env, cormID, evt.NetworkNodeID)
 	}
 
-	if err := handler.ProcessEvent(ctx, cormID, evt); err != nil {
-		log.Printf("process event: %v", err)
+	if err := handler.ProcessEvent(ctx, env, cormID, evt); err != nil {
+		log.Printf("[%s] process event: %v", env, err)
 	}
 }
 
 // runConsolidationLoop periodically consolidates events into memories and updates traits.
 func runConsolidationLoop(
 	ctx context.Context,
-	interval time.Duration,
+	cfg config.Config,
 	database *db.DB,
 	consolidator *memory.Consolidator,
+	environments []string,
 ) {
-	ticker := time.NewTicker(interval)
+	ticker := time.NewTicker(cfg.ConsolidationInterval)
 	defer ticker.Stop()
 
 	for {
@@ -210,15 +202,17 @@ func runConsolidationLoop(
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			cormIDs, err := database.ActiveCormIDs(ctx)
-			if err != nil {
-				log.Printf("consolidation: active corms: %v", err)
-				continue
-			}
+			for _, env := range environments {
+				cormIDs, err := database.ActiveCormIDs(ctx, env)
+				if err != nil {
+					log.Printf("consolidation [%s]: active corms: %v", env, err)
+					continue
+				}
 
-			for _, cormID := range cormIDs {
-				if err := consolidator.ConsolidateCorm(ctx, cormID); err != nil {
-					log.Printf("consolidation: corm %s: %v", cormID, err)
+				for _, cormID := range cormIDs {
+					if err := consolidator.ConsolidateCorm(ctx, env, cormID); err != nil {
+						log.Printf("consolidation [%s]: corm %s: %v", env, cormID, err)
+					}
 				}
 			}
 		}

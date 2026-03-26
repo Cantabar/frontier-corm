@@ -30,19 +30,19 @@ func NewConsolidator(database *db.DB, llmClient *llm.Client, embedder embed.Embe
 }
 
 // ConsolidateCorm processes unconsolidated events for a single corm.
-func (c *Consolidator) ConsolidateCorm(ctx context.Context, cormID string) error {
+func (c *Consolidator) ConsolidateCorm(ctx context.Context, environment, cormID string) error {
 	// Get current traits
-	traits, err := c.db.GetTraits(ctx, cormID)
+	traits, err := c.db.GetTraits(ctx, environment, cormID)
 	if err != nil {
 		return err
 	}
 	if traits == nil {
-		log.Printf("consolidate: no traits for corm %s, skipping", cormID)
+		log.Printf("consolidate: no traits for corm %s [%s], skipping", cormID, environment)
 		return nil
 	}
 
 	// Get events since last checkpoint
-	events, err := c.db.EventsSince(ctx, cormID, traits.ConsolidationCheckpoint)
+	events, err := c.db.EventsSince(ctx, environment, cormID, traits.ConsolidationCheckpoint)
 	if err != nil {
 		return err
 	}
@@ -76,7 +76,7 @@ func (c *Consolidator) ConsolidateCorm(ctx context.Context, cormID string) error
 
 		// 3. Upsert memories
 		for _, m := range memories {
-			if _, err := c.db.InsertMemory(ctx, &m); err != nil {
+			if _, err := c.db.InsertMemory(ctx, environment, &m); err != nil {
 				log.Printf("consolidate: insert memory failed: %v", err)
 			}
 		}
@@ -94,17 +94,17 @@ func (c *Consolidator) ConsolidateCorm(ctx context.Context, cormID string) error
 	}
 	traits.ConsolidationCheckpoint = maxID
 
-	if err := c.db.UpsertTraits(ctx, traits); err != nil {
+	if err := c.db.UpsertTraits(ctx, environment, traits); err != nil {
 		return err
 	}
 
 	// 6. Prune memories if over cap
-	count, err := c.db.MemoryCount(ctx, cormID)
+	count, err := c.db.MemoryCount(ctx, environment, cormID)
 	if err != nil {
 		return err
 	}
 	if count > c.memoryCap {
-		pruned, err := c.db.PruneMemories(ctx, cormID, c.memoryCap)
+		pruned, err := c.db.PruneMemories(ctx, environment, cormID, c.memoryCap)
 		if err != nil {
 			log.Printf("consolidate: prune failed for %s: %v", cormID, err)
 		} else if pruned > 0 {

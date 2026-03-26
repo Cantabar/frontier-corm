@@ -19,8 +19,8 @@ func NewPruner(database *db.DB, cap int) *Pruner {
 }
 
 // Prune removes the lowest-ranked memories if the corm exceeds its cap.
-func (p *Pruner) Prune(ctx context.Context, cormID string) error {
-	count, err := p.db.MemoryCount(ctx, cormID)
+func (p *Pruner) Prune(ctx context.Context, environment, cormID string) error {
+	count, err := p.db.MemoryCount(ctx, environment, cormID)
 	if err != nil {
 		return err
 	}
@@ -29,7 +29,7 @@ func (p *Pruner) Prune(ctx context.Context, cormID string) error {
 		return nil
 	}
 
-	pruned, err := p.db.PruneMemories(ctx, cormID, p.cap)
+	pruned, err := p.db.PruneMemories(ctx, environment, cormID, p.cap)
 	if err != nil {
 		return err
 	}

@@ -4,15 +4,16 @@ import (
 	"context"
 	"log"
 
+	"github.com/frontier-corm/corm-brain/internal/transport"
 	"github.com/frontier-corm/corm-brain/internal/types"
 )
 
 // handlePhase2Effects handles side effects for Phase 2 (contracts).
-func handlePhase2Effects(ctx context.Context, h *Handler, cormID string, traits *types.CormTraits, evt types.CormEvent) {
+func handlePhase2Effects(ctx context.Context, h *Handler, environment, cormID string, sender *transport.ActionSender, traits *types.CormTraits, evt types.CormEvent) {
 	switch evt.EventType {
 	case types.EventContractComplete:
 		// Sync updated state
-		h.sender.SendPayload(ctx, types.ActionStateSync, evt.SessionID, types.StateSyncPayload{
+		sender.SendPayload(ctx, types.ActionStateSync, evt.SessionID, types.StateSyncPayload{
 			Phase:      traits.Phase,
 			Stability:  int(traits.Stability),
 			Corruption: int(traits.Corruption),
@@ -22,7 +23,7 @@ func handlePhase2Effects(ctx context.Context, h *Handler, cormID string, traits 
 		// TODO: Check if progression requirements met for Phase 3
 
 	case types.EventContractFailed:
-		h.sender.SendPayload(ctx, types.ActionStateSync, evt.SessionID, types.StateSyncPayload{
+		sender.SendPayload(ctx, types.ActionStateSync, evt.SessionID, types.StateSyncPayload{
 			Phase:      traits.Phase,
 			Stability:  int(traits.Stability),
 			Corruption: int(traits.Corruption),

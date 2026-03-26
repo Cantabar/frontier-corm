@@ -19,6 +19,7 @@ type CormEvent struct {
 	EventType     string          `json:"event_type"`
 	Payload       json.RawMessage `json:"payload"`
 	Timestamp     time.Time       `json:"timestamp"`
+	Environment   string          `json:"-"` // set by transport layer, not from wire
 }
 
 // Event type constants.
@@ -174,10 +175,11 @@ type Message struct {
 
 // Task describes the context for an LLM inference request.
 type Task struct {
-	CormID     string
-	Phase      int
-	EventType  string
-	Corruption float64
+	CormID      string
+	Phase       int
+	EventType   string
+	Corruption  float64
+	Environment string
 }
 
 // RequiresDeepReasoning returns true if the task should use the Super model.

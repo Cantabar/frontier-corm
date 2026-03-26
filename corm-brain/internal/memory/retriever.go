@@ -23,7 +23,7 @@ func NewRetriever(database *db.DB, embedder embed.Embedder) *Retriever {
 
 // Recall retrieves the top-k most relevant episodic memories for a corm
 // given the current event context.
-func (r *Retriever) Recall(ctx context.Context, cormID string, event types.CormEvent, topK int) ([]types.CormMemory, error) {
+func (r *Retriever) Recall(ctx context.Context, environment, cormID string, event types.CormEvent, topK int) ([]types.CormMemory, error) {
 	// Build query text from event context
 	queryText := fmt.Sprintf("player %s %s", event.PlayerAddress, event.EventType)
 	if len(event.Payload) > 0 {
@@ -37,7 +37,7 @@ func (r *Retriever) Recall(ctx context.Context, cormID string, event types.CormE
 	}
 
 	// Search memories
-	memories, err := r.db.SearchMemories(ctx, cormID, embedding, topK)
+	memories, err := r.db.SearchMemories(ctx, environment, cormID, embedding, topK)
 	if err != nil {
 		return nil, fmt.Errorf("search memories: %w", err)
 	}
