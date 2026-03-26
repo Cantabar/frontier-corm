@@ -26,7 +26,7 @@ import { SsuItemPickerField } from "../shared/SsuItemPickerField";
 import { ItemBadge } from "../shared/ItemBadge";
 import { PrimaryButton } from "../shared/Button";
 import { toBaseUnits, fromBaseUnits } from "../../lib/coinUtils";
-import { useEscrowCoinDecimals, useFillCoinDecimals } from "../../hooks/useCoinDecimals";
+import { useCoinDecimals, defaultCoinType } from "../../hooks/useCoinDecimals";
 
 const Label = styled.label`
   display: block;
@@ -153,8 +153,9 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
   const { push } = useNotifications();
   const { structures } = useMyStructures();
   const { phase: fillPhase, setPhase: setFillPhase, isBusy, phaseLabel } = useTransactionPhase(FILL_STEPS);
-  const { decimals: ceDecimals, symbol: ceSymbol } = useEscrowCoinDecimals();
-  const { decimals: cfDecimals, symbol: cfSymbol } = useFillCoinDecimals();
+  const contractCoinType = contract.coinType ?? defaultCoinType();
+  const { decimals: ceDecimals, symbol: ceSymbol } = useCoinDecimals(contractCoinType);
+  const { decimals: cfDecimals, symbol: cfSymbol } = useCoinDecimals(contractCoinType);
 
   // Coin fill fields
   const [fillAmount, setFillAmount] = useState("");
@@ -382,6 +383,7 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
             contractId: contract.id,
             fillerCharacterId: characterId,
             claimAmount: toBaseUnits(claimQuantity, ceDecimals),
+            coinType: contract.coinType,
           });
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           result = await signAndExecute({ transaction: tx as any });
@@ -394,6 +396,7 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
             sourceSsuId: sourceSsu,
             fillerCharacterId: characterId,
             quantity: Number(claimQuantity),
+            coinType: contract.coinType,
           });
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           result = await signAndExecute({ transaction: tx as any });
@@ -403,6 +406,7 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
             contractId: contract.id,
             fillAmount: amount,
             characterId,
+            coinType: contract.coinType,
           });
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           result = await signAndExecute({ transaction: tx as any });
@@ -416,6 +420,7 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
             sourceSsuId: sourceSsu,
             fillerCharacterId: characterId,
             fillAmount: amount,
+            coinType: contract.coinType,
           });
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           result = await signAndExecute({ transaction: tx as any });
@@ -431,6 +436,7 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
             access: accessMode,
             typeId: Number(selectedTypeId),
             quantity: selectedQty,
+            coinType: contract.coinType,
           });
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           result = await signAndExecute({ transaction: tx as any });
@@ -449,6 +455,7 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
                 access: accessMode,
                 typeId: Number(selectedTypeId),
                 quantity: selectedQty,
+                coinType: contract.coinType,
               })
             : buildFillItemForItemComposite({
                 contractId: contract.id,
@@ -460,6 +467,7 @@ export function FillContractModal({ contract, onClose, onFilled }: Props) {
                 access: accessMode,
                 typeId: Number(selectedTypeId),
                 quantity: selectedQty,
+                coinType: contract.coinType,
               });
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           result = await signAndExecute({ transaction: tx as any });

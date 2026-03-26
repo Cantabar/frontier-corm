@@ -790,12 +790,13 @@ export function buildFillWithCoins(params: {
   contractId: string;
   fillAmount: number;
   characterId: string;
+  coinType?: string;
 }): Transaction {
   const tx = new Transaction();
   const [fill] = tx.splitCoins(tx.gas, [params.fillAmount]);
   tx.moveCall({
     target: tcTarget("coin_for_coin", "fill"),
-    typeArguments: tcTypes(),
+    typeArguments: tcTypes(params.coinType),
     arguments: [
       tx.object(params.contractId),
       fill,
@@ -812,11 +813,12 @@ export function buildFillWithItems(params: {
   posterCharacterId: string;
   fillerCharacterId: string;
   itemId: string;
+  coinType?: string;
 }): Transaction {
   const tx = new Transaction();
   tx.moveCall({
     target: tcTarget("coin_for_item", "fill"),
-    typeArguments: tcModuleTypes("coin_for_item"),
+    typeArguments: tcModuleTypes("coin_for_item", params.coinType),
     arguments: [
       tx.object(params.contractId),
       tx.object(params.destinationSsuId),
@@ -845,6 +847,7 @@ export function buildFillCoinForItemComposite(params: {
   access: ItemAccessMode;
   typeId: number;
   quantity: number;
+  coinType?: string;
 }): Transaction {
   const tx = new Transaction();
 
@@ -860,7 +863,7 @@ export function buildFillCoinForItemComposite(params: {
   // Fill the contract (deposits item to poster's destination SSU)
   tx.moveCall({
     target: tcTarget("coin_for_item", "fill"),
-    typeArguments: tcModuleTypes("coin_for_item"),
+    typeArguments: tcModuleTypes("coin_for_item", params.coinType),
     arguments: [
       tx.object(params.contractId),
       tx.object(params.destinationSsuId),
@@ -891,6 +894,7 @@ export function buildFillItemForItemComposite(params: {
   access: ItemAccessMode;
   typeId: number;
   quantity: number;
+  coinType?: string;
 }): Transaction {
   const tx = new Transaction();
 
@@ -906,7 +910,7 @@ export function buildFillItemForItemComposite(params: {
   // Fill the contract (deposits wanted items at destination, releases offered from source)
   tx.moveCall({
     target: tcTarget("item_for_item", "fill"),
-    typeArguments: tcModuleTypes("item_for_item"),
+    typeArguments: tcModuleTypes("item_for_item", params.coinType),
     arguments: [
       tx.object(params.contractId),
       tx.object(params.sourceSsuId),
@@ -923,7 +927,7 @@ export function buildFillItemForItemComposite(params: {
 
 /**
  * Variant of buildFillItemForItemComposite for contracts where source SSU ==
- * destination SSU. SUI forbids two &mut refs to the same object in one call,
+ * destination SSU.
  * so this calls `fill_item_for_item_same_ssu` which takes a single SSU param.
  */
 export function buildFillItemForItemSameSsuComposite(params: {
@@ -935,6 +939,7 @@ export function buildFillItemForItemSameSsuComposite(params: {
   access: ItemAccessMode;
   typeId: number;
   quantity: number;
+  coinType?: string;
 }): Transaction {
   const tx = new Transaction();
 
@@ -949,7 +954,7 @@ export function buildFillItemForItemSameSsuComposite(params: {
 
   tx.moveCall({
     target: tcTarget("item_for_item", "fill_same_ssu"),
-    typeArguments: tcModuleTypes("item_for_item"),
+    typeArguments: tcModuleTypes("item_for_item", params.coinType),
     arguments: [
       tx.object(params.contractId),
       tx.object(params.ssuId),
@@ -968,12 +973,13 @@ export function buildFillItemForCoin(params: {
   sourceSsuId: string;
   fillerCharacterId: string;
   fillAmount: number;
+  coinType?: string;
 }): Transaction {
   const tx = new Transaction();
   const [fill] = tx.splitCoins(tx.gas, [params.fillAmount]);
   tx.moveCall({
     target: tcTarget("item_for_coin", "fill"),
-    typeArguments: tcModuleTypes("item_for_coin"),
+    typeArguments: tcModuleTypes("item_for_coin", params.coinType),
     arguments: [
       tx.object(params.contractId),
       tx.object(params.sourceSsuId),
@@ -990,11 +996,12 @@ export function buildClaimFreeItems(params: {
   sourceSsuId: string;
   fillerCharacterId: string;
   quantity: number;
+  coinType?: string;
 }): Transaction {
   const tx = new Transaction();
   tx.moveCall({
     target: tcTarget("item_for_coin", "claim_free"),
-    typeArguments: tcModuleTypes("item_for_coin"),
+    typeArguments: tcModuleTypes("item_for_coin", params.coinType),
     arguments: [
       tx.object(params.contractId),
       tx.object(params.sourceSsuId),
@@ -1010,11 +1017,12 @@ export function buildClaimFreeCoins(params: {
   contractId: string;
   fillerCharacterId: string;
   claimAmount: number;
+  coinType?: string;
 }): Transaction {
   const tx = new Transaction();
   tx.moveCall({
     target: tcTarget("coin_for_coin", "claim_free"),
-    typeArguments: tcTypes(),
+    typeArguments: tcTypes(params.coinType),
     arguments: [
       tx.object(params.contractId),
       tx.object(params.fillerCharacterId),
@@ -1032,12 +1040,13 @@ export function buildAcceptTransport(params: {
   stakeAmount: number;
   characterId: string;
   sourceSsuId: string;
+  coinType?: string;
 }): Transaction {
   const tx = new Transaction();
   const [stake] = tx.splitCoins(tx.gas, [params.stakeAmount]);
   tx.moveCall({
     target: tcTarget("transport", "accept"),
-    typeArguments: tcTypes(),
+    typeArguments: tcTypes(params.coinType),
     arguments: [
       tx.object(params.contractId),
       stake,
@@ -1055,11 +1064,12 @@ export function buildDeliverTransport(params: {
   courierCharacterId: string;
   posterCharacterId: string;
   itemId: string;
+  coinType?: string;
 }): Transaction {
   const tx = new Transaction();
   tx.moveCall({
     target: tcTarget("transport", "deliver"),
-    typeArguments: tcTypes(),
+    typeArguments: tcTypes(params.coinType),
     arguments: [
       tx.object(params.contractId),
       tx.object(params.destinationSsuId),
@@ -1078,12 +1088,13 @@ export function buildCancelTrustlessContract(params: {
   contractId: string;
   characterId: string;
   contractVariant: string;
+  coinType?: string;
 }): Transaction {
   const mod = VARIANT_MODULE[params.contractVariant] ?? "coin_for_coin";
   const tx = new Transaction();
   tx.moveCall({
     target: tcTarget(mod, "cancel"),
-    typeArguments: tcModuleTypes(mod),
+    typeArguments: tcModuleTypes(mod, params.coinType),
     arguments: [
       tx.object(params.contractId),
       tx.object(params.characterId),
@@ -1095,12 +1106,13 @@ export function buildCancelTrustlessContract(params: {
 export function buildExpireTrustlessContract(params: {
   contractId: string;
   contractVariant: string;
+  coinType?: string;
 }): Transaction {
   const mod = VARIANT_MODULE[params.contractVariant] ?? "coin_for_coin";
   const tx = new Transaction();
   tx.moveCall({
     target: tcTarget(mod, "expire"),
-    typeArguments: tcModuleTypes(mod),
+    typeArguments: tcModuleTypes(mod, params.coinType),
     arguments: [
       tx.object(params.contractId),
       tx.object(SUI_CLOCK),
@@ -1114,12 +1126,13 @@ export function buildCancelItemContract(params: {
   posterCharacterId: string;
   sourceSsuId: string;
   contractVariant: string;
+  coinType?: string;
 }): Transaction {
   const mod = VARIANT_MODULE[params.contractVariant] ?? "item_for_coin";
   const tx = new Transaction();
   tx.moveCall({
     target: tcTarget(mod, "cancel"),
-    typeArguments: tcModuleTypes(mod),
+    typeArguments: tcModuleTypes(mod, params.coinType),
     arguments: [
       tx.object(params.contractId),
       tx.object(params.posterCharacterId),
@@ -1134,12 +1147,13 @@ export function buildExpireItemContract(params: {
   posterCharacterId: string;
   sourceSsuId: string;
   contractVariant: string;
+  coinType?: string;
 }): Transaction {
   const mod = VARIANT_MODULE[params.contractVariant] ?? "item_for_coin";
   const tx = new Transaction();
   tx.moveCall({
     target: tcTarget(mod, "expire"),
-    typeArguments: tcModuleTypes(mod),
+    typeArguments: tcModuleTypes(mod, params.coinType),
     arguments: [
       tx.object(params.contractId),
       tx.object(params.posterCharacterId),
@@ -1155,12 +1169,13 @@ export function buildExpireItemContract(params: {
 export function buildCleanupCompletedContract(params: {
   contractId: string;
   contractVariant: string;
+  coinType?: string;
 }): Transaction {
   const mod = VARIANT_MODULE[params.contractVariant] ?? "coin_for_coin";
   const tx = new Transaction();
   tx.moveCall({
     target: tcTarget(mod, "cleanup"),
-    typeArguments: tcModuleTypes(mod),
+    typeArguments: tcModuleTypes(mod, params.coinType),
     arguments: [
       tx.object(params.contractId),
     ],
@@ -1173,12 +1188,13 @@ export function buildCleanupCompletedItemContract(params: {
   posterCharacterId: string;
   sourceSsuId: string;
   contractVariant: string;
+  coinType?: string;
 }): Transaction {
   const mod = VARIANT_MODULE[params.contractVariant] ?? "item_for_coin";
   const tx = new Transaction();
   tx.moveCall({
     target: tcTarget(mod, "cleanup"),
-    typeArguments: tcModuleTypes(mod),
+    typeArguments: tcModuleTypes(mod, params.coinType),
     arguments: [
       tx.object(params.contractId),
       tx.object(params.posterCharacterId),

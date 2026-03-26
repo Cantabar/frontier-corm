@@ -3,7 +3,7 @@ import styled from "styled-components";
 import { useSignAndExecuteTransaction } from "@mysten/dapp-kit";
 import { Modal } from "../shared/Modal";
 import { useIdentity } from "../../hooks/useIdentity";
-import { useFillCoinDecimals } from "../../hooks/useCoinDecimals";
+import { useCoinDecimals, defaultCoinType } from "../../hooks/useCoinDecimals";
 import { toBaseUnits } from "../../lib/coinUtils";
 import { formatAmount } from "../../lib/format";
 import type { TrustlessContractData } from "../../lib/types";
@@ -87,7 +87,8 @@ interface Props {
 
 export function DappDeliverModal({ contract, ssuId, inventory, onClose, onSuccess }: Props) {
   const { characterId } = useIdentity();
-  const { decimals, symbol: coinSymbol } = useFillCoinDecimals();
+  const contractCoinType = contract.coinType ?? defaultCoinType();
+  const { decimals, symbol: coinSymbol } = useCoinDecimals(contractCoinType);
   const { mutateAsync: signAndExecute, isPending } = useSignAndExecuteTransaction();
   const [error, setError] = useState<string | null>(null);
 
@@ -137,6 +138,7 @@ export function DappDeliverModal({ contract, ssuId, inventory, onClose, onSucces
             contractId: contract.id,
             fillAmount: amount,
             characterId,
+            coinType: contract.coinType,
           });
           await signAndExecute({ transaction: tx as never });
         } else {
@@ -147,6 +149,7 @@ export function DappDeliverModal({ contract, ssuId, inventory, onClose, onSucces
             sourceSsuId: sourceSsu,
             fillerCharacterId: characterId,
             fillAmount: amount,
+            coinType: contract.coinType,
           });
           await signAndExecute({ transaction: tx as never });
         }
@@ -157,6 +160,7 @@ export function DappDeliverModal({ contract, ssuId, inventory, onClose, onSucces
           posterCharacterId: contract.posterId,
           fillerCharacterId: characterId,
           itemId,
+          coinType: contract.coinType,
         });
         await signAndExecute({ transaction: tx as never });
       } else if (isTransportDeliver) {
@@ -168,6 +172,7 @@ export function DappDeliverModal({ contract, ssuId, inventory, onClose, onSucces
           courierCharacterId: characterId,
           posterCharacterId: contract.posterId,
           itemId,
+          coinType: contract.coinType,
         });
         await signAndExecute({ transaction: tx as never });
       }

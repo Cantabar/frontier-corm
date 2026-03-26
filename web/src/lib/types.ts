@@ -189,6 +189,8 @@ export interface TrustlessContractData {
   itemsReleased?: number;
   /** When true, filled items are deposited to the SSU's owner inventory instead of the poster's player inventory. */
   useOwnerInventory?: boolean;
+  /** Full coin type string extracted from the on-chain Move struct phantom type parameter. */
+  coinType?: string;
 }
 
 // ============================================================

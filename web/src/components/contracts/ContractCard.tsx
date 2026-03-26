@@ -2,7 +2,8 @@ import { type ReactNode, useState, useEffect } from "react";
 import styled from "styled-components";
 import type { TrustlessContractData } from "../../lib/types";
 import { formatAmount, formatDeadline, contractTypeLabel } from "../../lib/format";
-import { useEscrowCoinDecimals, useFillCoinDecimals } from "../../hooks/useCoinDecimals";
+import { useCoinDecimals, defaultCoinType } from "../../hooks/useCoinDecimals";
+import { parseCoinSymbol } from "../../lib/coinUtils";
 import { getLocationTagsForStructure, type LocationTagResult } from "../../lib/api";
 import { regionName, constellationName } from "../../lib/regions";
 import { StatusBadge } from "../shared/StatusBadge";
@@ -61,6 +62,17 @@ const LocationTag = styled.span`
   border-radius: ${({ theme }) => theme.radii.sm};
   background: ${({ theme }) => theme.colors.surface.overlay};
   color: ${({ theme }) => theme.colors.text.muted};
+  margin-left: ${({ theme }) => theme.spacing.xs};
+`;
+
+const CoinTag = styled.span`
+  display: inline-block;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: ${({ theme }) => theme.radii.sm};
+  background: ${({ theme }) => theme.colors.primary.subtle};
+  color: ${({ theme }) => theme.colors.primary.main};
   margin-left: ${({ theme }) => theme.spacing.xs};
 `;
 
@@ -148,8 +160,10 @@ function formatLocationTag(tag: LocationTagResult): string {
 }
 
 export function ContractCard({ contract, onClick }: Props) {
-  const ce = useEscrowCoinDecimals();
-  const cf = useFillCoinDecimals();
+  const coinType = contract.coinType ?? defaultCoinType();
+  const isNonDefaultCoin = !!contract.coinType && contract.coinType !== defaultCoinType();
+  const ce = useCoinDecimals(coinType);
+  const cf = useCoinDecimals(coinType);
   const filled = Number(contract.filledQuantity);
   const target = Number(contract.targetQuantity);
   const pct = target > 0 ? Math.min(100, (filled / target) * 100) : 0;
@@ -178,6 +192,7 @@ export function ContractCard({ contract, onClick }: Props) {
       <TopRow>
         <div>
           <TypeTag>{contractTypeLabel(contract.contractType.variant)}</TypeTag>
+          {isNonDefaultCoin && <CoinTag>{parseCoinSymbol(coinType)}</CoinTag>}
           {isRestricted && <RestrictedTag>Restricted</RestrictedTag>}
           {locationTag && <LocationTag>{formatLocationTag(locationTag)}</LocationTag>}
         </div>

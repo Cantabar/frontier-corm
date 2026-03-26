@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import styled from "styled-components";
 import type { TrustlessContractData } from "../../lib/types";
 import { formatAmount, formatDeadline, contractTypeLabel } from "../../lib/format";
-import { useEscrowCoinDecimals, useFillCoinDecimals } from "../../hooks/useCoinDecimals";
+import { useCoinDecimals, defaultCoinType } from "../../hooks/useCoinDecimals";
 import { StatusBadge } from "../shared/StatusBadge";
 import { ItemBadge } from "../shared/ItemBadge";
 import { PrimaryButton, SecondaryButton } from "../shared/Button";
@@ -178,8 +178,9 @@ interface Props {
 }
 
 export function DappContractCard({ contract, canFulfill, onDeliver, onView }: Props) {
-  const ce = useEscrowCoinDecimals();
-  const cf = useFillCoinDecimals();
+  const coinType = contract.coinType ?? defaultCoinType();
+  const ce = useCoinDecimals(coinType);
+  const cf = useCoinDecimals(coinType);
   const filled = Number(contract.filledQuantity);
   const target = Number(contract.targetQuantity);
   const pct = target > 0 ? Math.min(100, (filled / target) * 100) : 0;

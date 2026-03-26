@@ -13,6 +13,7 @@ import type {
   TrustlessContractType,
   TrustlessContractStatus,
 } from "../lib/types";
+import { extractCoinTypeFromObjectType } from "../lib/coinUtils";
 
 const pkg = config.packages.trustlessContracts;
 
@@ -151,6 +152,8 @@ function eventToContract(ev: { type: string; parsedJson?: unknown; id: { txDiges
     allowedCharacters: (d.allowed_characters as string[]) ?? [],
     allowedTribes: (d.allowed_tribes as number[]) ?? [],
     useOwnerInventory: d.use_owner_inventory != null ? Boolean(d.use_owner_inventory) : undefined,
+    // Coin type is not available from creation events; will be backfilled from live object state.
+    coinType: undefined,
   };
 }
 
@@ -174,6 +177,10 @@ function objectToContract(objectId: string, fields: Record<string, unknown>, mov
     ? parseContractType(ct)
     : contractTypeFromEvent(variantFromMoveType(moveType ?? ""), fields as Record<string, unknown>);
 
+  // Extract the first phantom coin type argument from the Move struct type.
+  // e.g. "…::CoinForCoinContract<0xabc::corm::CORM, 0xabc::corm::CORM>" → "0xabc::corm::CORM"
+  const coinType = moveType ? extractCoinTypeFromObjectType(moveType) ?? undefined : undefined;
+
   return {
     id: objectId,
     posterId: String(fields.poster_id ?? ""),
@@ -193,6 +200,7 @@ function objectToContract(objectId: string, fields: Record<string, unknown>, mov
     allowedTribes: (fields.allowed_tribes as number[]) ?? [],
     itemsReleased: fields.items_released != null ? Number(fields.items_released) : undefined,
     useOwnerInventory: fields.use_owner_inventory != null ? Boolean(fields.use_owner_inventory) : undefined,
+    coinType,
   };
 }
 

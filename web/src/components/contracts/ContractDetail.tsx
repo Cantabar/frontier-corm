@@ -24,7 +24,8 @@ import {
   buildCleanupCompletedItemContract,
 } from "../../lib/sui";
 import { FillContractModal } from "./FillContractModal";
-import { useEscrowCoinDecimals, useFillCoinDecimals } from "../../hooks/useCoinDecimals";
+import { useCoinDecimals, defaultCoinType } from "../../hooks/useCoinDecimals";
+import { parseCoinSymbol } from "../../lib/coinUtils";
 import { PrimaryButton, SecondaryButton as SharedSecondary, DangerButton as SharedDanger } from "../shared/Button";
 
 const Wrapper = styled.div`
@@ -157,6 +158,17 @@ const ContractIdRow = styled.div`
   color: ${({ theme }) => theme.colors.text.muted};
 `;
 
+const CoinTag = styled.span`
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: ${({ theme }) => theme.radii.sm};
+  background: ${({ theme }) => theme.colors.primary.subtle};
+  color: ${({ theme }) => theme.colors.primary.main};
+  margin-right: ${({ theme }) => theme.spacing.sm};
+`;
+
 
 // ---------------------------------------------------------------------------
 
@@ -178,14 +190,17 @@ export function ContractDetail({ contract: initial, onStatusChange }: Props) {
   const { mutateAsync: signAndExecute, isPending } = useSignAndExecuteTransaction();
   const queryClient = useQueryClient();
   const { push } = useNotifications();
-  const { decimals: ceDecimals, symbol: ceSymbol } = useEscrowCoinDecimals();
-  const { decimals: cfDecimals, symbol: cfSymbol } = useFillCoinDecimals();
   const [showFill, setShowFill] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
 
   // Fetch live object state for up-to-date balances/fill qty
   const { contract: live } = useContractObject(initial.id);
   const c = live ?? initial;
+
+  const resolvedCoinType = c.coinType ?? defaultCoinType();
+  const isNonDefaultCoin = !!c.coinType && c.coinType !== defaultCoinType();
+  const { decimals: ceDecimals, symbol: ceSymbol } = useCoinDecimals(resolvedCoinType);
+  const { decimals: cfDecimals, symbol: cfSymbol } = useCoinDecimals(resolvedCoinType);
 
   /** Invalidate cached contract state so the UI refreshes after a fill. */
   const handleFilled = useCallback(() => {
@@ -252,9 +267,9 @@ export function ContractDetail({ contract: initial, onStatusChange }: Props) {
           c.contractType.variant === "ItemForCoin" ? c.contractType.sourceSsuId :
           c.contractType.variant === "ItemForItem" ? c.contractType.sourceSsuId :
           c.contractType.variant === "Transport" ? c.contractType.sourceSsuId : "";
-        tx = buildCancelItemContract({ contractId: c.id, posterCharacterId: c.posterId, sourceSsuId, contractVariant: c.contractType.variant });
+        tx = buildCancelItemContract({ contractId: c.id, posterCharacterId: c.posterId, sourceSsuId, contractVariant: c.contractType.variant, coinType: c.coinType });
       } else {
-        tx = buildCancelTrustlessContract({ contractId: c.id, characterId, contractVariant: c.contractType.variant });
+        tx = buildCancelTrustlessContract({ contractId: c.id, characterId, contractVariant: c.contractType.variant, coinType: c.coinType });
       }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const result = await signAndExecute({ transaction: tx as any });
@@ -277,9 +292,9 @@ export function ContractDetail({ contract: initial, onStatusChange }: Props) {
           c.contractType.variant === "ItemForCoin" ? c.contractType.sourceSsuId :
           c.contractType.variant === "ItemForItem" ? c.contractType.sourceSsuId :
           c.contractType.variant === "Transport" ? c.contractType.sourceSsuId : "";
-        tx = buildExpireItemContract({ contractId: c.id, posterCharacterId: c.posterId, sourceSsuId, contractVariant: c.contractType.variant });
+        tx = buildExpireItemContract({ contractId: c.id, posterCharacterId: c.posterId, sourceSsuId, contractVariant: c.contractType.variant, coinType: c.coinType });
       } else {
-        tx = buildExpireTrustlessContract({ contractId: c.id, contractVariant: c.contractType.variant });
+        tx = buildExpireTrustlessContract({ contractId: c.id, contractVariant: c.contractType.variant, coinType: c.coinType });
       }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const result = await signAndExecute({ transaction: tx as any });
@@ -307,11 +322,12 @@ export function ContractDetail({ contract: initial, onStatusChange }: Props) {
           posterCharacterId: c.posterId,
           sourceSsuId,
           contractVariant: c.contractType.variant,
+          coinType: c.coinType,
         });
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         result = await signAndExecute({ transaction: tx as any });
       } else {
-        const tx = buildCleanupCompletedContract({ contractId: c.id, contractVariant: c.contractType.variant });
+        const tx = buildCleanupCompletedContract({ contractId: c.id, contractVariant: c.contractType.variant, coinType: c.coinType });
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         result = await signAndExecute({ transaction: tx as any });
       }
@@ -331,6 +347,7 @@ export function ContractDetail({ contract: initial, onStatusChange }: Props) {
         stakeAmount: Number(c.contractType.requiredStake),
         characterId,
         sourceSsuId: c.contractType.sourceSsuId,
+        coinType: c.coinType,
       });
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const result = await signAndExecute({ transaction: tx as any });
@@ -356,6 +373,7 @@ export function ContractDetail({ contract: initial, onStatusChange }: Props) {
         <Header>
           <div>
             <TypeTag>{contractTypeLabel(c.contractType.variant)}</TypeTag>
+            {isNonDefaultCoin && <CoinTag>{parseCoinSymbol(resolvedCoinType)}</CoinTag>}
             <Title style={{ display: "inline" }}>Contract Details</Title>
           </div>
           <HeaderRight>
