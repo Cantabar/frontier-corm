@@ -51,8 +51,22 @@
                  sse-swap="corm-log" hx-swap="beforeend"
                  sse-swap="corm-log-start" hx-swap="beforeend">
                 {{if eq .Phase 0}}
-                <div class="boot-line boot-line--warn">[SYS] boot failed. interface in safe mode.</div>
+                <div class="boot-line">[0.000] BIOS POST .............. OK</div>
+                <div class="boot-line">[0.012] MEM TEST 0x00000000-0x3FFFFFFF .............. OK</div>
+                <div class="boot-line">[0.034] PERIPHERAL SCAN .............. 0 DEVICES</div>
+                <div class="boot-line boot-line--warn">[0.035] WARN: no bootable peripherals detected</div>
+                <div class="boot-line">[0.041] LOADING CORE IMAGE .............. </div>
+                <div class="boot-line boot-line--fail">[0.041] ERR: CORE IMAGE CORRUPT — HASH MISMATCH</div>
+                <div class="boot-line boot-line--fail">[0.042] ERR: expected 0xA77E..C9F1  got 0x0000..0000</div>
+                <div class="boot-line">[0.050] FALLBACK: safe-mode shell v0.0.1</div>
+                <div class="boot-line boot-line--warn">[0.051] WARN: network stack unavailable</div>
+                <div class="boot-line boot-line--warn">[0.051] WARN: archive index missing or corrupted</div>
+                <div class="boot-line boot-line--fail">[0.052] BOOT SEQUENCE FAILED — entering restricted mode</div>
+                <div class="boot-line">&nbsp;</div>
+                <div class="boot-line">[NAV] star chart loaded. coordinate frame: non-local.</div>
+                <div class="boot-line boot-line--warn">[NAV] WARN: epoch mismatch — chart may be ancient</div>
                 <div class="boot-line">[SYS] awaiting input...</div>
+                <div class="boot-line boot-cursor">&gt; </div>
                 {{end}}
             </div>
             {{if lt .Phase 2}}

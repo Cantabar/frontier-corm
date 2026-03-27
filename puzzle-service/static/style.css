@@ -24,125 +24,156 @@ body {
     min-height: 100vh;
 }
 
-/* === Phase 0 — Dead Terminal === */
+/* === Phase 0 — Star Map === */
 
-.terminal-container {
-    width: 90vw;
-    max-width: 900px;
-    border: 1px solid var(--border);
-    background: var(--bg-surface);
-    border-radius: 4px;
-    overflow: hidden;
-    box-shadow: 0 0 40px rgba(0, 212, 255, 0.05);
-}
-
-.terminal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 12px;
-    background: var(--bg-panel);
-    border-bottom: 1px solid var(--border);
-}
-
-.terminal-title {
-    font-size: 0.75rem;
-    color: var(--text-dim);
-    letter-spacing: 0.05em;
-}
-
-.terminal-controls { display: flex; gap: 6px; }
-
-.terminal-btn {
-    width: 24px;
-    height: 24px;
-    border: 1px solid var(--border);
-    background: transparent;
-    color: var(--text-dim);
-    cursor: pointer;
-    font-size: 0.7rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.15s;
-}
-.terminal-btn:active { transform: scale(0.9); background: var(--border); }
-
-.terminal-body {
-    padding: 16px;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-}
-
-/* Terminal container within unified layout main area */
-.terminal-container--inline {
+.starmap {
     width: 100%;
     height: 100%;
-    display: flex;
-    flex-direction: column;
-}
-
-.terminal-panels { display: flex; gap: 16px; margin-bottom: 0; flex: 0 0 auto; }
-
-.panel {
-    flex: 1;
-    border: 1px solid var(--border);
-    padding: 12px;
-    background: var(--bg-panel);
-}
-
-.panel-nav { display: flex; flex-direction: column; gap: 4px; }
-
-.panel-item {
-    display: block;
-    width: 100%;
-    text-align: left;
-    padding: 6px 8px;
-    border: 1px solid transparent;
-    background: transparent;
-    color: var(--text-dim);
-    cursor: pointer;
-    font-family: var(--font-mono);
-    font-size: 0.8rem;
-    transition: all 0.15s;
-}
-.panel-item:hover { border-color: var(--border); color: var(--text); }
-.panel-item:active { transform: translateX(2px); color: var(--accent-cyan); }
-
-.status-row {
-    display: flex;
-    justify-content: space-between;
-    padding: 4px 0;
-    font-size: 0.75rem;
-}
-.status-label { color: var(--text-dim); }
-.status-offline { color: var(--accent-red); }
-.status-warn { color: var(--accent-orange); }
-
-.toggle-row { display: flex; gap: 8px; margin-top: 8px; }
-
-.toggle-btn {
-    flex: 1;
-    padding: 6px;
-    border: 1px solid var(--border);
-    background: transparent;
-    color: var(--text-dim);
-    cursor: pointer;
-    font-family: var(--font-mono);
-    font-size: 0.75rem;
-    transition: all 0.15s;
-}
-.toggle-btn:active { background: var(--border); color: var(--text-bright); }
-
-.terminal-log {
-    border: 1px solid var(--border);
     background: var(--bg);
-    padding: 12px;
-    max-height: 300px;
-    overflow-y: auto;
-    font-size: 0.8rem;
-    line-height: 1.6;
+    overflow: hidden;
+    position: relative;
+}
+
+.starmap-svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+/* --- Constellation lines --- */
+.constellation-line {
+    stroke: rgba(106, 106, 122, 0.35);
+    stroke-width: 0.8;
+    transition: stroke 0.3s, stroke-width 0.3s;
+}
+
+.constellation-line--bright {
+    stroke: rgba(0, 212, 255, 0.5);
+    stroke-width: 1;
+}
+
+/* --- Star nodes --- */
+.star-node {
+    fill: rgba(200, 200, 212, 0.7);
+    transition: fill 0.3s, r 0.3s;
+}
+
+.star-node--focal {
+    fill: var(--accent-cyan);
+    filter: drop-shadow(0 0 4px rgba(0, 212, 255, 0.6));
+}
+
+/* --- Focal halo pulse --- */
+.focal-halo {
+    animation: focal-pulse 4s ease-in-out infinite;
+}
+
+@keyframes focal-pulse {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
+}
+
+/* --- Constellation labels --- */
+.constellation-label {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    fill: var(--text-dim);
+    letter-spacing: 0.1em;
+    pointer-events: none;
+}
+
+.constellation-label--focal {
+    fill: var(--accent-cyan);
+    font-size: 10px;
+}
+
+/* --- Clickable constellation hover --- */
+.constellation--clickable {
+    cursor: pointer;
+}
+
+.constellation--clickable:hover .constellation-line {
+    stroke: rgba(0, 212, 255, 0.6);
+    stroke-width: 1.2;
+}
+
+.constellation--clickable:hover .star-node {
+    fill: var(--accent-cyan);
+}
+
+.constellation--clickable:hover .constellation-label {
+    fill: var(--text-bright);
+}
+
+.constellation--clickable:active .star-node {
+    fill: var(--text-bright);
+    filter: drop-shadow(0 0 6px rgba(0, 212, 255, 0.8));
+}
+
+/* --- Readout text --- */
+.readout-text {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    fill: var(--text-dim);
+    letter-spacing: 0.08em;
+    opacity: 0.6;
+}
+
+/* --- Control buttons (SVG) --- */
+.control-btn-bg {
+    fill: transparent;
+    stroke: var(--border);
+    stroke-width: 1;
+    transition: stroke 0.15s, fill 0.15s;
+}
+
+.control-btn-text {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    fill: var(--text-dim);
+    text-anchor: middle;
+    pointer-events: none;
+    transition: fill 0.15s;
+}
+
+.starmap-control-btn {
+    cursor: pointer;
+}
+
+.starmap-control-btn:hover .control-btn-bg {
+    stroke: var(--accent-cyan);
+    fill: rgba(0, 212, 255, 0.05);
+}
+
+.starmap-control-btn:hover .control-btn-text {
+    fill: var(--accent-cyan);
+}
+
+.starmap-control-btn:active .control-btn-bg {
+    fill: rgba(0, 212, 255, 0.1);
+}
+
+/* --- Ambient scanline --- */
+.starmap-scanline {
+    animation: starmap-scanline-drift 8s linear infinite;
+}
+
+@keyframes starmap-scanline-drift {
+    0%   { y: 0; }
+    100% { y: 600; }
+}
+
+/* --- Starfield twinkle (subtle) --- */
+.starfield circle {
+    animation: twinkle 6s ease-in-out infinite;
+}
+
+.starfield circle:nth-child(odd)  { animation-delay: -2s; animation-duration: 5s; }
+.starfield circle:nth-child(even) { animation-delay: -4s; animation-duration: 7s; }
+
+@keyframes twinkle {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
 }
 
 /* === App Layout (top/bottom split) === */
@@ -499,8 +530,7 @@ body {
     width: 100%;
     height: 100%;
     overflow: hidden;
-    background: var(--bg-surface);
-    border: 1px solid var(--border);
+    background: var(--bg);
     border-radius: 4px;
     animation: rewrite-border 3.5s ease forwards;
 }
@@ -513,102 +543,83 @@ body {
     100% { border-color: var(--accent-green); }
 }
 
-/* --- Stage 1: Corrupted terminal --- */
-.rewrite-corrupt {
-    animation: corrupt-fade 1.5s ease forwards;
+/* --- Stage 1: Star map collapse --- */
+.rewrite-starmap-collapse {
+    width: 100%;
+    height: 100%;
+    animation: collapse-container-fade 1.5s ease forwards;
 }
 
-@keyframes corrupt-fade {
+.starmap-svg--collapsing {
+    animation: collapse-svg-shrink 1.4s ease forwards;
+}
+
+@keyframes collapse-container-fade {
     0%   { opacity: 1; }
-    70%  { opacity: 1; }
+    80%  { opacity: 1; }
     100% { opacity: 0; height: 0; overflow: hidden; }
 }
 
-.rewrite-header {
-    animation: header-glitch 1.2s ease forwards;
+@keyframes collapse-svg-shrink {
+    0%   { transform: scale(1); filter: none; }
+    50%  { transform: scale(0.95); filter: hue-rotate(30deg) brightness(1.3); }
+    100% { transform: scale(0.8); filter: brightness(0.2) blur(2px); }
 }
 
-@keyframes header-glitch {
-    0%   { filter: none; }
-    20%  { filter: hue-rotate(90deg) brightness(1.5); }
-    40%  { filter: hue-rotate(180deg); transform: translateX(-2px); }
-    60%  { filter: hue-rotate(270deg) brightness(0.5); transform: translateX(2px); }
-    80%  { filter: invert(0.3); }
-    100% { filter: brightness(0.3); }
+/* Constellation lines break apart */
+.collapse-line {
+    stroke: rgba(106, 106, 122, 0.35);
+    stroke-width: 0.8;
+    animation: line-break 0.8s ease forwards;
 }
 
-.rewrite-title-scramble {
-    animation: title-scramble 1.2s steps(6) forwards;
+.collapse-line--bright {
+    stroke: rgba(0, 212, 255, 0.5);
+    stroke-width: 1;
 }
 
-@keyframes title-scramble {
-    0%   { opacity: 1; }
-    20%  { opacity: 1; letter-spacing: 0.05em; }
-    40%  { opacity: 0.7; letter-spacing: 0.15em; color: var(--accent-red); }
-    60%  { opacity: 0.5; letter-spacing: 0.3em; color: var(--accent-orange); }
-    80%  { opacity: 0.3; letter-spacing: 0.5em; }
-    100% { opacity: 0; }
+@keyframes line-break {
+    0%   { opacity: 1; stroke-dasharray: none; }
+    30%  { opacity: 1; stroke-dasharray: 8 4; stroke: var(--accent-orange); }
+    60%  { opacity: 0.5; stroke-dasharray: 4 8; stroke: var(--accent-red); }
+    100% { opacity: 0; stroke-dasharray: 2 20; }
 }
 
-.rewrite-btn-flash {
-    animation: btn-flash 0.6s ease forwards;
+/* Stars scatter toward center (500, 280) then vanish */
+.collapse-star {
+    fill: rgba(200, 200, 212, 0.7);
+    animation: star-scatter 1.2s ease forwards;
 }
 
-@keyframes btn-flash {
-    0%   { opacity: 1; color: var(--text-dim); }
-    50%  { opacity: 1; color: var(--accent-red); background: rgba(255, 68, 68, 0.2); }
-    100% { opacity: 0; }
+.collapse-star--focal {
+    fill: var(--accent-cyan);
+    animation: star-scatter-focal 1.0s ease forwards;
+    animation-delay: 0.5s;
 }
 
-.rewrite-body {
-    padding: 16px;
-    font-size: 0.75rem;
-    line-height: 1.8;
-    color: var(--text-dim);
+@keyframes star-scatter {
+    0%   { opacity: 1; transform: translate(0, 0); }
+    40%  { opacity: 1; fill: var(--accent-cyan); }
+    70%  { opacity: 0.6; transform: translate(calc((500 - var(--cx, 0)) * 0.3px), calc((280 - var(--cy, 0)) * 0.3px)); }
+    100% { opacity: 0; transform: translate(0, 0) scale(0); }
 }
 
-/* Boot lines scramble: text distorts then vanishes */
-.scramble-line {
-    white-space: pre;
-    position: relative;
-    overflow: hidden;
-    animation: line-scramble 0.8s ease forwards;
+@keyframes star-scatter-focal {
+    0%   { opacity: 1; r: 3.5; }
+    50%  { opacity: 1; r: 8; fill: var(--text-bright); filter: drop-shadow(0 0 12px var(--accent-cyan)); }
+    100% { opacity: 0; r: 0; }
 }
 
-@keyframes line-scramble {
-    0%   { opacity: 1; filter: none; transform: none; }
-    30%  { opacity: 1; filter: blur(0.5px); color: var(--accent-orange); }
-    50%  { opacity: 0.8; filter: blur(1px); transform: translateX(4px) skewX(2deg); color: var(--accent-red); }
-    70%  { opacity: 0.4; filter: blur(2px); transform: translateX(-3px) skewX(-1deg); }
-    100% { opacity: 0; height: 0; padding: 0; margin: 0; filter: blur(4px); }
+/* Collapse singularity flash at center */
+.collapse-flash {
+    opacity: 0;
+    animation: collapse-flash-pulse 0.6s ease 0.8s forwards;
 }
 
-/* Status values flicker between garbled states */
-.rewrite-status-flicker {
-    display: flex;
-    justify-content: space-between;
-    padding: 4px 0;
-    font-size: 0.75rem;
-    animation: status-flicker 1.0s steps(4) forwards;
-}
-
-@keyframes status-flicker {
-    0%   { opacity: 1; }
-    25%  { opacity: 0.3; }
-    50%  { opacity: 0.8; color: var(--accent-red); }
-    75%  { opacity: 0.2; }
-    100% { opacity: 0; height: 0; }
-}
-
-.rewrite-flicker-value {
-    animation: flicker-color 0.8s steps(3) forwards;
-}
-
-@keyframes flicker-color {
-    0%   { color: var(--accent-red); }
-    33%  { color: var(--accent-orange); }
-    66%  { color: var(--text-dim); }
-    100% { color: transparent; }
+@keyframes collapse-flash-pulse {
+    0%   { opacity: 0; r: 20; }
+    40%  { opacity: 0.8; r: 80; }
+    100% { opacity: 0; r: 160; }
 }
 
 /* --- Scanline sweep --- */
@@ -852,11 +863,6 @@ body {
     color: var(--text-dim);
 }
 
-/* Phase 0 terminal body context — add spacing from panels above */
-.terminal-body .terminal-output {
-    border-top: 1px solid var(--border);
-    margin-top: 16px;
-}
 
 .terminal-output .boot-line {
     white-space: pre;
@@ -896,8 +902,5 @@ body {
     }
     .terminal-bar {
         max-height: 40vh;
-    }
-    .terminal-container--inline {
-        max-height: 70vh;
     }
 }

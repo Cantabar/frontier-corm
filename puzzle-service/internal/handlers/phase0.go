@@ -102,17 +102,35 @@ func (h *Handlers) Phase0Interact(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// generatePhase0LogEntry creates a system-style log message for Phase 0 clicks.
+// sectorNames maps star-map element IDs to display names for log entries.
+var sectorNames = map[string]string{
+	"star-armature9": "ARMATURE-9",
+	"star-khr4":      "KHR-IV",
+	"star-cydias":    "CYDIAS REACH",
+	"star-stillness":  "STILLNESS",
+	"star-trinary":   "TRINARY WELL",
+	"star-origin":    "ORIGIN",
+	"ctrl-scan":      "FULL-SPECTRUM",
+	"ctrl-calibrate": "FRAME-ALIGN",
+	"ctrl-ping":      "BEACON",
+}
+
+// generatePhase0LogEntry creates a navigation/scan-themed log message for Phase 0 clicks.
 func generatePhase0LogEntry(elementID string, totalClicks int) string {
+	sector := sectorNames[elementID]
+	if sector == "" {
+		sector = elementID
+	}
+
 	messages := []string{
-		"> [ERR] interface module not responding",
-		"> [SYS] input registered. no handler bound.",
-		"> [WARN] unexpected interaction on dormant terminal",
-		"> [ERR] command buffer overflow. discarding.",
-		"> [SYS] signal received. routing failed.",
-		"> [ERR] no valid endpoint for element: " + elementID,
-		"> [WARN] subsystem offline. input queued.",
-		"> [SYS] interaction logged. no effect.",
+		"> [NAV] querying sector " + sector + "... no response",
+		"> [SCAN] target locked. signal degraded beyond threshold.",
+		"> [SYS] coordinate frame mismatch. recalibrating...",
+		"> [ERR] star chart index corrupt. sector unresolvable.",
+		"> [NAV] triangulation failed — insufficient reference points",
+		"> [SCAN] echo detected near " + sector + ". source: indeterminate.",
+		"> [WARN] telemetry buffer full. oldest entries discarded.",
+		"> [SYS] " + sector + " — no known routing path. chart epoch may predate current topology.",
 	}
 	return messages[totalClicks%len(messages)]
 }

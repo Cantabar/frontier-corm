@@ -1,39 +1,44 @@
 {{define "transition-rewrite.html"}}<div class="transition-rewrite">
-    <!-- Stage 1: Corrupted terminal frame (~1.5s) -->
-    <div class="rewrite-corrupt">
-        <div class="terminal-header rewrite-header">
-            <span class="terminal-title rewrite-title-scramble">SYS_INTERFACE v0.0.1 — STATUS: OFFLINE</span>
-            <div class="terminal-controls">
-                <span class="terminal-btn rewrite-btn-flash" style="animation-delay:0.2s">─</span>
-                <span class="terminal-btn rewrite-btn-flash" style="animation-delay:0.4s">□</span>
-                <span class="terminal-btn rewrite-btn-flash" style="animation-delay:0.6s">×</span>
-            </div>
-        </div>
+    <!-- Stage 1: Star map collapse (~1.5s) -->
+    <div class="rewrite-starmap-collapse">
+        <svg class="starmap-svg starmap-svg--collapsing" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <radialGradient id="collapse-glow" cx="50%" cy="47%" r="50%">
+                    <stop offset="0%" stop-color="rgba(0,212,255,0.5)"/>
+                    <stop offset="100%" stop-color="transparent"/>
+                </radialGradient>
+            </defs>
+            <rect width="1000" height="600" fill="var(--bg)"/>
 
-        <div class="rewrite-body">
-            <!-- Corrupted boot lines that scramble and vanish -->
-            <div class="scramble-line" style="animation-delay:0.0s">[0.000] BIOS POST .............. OK</div>
-            <div class="scramble-line" style="animation-delay:0.1s">[0.012] MEM TEST 0x00000000-0x3FFFFFFF .............. OK</div>
-            <div class="scramble-line" style="animation-delay:0.2s">[0.034] PERIPHERAL SCAN .............. 0 DEVICES</div>
-            <div class="scramble-line" style="animation-delay:0.3s">[0.041] LOADING CORE IMAGE ..............</div>
-            <div class="scramble-line" style="animation-delay:0.4s">[0.041] ERR: CORE IMAGE CORRUPT — HASH MISMATCH</div>
-            <div class="scramble-line" style="animation-delay:0.5s">[0.050] FALLBACK: safe-mode shell v0.0.1</div>
-            <div class="scramble-line" style="animation-delay:0.6s">[0.052] BOOT SEQUENCE FAILED — entering restricted mode</div>
+            <!-- Constellation lines breaking apart -->
+            <g class="collapse-lines">
+                <line x1="110" y1="130" x2="170" y2="160" class="collapse-line" style="animation-delay:0.0s"/>
+                <line x1="170" y1="160" x2="230" y2="145" class="collapse-line" style="animation-delay:0.05s"/>
+                <line x1="720" y1="120" x2="760" y2="150" class="collapse-line" style="animation-delay:0.1s"/>
+                <line x1="760" y1="150" x2="800" y2="135" class="collapse-line" style="animation-delay:0.15s"/>
+                <line x1="80" y1="340" x2="140" y2="320" class="collapse-line" style="animation-delay:0.2s"/>
+                <line x1="200" y1="350" x2="270" y2="330" class="collapse-line" style="animation-delay:0.25s"/>
+                <line x1="680" y1="380" x2="750" y2="420" class="collapse-line" style="animation-delay:0.3s"/>
+                <line x1="450" y1="400" x2="520" y2="460" class="collapse-line" style="animation-delay:0.35s"/>
+                <line x1="470" y1="260" x2="510" y2="250" class="collapse-line collapse-line--bright" style="animation-delay:0.4s"/>
+                <line x1="530" y1="280" x2="510" y2="310" class="collapse-line collapse-line--bright" style="animation-delay:0.45s"/>
+            </g>
 
-            <!-- Status values that flicker -->
-            <div class="rewrite-status-flicker" style="animation-delay:0.3s">
-                <span class="status-label">CORE</span>
-                <span class="status-value rewrite-flicker-value">█████████</span>
-            </div>
-            <div class="rewrite-status-flicker" style="animation-delay:0.5s">
-                <span class="status-label">NET</span>
-                <span class="status-value rewrite-flicker-value">█████████</span>
-            </div>
-            <div class="rewrite-status-flicker" style="animation-delay:0.7s">
-                <span class="status-label">MEM</span>
-                <span class="status-value rewrite-flicker-value">█████████</span>
-            </div>
-        </div>
+            <!-- Stars scatter toward center then vanish -->
+            <g class="collapse-stars">
+                <circle cx="110" cy="130" r="2.5" class="collapse-star" style="animation-delay:0.1s"/>
+                <circle cx="170" cy="160" r="3" class="collapse-star" style="animation-delay:0.15s"/>
+                <circle cx="720" cy="120" r="2" class="collapse-star" style="animation-delay:0.2s"/>
+                <circle cx="760" cy="150" r="3" class="collapse-star" style="animation-delay:0.25s"/>
+                <circle cx="200" cy="350" r="3" class="collapse-star" style="animation-delay:0.3s"/>
+                <circle cx="830" cy="400" r="3" class="collapse-star" style="animation-delay:0.35s"/>
+                <circle cx="450" cy="400" r="2.5" class="collapse-star" style="animation-delay:0.4s"/>
+                <circle cx="500" cy="280" r="3.5" class="collapse-star collapse-star--focal" style="animation-delay:0.5s"/>
+            </g>
+
+            <!-- Collapse singularity flash -->
+            <circle cx="500" cy="280" r="120" fill="url(#collapse-glow)" class="collapse-flash"/>
+        </svg>
     </div>
 
     <!-- Scanline sweep -->
@@ -41,7 +46,7 @@
 
     <!-- Stage 2: Rewrite indicators (~2s, starts at ~1.5s) -->
     <div class="rewrite-rebuild">
-        <div class="rewrite-status" style="animation-delay:1.5s">&gt; PURGING SAFE-MODE SHELL...</div>
+        <div class="rewrite-status" style="animation-delay:1.5s">&gt; COLLAPSING NAVIGATION FRAME...</div>
         <div class="rewrite-status" style="animation-delay:1.9s">&gt; RECONSTRUCTING INTERFACE LATTICE...</div>
         <div class="rewrite-status" style="animation-delay:2.3s">&gt; ALLOCATING CIPHER MATRIX [12×8]...</div>
         <div class="rewrite-status" style="animation-delay:2.7s">&gt; TRANSLATION LAYER ONLINE</div>
