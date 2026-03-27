@@ -66,7 +66,6 @@
                 <div class="boot-line">[NAV] star chart loaded. coordinate frame: non-local.</div>
                 <div class="boot-line boot-line--warn">[NAV] WARN: epoch mismatch — chart may be ancient</div>
                 <div class="boot-line">[SYS] awaiting input...</div>
-                <div class="boot-line boot-cursor">&gt; </div>
                 {{end}}
             </div>
             {{if lt .Phase 2}}
@@ -82,10 +81,8 @@
     (function() {
         var log = document.getElementById('corm-log');
         if (!log) return;
-        var threshold = 60;
         new MutationObserver(function() {
-            var nearBottom = log.scrollHeight - log.scrollTop - log.clientHeight < threshold;
-            if (nearBottom) log.scrollTop = log.scrollHeight;
+            log.scrollTop = log.scrollHeight;
         }).observe(log, { childList: true, subtree: true });
     })();
 

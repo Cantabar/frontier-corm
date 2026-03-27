@@ -123,14 +123,14 @@ func generatePhase0LogEntry(elementID string, totalClicks int) string {
 	}
 
 	messages := []string{
-		"> [NAV] querying sector " + sector + "... no response",
-		"> [SCAN] target locked. signal degraded beyond threshold.",
-		"> [SYS] coordinate frame mismatch. recalibrating...",
-		"> [ERR] star chart index corrupt. sector unresolvable.",
-		"> [NAV] triangulation failed — insufficient reference points",
-		"> [SCAN] echo detected near " + sector + ". source: indeterminate.",
-		"> [WARN] telemetry buffer full. oldest entries discarded.",
-		"> [SYS] " + sector + " — no known routing path. chart epoch may predate current topology.",
+		"[NAV] querying sector " + sector + "... no response",
+		"[SCAN] target locked. signal degraded beyond threshold.",
+		"[SYS] coordinate frame mismatch. recalibrating...",
+		"[ERR] star chart index corrupt. sector unresolvable.",
+		"[NAV] triangulation failed — insufficient reference points",
+		"[SCAN] echo detected near " + sector + ". source: indeterminate.",
+		"[WARN] telemetry buffer full. oldest entries discarded.",
+		"[SYS] " + sector + " — no known routing path. chart epoch may predate current topology.",
 	}
 	return messages[totalClicks%len(messages)]
 }

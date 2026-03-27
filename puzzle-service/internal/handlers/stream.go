@@ -48,13 +48,13 @@ func writeSSEAction(w http.ResponseWriter, flusher http.Flusher, action corm.Cor
 	case corm.ActionLog:
 		var p corm.LogPayload
 		json.Unmarshal(action.Payload, &p)
-		data := fmt.Sprintf(`<div class="boot-line">%s</div>`, html.EscapeString(p.Text))
+		data := fmt.Sprintf(`<div class="boot-line boot-line--corm">%s</div>`, html.EscapeString(p.Text))
 		writeSSE(w, "corm-log", data)
 
 	case corm.ActionLogStreamStart:
 		var p corm.LogStreamStartPayload
 		json.Unmarshal(action.Payload, &p)
-		data := fmt.Sprintf(`<span id="entry-%s" class="boot-line-stream corm-typing"></span>`, html.EscapeString(p.EntryID))
+		data := fmt.Sprintf(`<span id="entry-%s" class="boot-line-stream boot-line--corm corm-typing"></span>`, html.EscapeString(p.EntryID))
 		writeSSE(w, "corm-log-start", data)
 
 	case corm.ActionLogStreamDelta:
