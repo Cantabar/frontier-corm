@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"strings"
 
 	"github.com/frontier-corm/corm-brain/internal/db"
 	"github.com/frontier-corm/corm-brain/internal/embed"
@@ -121,7 +122,7 @@ func (c *Consolidator) summarizeEvents(ctx context.Context, cormID string, event
 
 	// Use Nano (fast, no deep reasoning needed)
 	task := types.Task{CormID: cormID, Phase: 0}
-	response, err := c.llm.CompleteSync(ctx, task, prompt)
+	response, err := c.llm.CompleteSync(ctx, task, prompt, 150)
 	if err != nil {
 		return nil, err
 	}
@@ -133,8 +134,13 @@ func (c *Consolidator) summarizeEvents(ctx context.Context, cormID string, event
 		Importance float64 `json:"importance"`
 	}
 
-	if err := json.Unmarshal([]byte(response), &observations); err != nil {
-		log.Printf("consolidate: failed to parse LLM response as JSON: %v", err)
+	clean := extractJSON(response)
+	if err := json.Unmarshal([]byte(clean), &observations); err != nil {
+		preview := response
+		if len(preview) > 200 {
+			preview = preview[:200] + "..."
+		}
+		log.Printf("consolidate: failed to parse LLM response as JSON: %v\nraw response: %s", err, preview)
 		return nil, nil
 	}
 
@@ -168,4 +174,32 @@ func (c *Consolidator) summarizeEvents(ctx context.Context, cormID string, event
 	}
 
 	return memories, nil
+}
+
+// extractJSON strips markdown code fences and preamble text to isolate a JSON array.
+func extractJSON(s string) string {
+	s = strings.TrimSpace(s)
+
+	// Strip markdown code fences: ```json ... ``` or ``` ... ```
+	if idx := strings.Index(s, "```"); idx != -1 {
+		// Find content after the opening fence line
+		start := strings.Index(s[idx:], "\n")
+		if start != -1 {
+			s = s[idx+start+1:]
+		}
+		// Strip closing fence
+		if end := strings.LastIndex(s, "```"); end != -1 {
+			s = s[:end]
+		}
+		s = strings.TrimSpace(s)
+	}
+
+	// Find the JSON array boundaries
+	first := strings.Index(s, "[")
+	last := strings.LastIndex(s, "]")
+	if first != -1 && last > first {
+		return s[first : last+1]
+	}
+
+	return s
 }

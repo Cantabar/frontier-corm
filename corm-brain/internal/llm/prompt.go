@@ -88,9 +88,10 @@ func BuildPrompt(
 func BuildConsolidationPrompt(cormID string, events []types.CormEvent) []types.Message {
 	var eventLines []string
 	for _, e := range events {
+		payload := truncate(string(e.Payload), 120)
 		eventLines = append(eventLines, fmt.Sprintf(
 			"- [%s] player=%s type=%s payload=%s",
-			e.Timestamp.Format("15:04:05"), shortAddr(e.PlayerAddress), e.EventType, string(e.Payload),
+			e.Timestamp.Format("15:04:05"), shortAddr(e.PlayerAddress), e.EventType, payload,
 		))
 	}
 
@@ -99,14 +100,22 @@ func BuildConsolidationPrompt(cormID string, events []types.CormEvent) []types.M
 			Role: "system",
 			Content: `You are analyzing player events for a corm entity. Extract 0-3 significant observations. Each observation should be a single sentence describing a behavioral pattern, notable event, or shift in player behavior. Only create observations for genuinely notable events — routine interactions should not generate memories.
 
-Respond with a JSON array of objects: [{"text": "observation text", "type": "observation|betrayal|achievement|pattern|warning", "importance": 0.0-1.0}]
-If nothing notable occurred, respond with an empty array: []`,
+Respond ONLY with a JSON array, no markdown fences, no explanation: [{"text": "observation text", "type": "observation|betrayal|achievement|pattern|warning", "importance": 0.0-1.0}]
+If nothing notable occurred, respond with: []`,
 		},
 		{
 			Role:    "user",
-			Content: fmt.Sprintf("Events for corm %s:\n%s", cormID, strings.Join(eventLines, "\n")),
+			Content: fmt.Sprintf("Events for corm %s:\n%s\n\nRespond ONLY with the JSON array.", cormID, strings.Join(eventLines, "\n")),
 		},
 	}
+}
+
+// truncate returns s capped to maxLen characters, appending "..." if truncated.
+func truncate(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "..."
 }
 
 func formatTraits(t *types.CormTraits) string {

@@ -145,7 +145,8 @@ func (c *Client) Complete(ctx context.Context, task types.Task, prompt []types.M
 
 // CompleteSync performs a non-streaming inference and returns the full response.
 // Used by the consolidation loop where streaming is not needed.
-func (c *Client) CompleteSync(ctx context.Context, task types.Task, prompt []types.Message) (string, error) {
+// maxTokens controls the generation length; pass 0 to use the default (300).
+func (c *Client) CompleteSync(ctx context.Context, task types.Task, prompt []types.Message, maxTokens int) (string, error) {
 	var baseURL, model string
 	if task.RequiresDeepReasoning() {
 		baseURL = c.superURL
@@ -155,10 +156,14 @@ func (c *Client) CompleteSync(ctx context.Context, task types.Task, prompt []typ
 		model = "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-NVFP4"
 	}
 
+	if maxTokens <= 0 {
+		maxTokens = 300
+	}
+
 	req := chatCompletionRequest{
 		Model:       model,
 		Messages:    prompt,
-		MaxTokens:   300,
+		MaxTokens:   maxTokens,
 		Temperature: 0.3,
 		Stream:      false,
 	}
