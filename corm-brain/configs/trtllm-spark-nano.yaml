@@ -4,7 +4,7 @@ kv_cache_config:
   enable_block_reuse: false
   mamba_ssm_cache_dtype: float32
 cuda_graph_config:
-  max_batch_size: 64
+  max_batch_size: 8
   enable_padding: true
 moe_config:
   backend: CUTLASS
