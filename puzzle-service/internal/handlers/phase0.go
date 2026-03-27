@@ -82,9 +82,9 @@ func (h *Handlers) Phase0Interact(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
 		// Primary response: staggered transition log entries appended to #corm-log
-		fmt.Fprint(w, `<div class="log-entry transition-entry transition-delay-0"><span class="log-prefix">&gt; </span>interface insufficient for user interaction</div>`)
-		fmt.Fprint(w, `<div class="log-entry transition-entry transition-delay-1"><span class="log-prefix">&gt; </span>exposing alternate interaction lattice</div>`)
-		fmt.Fprint(w, `<div class="log-entry transition-entry transition-delay-2"><span class="log-prefix">&gt; </span>translation layer partially reconstructed</div>`)
+		fmt.Fprint(w, `<div class="boot-line transition-entry transition-delay-0">[???] interface insufficient for user interaction</div>`)
+		fmt.Fprint(w, `<div class="boot-line transition-entry transition-delay-1">[???] exposing alternate interaction lattice</div>`)
+		fmt.Fprint(w, `<div class="boot-line transition-entry transition-delay-2">[???] translation layer partially reconstructed</div>`)
 
 		// OOB swap: replace main display with transition-rewrite sequence
 		// The transition template auto-loads /puzzle?transition=1 after animation

@@ -28,23 +28,22 @@
             {{end}}
         </main>
 
-        <!-- Right sidebar: Corm Log + Contracts -->
+        <!-- Right sidebar: Terminal Log + Contracts -->
         <aside class="right-sidebar"
                sse-swap="corm-hint" hx-swap="beforeend"
                sse-swap="corm-hint-cell" hx-swap="beforeend">
-            <div class="corm-log-panel">
-                <h3 class="panel-title">&gt; corm_log</h3>
-                <div id="corm-log" class="log-scroll"
+            <div class="terminal-log-panel">
+                <div id="corm-log" class="terminal-output"
                      sse-swap="corm-log" hx-swap="beforeend"
                      sse-swap="corm-log-start" hx-swap="beforeend">
                     {{if eq .Phase 0}}
-                    <div class="log-entry"><span class="log-prefix">&gt; </span>system boot failed. interface in safe mode.</div>
-                    <div class="log-entry"><span class="log-prefix">&gt; </span>awaiting input...</div>
+                    <div class="boot-line boot-line--warn">[SYS] boot failed. interface in safe mode.</div>
+                    <div class="boot-line">[SYS] awaiting input...</div>
                     {{end}}
                 </div>
             </div>
             <div class="contracts-panel">
-                <h3 class="panel-title">&gt; contracts</h3>
+                <h3 class="panel-title">&gt; active_directives</h3>
                 <div id="contracts"
                      sse-swap="corm-contract" hx-swap="beforeend">
                 </div>
@@ -57,7 +56,7 @@
     (function() {
         var log = document.getElementById('corm-log');
         if (!log) return;
-        var threshold = 60; // px from bottom to count as "near bottom"
+        var threshold = 60;
         new MutationObserver(function() {
             var nearBottom = log.scrollHeight - log.scrollTop - log.clientHeight < threshold;
             if (nearBottom) log.scrollTop = log.scrollHeight;
