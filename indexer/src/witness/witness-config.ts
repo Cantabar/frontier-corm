@@ -22,6 +22,8 @@ export interface WitnessConfig {
   worldPackageId: string;
   /** Witnessed contracts package ID */
   witnessedContractsPackageId: string;
+  /** WitnessRegistry shared object ID */
+  witnessRegistryId: string;
   /** Coin type for bounty (default 0x2::sui::SUI) */
   coinType: string;
 }
@@ -34,5 +36,6 @@ export const DEFAULT_WITNESS_CONFIG: WitnessConfig = {
   attestationTtlMs: Number(process.env.WITNESS_ATTESTATION_TTL_MS) || 5 * 60 * 1000, // 5 min
   worldPackageId: process.env.WORLD_PACKAGE_ID ?? "",
   witnessedContractsPackageId: process.env.PACKAGE_WITNESSED_CONTRACTS ?? "",
+  witnessRegistryId: process.env.WITNESS_REGISTRY_ID ?? "",
   coinType: process.env.WITNESS_COIN_TYPE ?? "0x2::sui::SUI",
 };
