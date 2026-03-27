@@ -52,6 +52,9 @@ dev-tools/*
 !dev-tools/give-item-helper
 !dev-tools/world-contract-tracker
 
+# corm-brain compiled binary
+corm-brain/corm-brain
+
 # TypeScript incremental build cache
 *.tsbuildinfo
 
