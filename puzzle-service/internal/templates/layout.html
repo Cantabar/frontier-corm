@@ -48,8 +48,7 @@
         <!-- Bottom bar: Terminal log (always present, full width) -->
         <footer class="terminal-bar">
             <div id="corm-log" class="terminal-output"
-                 sse-swap="corm-log" hx-swap="beforeend"
-                 sse-swap="corm-log-start" hx-swap="beforeend">
+                 sse-swap="corm-log,corm-log-start" hx-swap="beforeend">
                 {{if eq .Phase 0}}
                 <div class="boot-line">[0.000] BIOS POST .............. OK</div>
                 <div class="boot-line">[0.012] MEM TEST 0x00000000-0x3FFFFFFF .............. OK</div>
@@ -68,6 +67,11 @@
                 <div class="boot-line">[SYS] awaiting input...</div>
                 {{end}}
             </div>
+            <!-- Hidden SSE receivers for streaming log events -->
+            <span id="delta-receiver" style="display:none"
+                  sse-swap="corm-log-delta" hx-swap="innerHTML"></span>
+            <span id="end-receiver" style="display:none"
+                  sse-swap="corm-log-end" hx-swap="innerHTML"></span>
             {{if lt .Phase 2}}
             <!-- Hidden stub so SSE contract events don't break before Phase 2 -->
             <div id="contracts" style="display:none"
@@ -76,14 +80,39 @@
         </footer>
     </div>
     <script>
-    // Auto-scroll corm-log to bottom when new entries arrive,
-    // but only if the user is already near the bottom.
+    // Auto-scroll corm-log to bottom when new entries arrive.
     (function() {
         var log = document.getElementById('corm-log');
         if (!log) return;
         new MutationObserver(function() {
             log.scrollTop = log.scrollHeight;
-        }).observe(log, { childList: true, subtree: true });
+        }).observe(log, { childList: true, subtree: true, characterData: true });
+    })();
+
+    // Forward streaming delta/end SSE events to the active typing span.
+    (function() {
+        var log = document.getElementById('corm-log');
+        var deltaRx = document.getElementById('delta-receiver');
+        var endRx = document.getElementById('end-receiver');
+        if (!log || !deltaRx || !endRx) return;
+
+        new MutationObserver(function() {
+            var text = deltaRx.textContent;
+            if (!text) return;
+            var typing = log.querySelector('.corm-typing');
+            if (typing) typing.appendChild(document.createTextNode(text));
+            deltaRx.textContent = '';
+        }).observe(deltaRx, { childList: true, characterData: true, subtree: true });
+
+        new MutationObserver(function() {
+            if (!endRx.childNodes.length) return;
+            var typing = log.querySelector('.corm-typing');
+            if (typing) {
+                typing.classList.remove('corm-typing');
+                typing.classList.add('corm-complete');
+            }
+            endRx.innerHTML = '';
+        }).observe(endRx, { childList: true, subtree: true });
     })();
 
     // Listen for on-chain state updates from the parent React app.
