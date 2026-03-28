@@ -251,8 +251,8 @@ func TestHintState(t *testing.T) {
 	if !sess.Hints.Decode {
 		t.Error("expected Decode hint to default to true")
 	}
-	if !sess.Hints.Heatmap {
-		t.Error("expected Heatmap hint to default to true")
+	if sess.Hints.Heatmap {
+		t.Error("expected Heatmap hint to default to false (AI-guided mode)")
 	}
 
 	// Per-cell hint
@@ -316,7 +316,7 @@ func TestVectorsThreshold(t *testing.T) {
 	if sess.Hints.Vectors {
 		t.Error("expected Vectors hint reset after LoadPuzzle")
 	}
-	if sess.Hints.Heatmap != true {
-		t.Error("expected Heatmap to remain true after LoadPuzzle")
+	if sess.Hints.Heatmap != false {
+		t.Error("expected Heatmap to remain false after LoadPuzzle (AI-guided mode)")
 	}
 }

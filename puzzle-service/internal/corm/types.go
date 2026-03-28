@@ -43,6 +43,7 @@ const (
 	ActionContractUpdated = "contract_updated"
 	ActionHintToggle      = "hint_toggle"
 	ActionHintCell        = "hint_cell"
+	ActionGuideCell       = "guide_cell"
 )
 
 // --- Action Payloads ---
@@ -120,6 +121,13 @@ type HintTogglePayload struct {
 type HintCellPayload struct {
 	Cells    []CellRef `json:"cells"`
 	HintType string    `json:"hint_type"` // "heatmap", "vectors", "signal"
+}
+
+// GuideCellPayload is for ActionGuideCell (AI-guided hint cell).
+// The AI picks a cell for the player to find; the hint is revealed only when clicked.
+type GuideCellPayload struct {
+	Cell     CellRef `json:"cell"`      // target cell the player should reach
+	HintType string  `json:"hint_type"` // "heatmap" or "vectors"
 }
 
 // --- Ring Buffer for event buffering ---

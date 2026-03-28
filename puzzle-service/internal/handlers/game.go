@@ -146,12 +146,12 @@ func (h *Handlers) PuzzleDecrypt(w http.ResponseWriter, r *http.Request) {
 		sess.Corruption = min(100, sess.Corruption+25)
 	}
 
-	// Track non-target decrypts; auto-enable vectors at threshold
-	enableVectors := false
-	if isNew && !cell.IsWord {
-		if sess.RecordFailedClick() {
-			sess.SetHint("vectors", true)
-			enableVectors = true
+	// Check if player hit the AI-guided cell
+	guidedHit := false
+	if isNew {
+		if hintType, ok := sess.CheckGuidedCell(row, col); ok {
+			sess.AddCellHint(row, col, hintType)
+			guidedHit = true
 		}
 	}
 
@@ -161,14 +161,23 @@ func (h *Handlers) PuzzleDecrypt(w http.ResponseWriter, r *http.Request) {
 
 	// Emit decrypt event to corm-brain
 	if isNew {
-		payload, _ := json.Marshal(map[string]any{
-			"row":       row,
-			"col":       col,
-			"is_word":   cell.IsWord,
-			"is_trap":   isTrap,
-			"distance":  cell.Distance,
-			"plaintext": string(cell.Plaintext),
-		})
+		evtPayload := map[string]any{
+			"row":                row,
+			"col":                col,
+			"is_word":            cell.IsWord,
+			"is_trap":            isTrap,
+			"distance":           cell.Distance,
+			"plaintext":          string(cell.Plaintext),
+			"guided_cell_active": sess.GuidedCell != nil,
+			"guided_cell_reached": guidedHit,
+		}
+		if sess.LastDecrypt != nil {
+			evtPayload["last_decrypt"] = map[string]int{
+				"row": sess.LastDecrypt.Row,
+				"col": sess.LastDecrypt.Col,
+			}
+		}
+		payload, _ := json.Marshal(evtPayload)
 		evt := corm.CormEvent{
 			Type:          "event",
 			SessionID:     sess.ID,
@@ -180,11 +189,6 @@ func (h *Handlers) PuzzleDecrypt(w http.ResponseWriter, r *http.Request) {
 		}
 		sess.EventBuffer.Push(evt)
 		go h.relay.BroadcastEvent(evt)
-	}
-
-	// When vectors just activated, tell HTMX to re-render the full grid
-	if enableVectors {
-		w.Header().Set("HX-Trigger", "grid-refresh")
 	}
 
 	// If signal hint is active, return composite response with OOB signal meter update

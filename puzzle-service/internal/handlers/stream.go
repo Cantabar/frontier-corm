@@ -104,6 +104,14 @@ func writeSSEAction(w http.ResponseWriter, flusher http.Flusher, action corm.Cor
 			writeSSE(w, "corm-hint-cell", buf.String())
 		}
 
+	case corm.ActionGuideCell:
+		var p corm.GuideCellPayload
+		json.Unmarshal(action.Payload, &p)
+		// Store the guided cell target silently — no SSE to the browser.
+		// The AI communicates guidance via its log stream; the hint is
+		// revealed only when the player clicks the target cell.
+		sess.SetGuidedCell(p.Cell.Row, p.Cell.Col, p.HintType)
+
 	case corm.ActionContractCreated:
 		var p corm.ContractCreatedPayload
 		json.Unmarshal(action.Payload, &p)

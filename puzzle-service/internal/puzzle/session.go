@@ -66,6 +66,11 @@ type Session struct {
 	VectorsThreshold int                 // random [4,8] failed clicks before vectors auto-enable
 	FailedClicks     int                 // non-target cell decrypts this puzzle
 
+	// AI-guided hint cell: the AI picks a cell for the player to find
+	GuidedCell *CellCoord // target cell the AI is guiding toward (nil = none active)
+	GuidedHint string     // hint type to reveal when guided cell is clicked
+	LastDecrypt *CellCoord // last cell the player decrypted (direction context for AI)
+
 	// Phase 0 click tracking
 	ClickLog        []ClickEvent
 	ElementClickMap map[string][]time.Time // element_id -> timestamps
@@ -99,7 +104,7 @@ func NewSession(playerAddress, context string) *Session {
 		Phase:           PhaseAwakening,
 		CreatedAt:       time.Now(),
 		DecryptedCells:  make(map[string]bool),
-	Hints:            HintState{Decode: true, Heatmap: true},
+	Hints:            HintState{Decode: true, Heatmap: false},
 	VectorsThreshold: randVectorsThreshold(),
 		HintedCells:     make(map[string][]string),
 		ElementClickMap: make(map[string][]time.Time),
@@ -123,6 +128,9 @@ func (s *Session) DecryptCell(row, col int) bool {
 		return false // already decrypted
 	}
 	s.DecryptedCells[key] = true
+
+	// Track last decrypt for AI directional guidance
+	s.LastDecrypt = &CellCoord{Row: row, Col: col}
 
 	// Track recent decrypts for boost targeting
 	s.RecentDecrypts = append(s.RecentDecrypts, CellCoord{Row: row, Col: col})
@@ -186,6 +194,9 @@ func (s *Session) LoadPuzzle(p *GeneratedPuzzle) {
 	s.FailedClicks = 0
 	s.VectorsThreshold = randVectorsThreshold()
 	s.Hints.Vectors = false
+	s.GuidedCell = nil
+	s.GuidedHint = ""
+	s.LastDecrypt = nil
 }
 
 // SetHint updates a global hint toggle.
@@ -202,6 +213,29 @@ func (s *Session) SetHint(hintType string, enabled bool) {
 	case "signal":
 		s.Hints.Signal = enabled
 	}
+}
+
+// SetGuidedCell sets the AI-guided target cell.
+func (s *Session) SetGuidedCell(row, col int, hintType string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.GuidedCell = &CellCoord{Row: row, Col: col}
+	s.GuidedHint = hintType
+}
+
+// CheckGuidedCell tests if (row, col) matches the guided cell.
+// If it matches, clears the guided state and returns the hint type.
+// Returns ("", false) if no match.
+func (s *Session) CheckGuidedCell(row, col int) (string, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.GuidedCell != nil && s.GuidedCell.Row == row && s.GuidedCell.Col == col {
+		hint := s.GuidedHint
+		s.GuidedCell = nil
+		s.GuidedHint = ""
+		return hint, true
+	}
+	return "", false
 }
 
 // AddCellHint adds a per-cell hint.
