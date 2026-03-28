@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"sync"
+	"time"
 
 	"github.com/frontier-corm/corm-brain/internal/db"
 	"github.com/frontier-corm/corm-brain/internal/llm"
@@ -21,15 +23,35 @@ type Handler struct {
 	llm       *llm.Client
 	retriever *memory.Retriever
 	tm        *transport.Manager
+
+	// Response gating
+	responseCooldown   time.Duration
+	lowSigAccumulation int
+
+	gateMu   sync.Mutex
+	sessions map[string]*sessionGate // keyed by "environment:sessionID"
 }
 
+// sessionGate tracks per-session response gating state.
+type sessionGate struct {
+	lastResponseTime time.Time
+	accumulatedCount int // count of low-significance events since last response
+}
+
+// highSignificanceThreshold is the minimum event significance that always
+// triggers a corm response regardless of cooldown or accumulation.
+const highSignificanceThreshold = 50
+
 // NewHandler creates a new reasoning handler.
-func NewHandler(database *db.DB, llmClient *llm.Client, retriever *memory.Retriever, tm *transport.Manager) *Handler {
+func NewHandler(database *db.DB, llmClient *llm.Client, retriever *memory.Retriever, tm *transport.Manager, responseCooldown time.Duration, lowSigAccumulation int) *Handler {
 	return &Handler{
-		db:        database,
-		llm:       llmClient,
-		retriever: retriever,
-		tm:        tm,
+		db:                 database,
+		llm:                llmClient,
+		retriever:          retriever,
+		tm:                 tm,
+		responseCooldown:   responseCooldown,
+		lowSigAccumulation: lowSigAccumulation,
+		sessions:           make(map[string]*sessionGate),
 	}
 }
 
@@ -71,11 +93,22 @@ func (h *Handler) ProcessEventBatch(ctx context.Context, environment, cormID str
 		}
 	}
 
+	sessionID := events[0].SessionID
+
 	// Store all raw events
 	for _, evt := range events {
 		if _, err := h.db.InsertEvent(ctx, environment, cormID, evt); err != nil {
 			log.Printf("insert event: %v", err)
 		}
+	}
+
+	// Response gating: decide whether the corm should respond to this batch.
+	if !h.shouldRespond(environment, sessionID, events) {
+		// Still run phase effects (phase transitions, boosts) even when silent.
+		for _, evt := range events {
+			h.runPhaseEffects(ctx, environment, cormID, sender, traits, evt)
+		}
+		return nil
 	}
 
 	// Retrieve episodic memories using the most significant event as the query
@@ -101,7 +134,6 @@ func (h *Handler) ProcessEventBatch(ctx context.Context, environment, cormID str
 	}
 
 	// Use the most significant event's seq for the entry ID
-	sessionID := events[0].SessionID
 	entryID := fmt.Sprintf("corm_%s_%d", safePrefix(cormID, 8), queryEvent.Seq)
 
 	// Send stream start
@@ -145,12 +177,75 @@ func (h *Handler) ProcessEventBatch(ctx context.Context, environment, cormID str
 		Payload:    responsePayload,
 	})
 
+	// Mark that we responded (update gate state)
+	h.recordResponse(environment, sessionID)
+
 	// Run phase-specific side effects for each event in order
 	for _, evt := range events {
 		h.runPhaseEffects(ctx, environment, cormID, sender, traits, evt)
 	}
 
 	return nil
+}
+
+// shouldRespond decides whether the corm should generate a response for this
+// batch of events. High-significance events always trigger a response.
+// Low-significance events must pass cooldown and accumulation checks.
+func (h *Handler) shouldRespond(environment, sessionID string, events []types.CormEvent) bool {
+	maxSig := 0
+	for _, e := range events {
+		if s := e.Significance(); s > maxSig {
+			maxSig = s
+		}
+	}
+
+	// High-significance events always get a response.
+	if maxSig >= highSignificanceThreshold {
+		return true
+	}
+
+	key := environment + ":" + sessionID
+
+	h.gateMu.Lock()
+	defer h.gateMu.Unlock()
+
+	gate, ok := h.sessions[key]
+	if !ok {
+		gate = &sessionGate{}
+		h.sessions[key] = gate
+	}
+
+	gate.accumulatedCount += len(events)
+
+	// Check cooldown
+	if time.Since(gate.lastResponseTime) < h.responseCooldown {
+		return false
+	}
+
+	// Check accumulation threshold
+	if gate.accumulatedCount < h.lowSigAccumulation {
+		return false
+	}
+
+	return true
+}
+
+// recordResponse marks that a response was sent for this session,
+// resetting the accumulation counter.
+func (h *Handler) recordResponse(environment, sessionID string) {
+	key := environment + ":" + sessionID
+
+	h.gateMu.Lock()
+	defer h.gateMu.Unlock()
+
+	gate, ok := h.sessions[key]
+	if !ok {
+		gate = &sessionGate{}
+		h.sessions[key] = gate
+	}
+
+	gate.lastResponseTime = time.Now()
+	gate.accumulatedCount = 0
 }
 
 // safePrefix returns the first n characters of s, or s itself if shorter.

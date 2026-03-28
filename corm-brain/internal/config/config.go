@@ -43,6 +43,15 @@ type Config struct {
 	// Maximum events to collect per coalesce window before forcing a flush.
 	EventBatchMax int
 
+	// Minimum time between corm responses for the same session.
+	// Low-significance events arriving within this window are silently recorded.
+	ResponseCooldown time.Duration
+
+	// Number of low-significance events (clicks, decrypts) that must accumulate
+	// before the corm responds. High-significance events (word_submit, phase_transition)
+	// always trigger a response regardless of this counter.
+	LowSigAccumulation int
+
 	// Memory consolidation interval
 	ConsolidationInterval time.Duration
 
@@ -69,6 +78,8 @@ func Load() Config {
 		FallbackPollInterval:  envDurationMs("FALLBACK_POLL_INTERVAL_MS", 2000),
 		EventCoalesceWindow:   envDurationMs("EVENT_COALESCE_MS", 300),
 		EventBatchMax:         envInt("EVENT_BATCH_MAX", 20),
+		ResponseCooldown:      envDurationMs("RESPONSE_COOLDOWN_MS", 3000),
+		LowSigAccumulation:    envInt("LOW_SIG_ACCUMULATION", 4),
 		ConsolidationInterval: envDurationMs("CONSOLIDATION_INTERVAL_MS", 60000),
 		MemoryCapPerCorm:      envInt("MEMORY_CAP_PER_CORM", 500),
 		DatabaseURL:           envOrDefault("DATABASE_URL", "postgresql://corm:corm@localhost:5432/frontier_corm"),

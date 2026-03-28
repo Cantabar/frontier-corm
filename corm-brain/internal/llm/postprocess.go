@@ -71,15 +71,32 @@ var metadataPatterns = regexp.MustCompile(
 // repeatedAngleRun collapses >...>...> chains into a single line.
 var repeatedAngleRun = regexp.MustCompile(`(>\s*\.{2,}\s*){2,}`)
 
-// SanitizeResponse strips leaked metadata patterns and collapses noisy
-// formatting from LLM output. It is applied per-token accumulation,
-// so it operates on the full response built so far.
+// anglePrefix matches a leading "> " or ">" at the start of a line.
+var anglePrefix = regexp.MustCompile(`(?m)^>\s*`)
+
+// ellipsisRun matches runs of 2+ dots (e.g. ".." or "...").
+var ellipsisRun = regexp.MustCompile(`\.{2,}`)
+
+// standaloneAngle matches ">" characters that are not part of a word.
+var standaloneAngle = regexp.MustCompile(`(^|\s)>+(\s|$)`)
+
+// SanitizeResponse strips leaked metadata patterns, angle-bracket prefixes,
+// ellipsis runs, and collapses noisy formatting from LLM output.
 func SanitizeResponse(text string) string {
 	// Strip metadata key=value / key:value patterns
 	text = metadataPatterns.ReplaceAllString(text, "")
 
-	// Collapse runs of >...>...> into a single >...
-	text = repeatedAngleRun.ReplaceAllString(text, ">... ")
+	// Collapse runs of >...>...> into nothing
+	text = repeatedAngleRun.ReplaceAllString(text, "")
+
+	// Strip leading "> " prefix from each line
+	text = anglePrefix.ReplaceAllString(text, "")
+
+	// Remove standalone ">" characters not part of words
+	text = standaloneAngle.ReplaceAllString(text, " ")
+
+	// Collapse ellipsis runs to empty string
+	text = ellipsisRun.ReplaceAllString(text, "")
 
 	// Collapse multiple spaces left by stripping
 	for strings.Contains(text, "  ") {

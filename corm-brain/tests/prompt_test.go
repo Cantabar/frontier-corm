@@ -78,6 +78,44 @@ func TestBuildPromptIncludesAllLayers(t *testing.T) {
 	}
 }
 
+func TestPhase0PromptNoEllipsis(t *testing.T) {
+	traits := &types.CormTraits{
+		Phase:         0,
+		AgendaWeights: types.AgendaWeights{Industry: 0.33, Expansion: 0.33, Defense: 0.33},
+	}
+	currentEvent := types.CormEvent{EventType: "click", PlayerAddress: "0xabc123456789", Context: "browser"}
+	msgs := llm.BuildPrompt(traits, nil, nil, nil, currentEvent)
+
+	system := msgs[0].Content
+	if strings.Contains(system, "> ...") {
+		t.Error("Phase 0 prompt should not contain ellipsis examples")
+	}
+	if strings.Contains(system, "use \"> \" prefix") || strings.Contains(system, "Formatting: use \"> \"") {
+		t.Error("Phase 0 prompt should not instruct > prefix usage")
+	}
+	if !strings.Contains(system, "NEVER use ellipsis") {
+		t.Error("system prompt should explicitly forbid ellipsis")
+	}
+}
+
+func TestSanitizeResponseStripsAnglePrefix(t *testing.T) {
+	cases := []struct {
+		input, want string
+	}{
+		{"> signal detected", "signal detected"},
+		{">...input...detected...", "inputdetected"},
+		{">...>...>... noise", "noise"},
+		{"clean text", "clean text"},
+		{"multi\n> line\n> test", "multi\nline\ntest"},
+	}
+	for _, tc := range cases {
+		got := llm.SanitizeResponse(tc.input)
+		if got != tc.want {
+			t.Errorf("SanitizeResponse(%q) = %q, want %q", tc.input, got, tc.want)
+		}
+	}
+}
+
 func TestPostProcessTokenNoCorruption(t *testing.T) {
 	input := "hello world"
 	result := llm.PostProcessToken(input, 0)
