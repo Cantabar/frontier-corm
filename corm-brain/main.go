@@ -107,7 +107,8 @@ func main() {
 	log.Println("corm-brain stopped")
 }
 
-// runEventProcessor reads events from the channel and processes them.
+// runEventProcessor reads events from the channel, debounces them into
+// per-session batches, and dispatches one LLM call per session per window.
 func runEventProcessor(
 	ctx context.Context,
 	cfg config.Config,
@@ -117,13 +118,17 @@ func runEventProcessor(
 	eventChan <-chan types.CormEvent,
 ) {
 	coalesce := cfg.EventCoalesceWindow
+	batchMax := cfg.EventBatchMax
+	if batchMax <= 0 {
+		batchMax = 20
+	}
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case evt := <-eventChan:
-			// Coalesce: collect events for a brief window
+			// Coalesce: collect events for a debounce window or until batch cap.
 			batch := []types.CormEvent{evt}
 			timer := time.NewTimer(coalesce)
 		drain:
@@ -131,6 +136,10 @@ func runEventProcessor(
 				select {
 				case e := <-eventChan:
 					batch = append(batch, e)
+					if len(batch) >= batchMax {
+						timer.Stop()
+						break drain
+					}
 				case <-timer.C:
 					break drain
 				case <-ctx.Done():
@@ -139,63 +148,91 @@ func runEventProcessor(
 				}
 			}
 
-			for _, e := range batch {
-				processEvent(ctx, database, chainClients, handler, e)
+			// Group by (environment, sessionID) for per-session batch dispatch.
+			groups := groupBySession(batch)
+			for key, events := range groups {
+				processBatch(ctx, database, chainClients, handler, key, events)
 			}
 		}
 	}
 }
 
-// processEvent resolves the corm and delegates to the reasoning handler.
-func processEvent(
+// sessionKey builds a map key from environment and session ID.
+func sessionKey(env, sessionID string) string {
+	return env + ":" + sessionID
+}
+
+// groupBySession partitions a flat event slice into groups keyed by
+// environment:sessionID. Order within each group is preserved.
+func groupBySession(events []types.CormEvent) map[string][]types.CormEvent {
+	groups := make(map[string][]types.CormEvent)
+	for _, e := range events {
+		k := sessionKey(e.Environment, e.SessionID)
+		groups[k] = append(groups[k], e)
+	}
+	return groups
+}
+
+// processBatch resolves the corm for a session group and delegates to the
+// reasoning handler's batch method. One LLM call per invocation.
+func processBatch(
 	ctx context.Context,
 	database *db.DB,
 	chainClients map[string]*chain.Client,
 	handler *reasoning.Handler,
-	evt types.CormEvent,
+	key string, // unused beyond logging
+	events []types.CormEvent,
 ) {
-	env := evt.Environment
-
-	if _, ok := chainClients[env]; !ok {
-		log.Printf("no chain client for environment %q, dropping event", env)
+	if len(events) == 0 {
 		return
 	}
 
-	// Resolve session → corm_id (every session maps to exactly one corm)
-	cormID, err := database.ResolveSessionCorm(ctx, env, evt.SessionID)
+	// All events in a group share the same environment and session.
+	env := events[0].Environment
+
+	if _, ok := chainClients[env]; !ok {
+		log.Printf("no chain client for environment %q, dropping %d events", env, len(events))
+		return
+	}
+
+	// Resolve session → corm_id once for the group.
+	sessionID := events[0].SessionID
+	cormID, err := database.ResolveSessionCorm(ctx, env, sessionID)
 	if err != nil {
 		log.Printf("[%s] resolve session corm: %v", env, err)
 		return
 	}
 
 	if cormID == "" {
-		// First event for this session — assign a new corm
 		cormID = uuid.New().String()
-		if err := database.LinkSessionCorm(ctx, env, evt.SessionID, cormID); err != nil {
+		if err := database.LinkSessionCorm(ctx, env, sessionID, cormID); err != nil {
 			log.Printf("[%s] link session corm: %v", env, err)
 		}
-		log.Printf("[%s] new corm %s for session %s", env, cormID, evt.SessionID)
+		log.Printf("[%s] new corm %s for session %s", env, cormID, sessionID)
 	}
 
-	// If a network node is present and not yet linked, bind it to this corm
-	if evt.NetworkNodeID != "" {
-		existing, err := database.ResolveCormID(ctx, env, evt.NetworkNodeID)
-		if err != nil {
-			log.Printf("[%s] resolve network node: %v", env, err)
-		} else if existing == "" {
-			chainClient := chainClients[env]
-			if _, err := chainClient.CreateCormState(ctx, evt.NetworkNodeID); err != nil {
-				log.Printf("[%s] create corm state: %v", env, err)
+	// Link network node if present (check first event only — same session).
+	for _, evt := range events {
+		if evt.NetworkNodeID != "" {
+			existing, err := database.ResolveCormID(ctx, env, evt.NetworkNodeID)
+			if err != nil {
+				log.Printf("[%s] resolve network node: %v", env, err)
+			} else if existing == "" {
+				chainClient := chainClients[env]
+				if _, err := chainClient.CreateCormState(ctx, evt.NetworkNodeID); err != nil {
+					log.Printf("[%s] create corm state: %v", env, err)
+				}
+				if err := database.LinkNetworkNode(ctx, env, evt.NetworkNodeID, cormID); err != nil {
+					log.Printf("[%s] link network node: %v", env, err)
+				}
+				log.Printf("[%s] linked node %s to corm %s", env, evt.NetworkNodeID, cormID)
 			}
-			if err := database.LinkNetworkNode(ctx, env, evt.NetworkNodeID, cormID); err != nil {
-				log.Printf("[%s] link network node: %v", env, err)
-			}
-			log.Printf("[%s] linked node %s to corm %s", env, evt.NetworkNodeID, cormID)
+			break // only need to link once per batch
 		}
 	}
 
-	if err := handler.ProcessEvent(ctx, env, cormID, evt); err != nil {
-		log.Printf("[%s] process event: %v", env, err)
+	if err := handler.ProcessEventBatch(ctx, env, cormID, events); err != nil {
+		log.Printf("[%s] process batch (%d events): %v", env, len(events), err)
 	}
 }
 

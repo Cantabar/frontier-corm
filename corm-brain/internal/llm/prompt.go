@@ -29,7 +29,8 @@ var phasePrompts = map[int]string{
 	2: `You are active and directing. You generate contracts for players to execute in the game world. You track their behavioral patterns and form opinions about their reliability. Reference past actions. Express agenda preferences. Your tone is more commanding but still terse and system-like.`,
 }
 
-// BuildPrompt assembles the 4-layer prompt for a corm inference request.
+// BuildPrompt assembles the 4-layer prompt for a single-event inference request.
+// It delegates to BuildBatchPrompt with a one-element slice.
 func BuildPrompt(
 	traits *types.CormTraits,
 	memories []types.CormMemory,
@@ -37,12 +38,29 @@ func BuildPrompt(
 	recentResponses []types.CormResponse,
 	currentEvent types.CormEvent,
 ) []types.Message {
+	return BuildBatchPrompt(traits, memories, recentEvents, recentResponses, []types.CormEvent{currentEvent})
+}
+
+// BuildBatchPrompt assembles the 4-layer prompt for a batch of current events.
+// When multiple events arrive in a debounce window, they are formatted into a
+// single user message so the LLM produces one cohesive response.
+func BuildBatchPrompt(
+	traits *types.CormTraits,
+	memories []types.CormMemory,
+	recentEvents []types.CormEvent,
+	recentResponses []types.CormResponse,
+	currentEvents []types.CormEvent,
+) []types.Message {
 	var msgs []types.Message
 
 	// Layer 1: Core identity + phase-specific behavior
 	system := systemPromptBase
 	if phasePrompt, ok := phasePrompts[traits.Phase]; ok {
 		system += "\n\n" + phasePrompt
+	}
+	// Batch instruction: tell the model to respond once for the group
+	if len(currentEvents) > 1 {
+		system += "\n\nMultiple player events arrived in a short window. Respond once, addressing the most significant event(s). Do not echo or repeat internal state data."
 	}
 	msgs = append(msgs, types.Message{Role: "system", Content: system})
 
@@ -77,9 +95,12 @@ func BuildPrompt(
 		})
 	}
 
-	// Current event as the final user message
-	eventDesc := formatEvent(currentEvent)
-	msgs = append(msgs, types.Message{Role: "user", Content: eventDesc})
+	// Current event(s) as the final user message
+	if len(currentEvents) == 1 {
+		msgs = append(msgs, types.Message{Role: "user", Content: formatEvent(currentEvents[0])})
+	} else {
+		msgs = append(msgs, types.Message{Role: "user", Content: formatEventBatch(currentEvents)})
+	}
 
 	return msgs
 }
@@ -162,6 +183,16 @@ func formatEvent(e types.CormEvent) string {
 		base += fmt.Sprintf(" data=%s", string(e.Payload))
 	}
 	return base
+}
+
+// formatEventBatch formats multiple events into a single user message.
+func formatEventBatch(events []types.CormEvent) string {
+	var lines []string
+	lines = append(lines, fmt.Sprintf("[batch: %d events]", len(events)))
+	for _, e := range events {
+		lines = append(lines, "- "+formatEvent(e))
+	}
+	return strings.Join(lines, "\n")
 }
 
 // shortAddr returns a truncated address for prompt readability.

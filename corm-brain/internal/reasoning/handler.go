@@ -34,19 +34,29 @@ func NewHandler(database *db.DB, llmClient *llm.Client, retriever *memory.Retrie
 }
 
 // ProcessEvent handles a single event for a resolved corm.
+// It delegates to ProcessEventBatch with a one-element slice.
 func (h *Handler) ProcessEvent(ctx context.Context, environment, cormID string, evt types.CormEvent) error {
+	return h.ProcessEventBatch(ctx, environment, cormID, []types.CormEvent{evt})
+}
+
+// ProcessEventBatch handles a batch of events for a single resolved corm/session.
+// It performs one LLM call for the entire batch, then runs per-event side effects.
+func (h *Handler) ProcessEventBatch(ctx context.Context, environment, cormID string, events []types.CormEvent) error {
+	if len(events) == 0 {
+		return nil
+	}
+
 	sender := h.tm.SenderFor(environment)
 	if sender == nil {
 		return fmt.Errorf("no transport for environment %q", environment)
 	}
 
-	// Get traits
+	// Get traits (once for the batch)
 	traits, err := h.db.GetTraits(ctx, environment, cormID)
 	if err != nil {
 		return fmt.Errorf("get traits: %w", err)
 	}
 	if traits == nil {
-		// New corm — initialize default traits
 		traits = &types.CormTraits{
 			CormID: cormID,
 			AgendaWeights: types.AgendaWeights{
@@ -61,37 +71,41 @@ func (h *Handler) ProcessEvent(ctx context.Context, environment, cormID string, 
 		}
 	}
 
-	// Store the raw event
-	if _, err := h.db.InsertEvent(ctx, environment, cormID, evt); err != nil {
-		log.Printf("insert event: %v", err)
+	// Store all raw events
+	for _, evt := range events {
+		if _, err := h.db.InsertEvent(ctx, environment, cormID, evt); err != nil {
+			log.Printf("insert event: %v", err)
+		}
 	}
 
-	// Retrieve episodic memories
-	memories, err := h.retriever.Recall(ctx, environment, cormID, evt, 5)
+	// Retrieve episodic memories using the most significant event as the query
+	queryEvent := types.MostSignificant(events)
+	memories, err := h.retriever.Recall(ctx, environment, cormID, queryEvent, 5)
 	if err != nil {
 		log.Printf("recall memories: %v", err)
 	}
 
-	// Get recent events and responses for working memory
+	// Get recent events and responses for working memory (once)
 	recentEvents, _ := h.db.RecentEvents(ctx, environment, cormID, 15)
 	recentResponses, _ := h.db.RecentResponses(ctx, environment, cormID, 5)
 
-	// Build prompt and stream LLM response
-	prompt := llm.BuildPrompt(traits, memories, recentEvents, recentResponses, evt)
+	// Build batch-aware prompt and stream one LLM response
+	prompt := llm.BuildBatchPrompt(traits, memories, recentEvents, recentResponses, events)
 
 	task := types.Task{
 		CormID:      cormID,
 		Phase:       traits.Phase,
-		EventType:   evt.EventType,
+		EventType:   queryEvent.EventType,
 		Corruption:  traits.Corruption,
 		Environment: environment,
 	}
 
-	// Generate a unique entry ID for this streaming response
-	entryID := fmt.Sprintf("corm_%s_%d", safePrefix(cormID, 8), evt.Seq)
+	// Use the most significant event's seq for the entry ID
+	sessionID := events[0].SessionID
+	entryID := fmt.Sprintf("corm_%s_%d", safePrefix(cormID, 8), queryEvent.Seq)
 
 	// Send stream start
-	sender.SendPayload(ctx, types.ActionLogStreamStart, evt.SessionID, types.LogStreamStartPayload{
+	sender.SendPayload(ctx, types.ActionLogStreamStart, sessionID, types.LogStreamStartPayload{
 		EntryID: entryID,
 	})
 
@@ -100,23 +114,21 @@ func (h *Handler) ProcessEvent(ctx context.Context, environment, cormID string, 
 
 	var fullResponse string
 	for token := range tokenCh {
-		// Apply corruption garbling
 		processed := llm.PostProcessToken(token, traits.Corruption)
 		fullResponse += processed
 
-		sender.SendPayload(ctx, types.ActionLogStreamDelta, evt.SessionID, types.LogStreamDeltaPayload{
+		sender.SendPayload(ctx, types.ActionLogStreamDelta, sessionID, types.LogStreamDeltaPayload{
 			EntryID: entryID,
 			Text:    processed,
 		})
 	}
 
-	// Check for errors
 	if err := <-errCh; err != nil {
 		log.Printf("llm error for corm %s: %v", cormID, err)
 	}
 
 	// Send stream end
-	sender.SendPayload(ctx, types.ActionLogStreamEnd, evt.SessionID, types.LogStreamEndPayload{
+	sender.SendPayload(ctx, types.ActionLogStreamEnd, sessionID, types.LogStreamEndPayload{
 		EntryID: entryID,
 	})
 
@@ -124,13 +136,15 @@ func (h *Handler) ProcessEvent(ctx context.Context, environment, cormID string, 
 	responsePayload, _ := json.Marshal(map[string]string{"text": fullResponse, "entry_id": entryID})
 	h.db.InsertResponse(ctx, environment, &types.CormResponse{
 		CormID:     cormID,
-		SessionID:  evt.SessionID,
+		SessionID:  sessionID,
 		ActionType: types.ActionLog,
 		Payload:    responsePayload,
 	})
 
-	// Run phase-specific side effects
-	h.runPhaseEffects(ctx, environment, cormID, sender, traits, evt)
+	// Run phase-specific side effects for each event in order
+	for _, evt := range events {
+		h.runPhaseEffects(ctx, environment, cormID, sender, traits, evt)
+	}
 
 	return nil
 }

@@ -36,8 +36,12 @@ type Config struct {
 	// HTTP fallback polling
 	FallbackPollInterval time.Duration
 
-	// Event coalescing window
+	// Event coalescing window (debounce). Events arriving within this window
+	// are grouped by session and processed as a single LLM call.
 	EventCoalesceWindow time.Duration
+
+	// Maximum events to collect per coalesce window before forcing a flush.
+	EventBatchMax int
 
 	// Memory consolidation interval
 	ConsolidationInterval time.Duration
@@ -63,7 +67,8 @@ func Load() Config {
 		EmbedModelPath:        envOrDefault("EMBED_MODEL_PATH", "./models/nomic-embed"),
 		WSReconnectMax:        envDurationMs("WS_RECONNECT_MAX_MS", 30000),
 		FallbackPollInterval:  envDurationMs("FALLBACK_POLL_INTERVAL_MS", 2000),
-		EventCoalesceWindow:   envDurationMs("EVENT_COALESCE_MS", 50),
+		EventCoalesceWindow:   envDurationMs("EVENT_COALESCE_MS", 300),
+		EventBatchMax:         envInt("EVENT_BATCH_MAX", 20),
 		ConsolidationInterval: envDurationMs("CONSOLIDATION_INTERVAL_MS", 60000),
 		MemoryCapPerCorm:      envInt("MEMORY_CAP_PER_CORM", 500),
 		DatabaseURL:           envOrDefault("DATABASE_URL", "postgresql://corm:corm@localhost:5432/frontier_corm"),

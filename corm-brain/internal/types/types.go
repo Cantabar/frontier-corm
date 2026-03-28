@@ -33,6 +33,39 @@ const (
 	EventPhaseTransition = "phase_transition"
 )
 
+// Significance returns a priority score for the event type.
+// Higher values indicate events that deserve more attention from the LLM.
+func (e CormEvent) Significance() int {
+	switch e.EventType {
+	case EventPhaseTransition:
+		return 100
+	case EventContractComplete, EventContractFailed:
+		return 80
+	case EventWordSubmit:
+		return 60
+	case EventPurge:
+		return 50
+	case EventDecrypt:
+		return 20
+	case EventClick:
+		return 10
+	default:
+		return 5
+	}
+}
+
+// MostSignificant returns the event with the highest significance from the slice.
+// Returns the first element if the slice has one entry.
+func MostSignificant(events []CormEvent) CormEvent {
+	best := events[0]
+	for _, e := range events[1:] {
+		if e.Significance() > best.Significance() {
+			best = e
+		}
+	}
+	return best
+}
+
 // --- Corm Actions (sent to puzzle-service) ---
 
 // CormAction is a directive sent to the puzzle-service over WebSocket.
