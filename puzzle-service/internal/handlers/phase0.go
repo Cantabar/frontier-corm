@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/frontier-corm/puzzle-service/internal/corm"
+	"github.com/frontier-corm/puzzle-service/internal/puzzle"
 )
 
 // Phase0Page serves GET /phase0 — the dead terminal awakening UI.
@@ -17,6 +18,15 @@ func (h *Handlers) Phase0Page(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "no session", http.StatusUnauthorized)
 		return
 	}
+
+	// If the session has already transitioned past Phase 0, redirect to /puzzle
+	// so that a puzzle is generated. This handles page refreshes where the
+	// browser URL is still /phase0 but the session is in Phase 1+.
+	if sess.Phase >= puzzle.PhasePuzzle {
+		http.Redirect(w, r, "/puzzle", http.StatusFound)
+		return
+	}
+
 	h.renderTemplate(w, "layout.html", PuzzleData{
 		Phase:        int(sess.Phase),
 		SessionID:    sess.ID,
