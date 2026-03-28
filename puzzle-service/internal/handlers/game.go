@@ -146,6 +146,15 @@ func (h *Handlers) PuzzleDecrypt(w http.ResponseWriter, r *http.Request) {
 		sess.Corruption = min(100, sess.Corruption+25)
 	}
 
+	// Track non-target decrypts; auto-enable vectors at threshold
+	enableVectors := false
+	if isNew && !cell.IsWord {
+		if sess.RecordFailedClick() {
+			sess.SetHint("vectors", true)
+			enableVectors = true
+		}
+	}
+
 	cellData := buildCellData(sess, row, col)
 	analysis := buildCipherAnalysis(sess)
 	analysis.SwapOOB = true
@@ -171,6 +180,11 @@ func (h *Handlers) PuzzleDecrypt(w http.ResponseWriter, r *http.Request) {
 		}
 		sess.EventBuffer.Push(evt)
 		go h.relay.BroadcastEvent(evt)
+	}
+
+	// When vectors just activated, tell HTMX to re-render the full grid
+	if enableVectors {
+		w.Header().Set("HX-Trigger", "grid-refresh")
 	}
 
 	// If signal hint is active, return composite response with OOB signal meter update

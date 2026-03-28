@@ -251,14 +251,8 @@ func TestHintState(t *testing.T) {
 	if !sess.Hints.Decode {
 		t.Error("expected Decode hint to default to true")
 	}
-	if sess.Hints.Heatmap {
-		t.Error("expected Heatmap hint to default to false")
-	}
-
-	// Set global hint
-	sess.SetHint("heatmap", true)
 	if !sess.Hints.Heatmap {
-		t.Error("expected Heatmap to be true after SetHint")
+		t.Error("expected Heatmap hint to default to true")
 	}
 
 	// Per-cell hint
@@ -274,5 +268,55 @@ func TestHintState(t *testing.T) {
 	sess.SetHint("vectors", true)
 	if !sess.CellHasHint(0, 0, "vectors") {
 		t.Error("expected global vectors hint to apply to all cells")
+	}
+}
+
+func TestVectorsThreshold(t *testing.T) {
+	// Threshold should be in [4, 8]
+	for i := 0; i < 20; i++ {
+		sess := puzzle.NewSession("0xtest", "browser")
+		if sess.VectorsThreshold < 4 || sess.VectorsThreshold > 8 {
+			t.Fatalf("VectorsThreshold %d outside [4,8]", sess.VectorsThreshold)
+		}
+	}
+
+	// Failed clicks should trigger vectors at threshold
+	sess := puzzle.NewSession("0xtest", "browser")
+	threshold := sess.VectorsThreshold
+
+	for i := 0; i < threshold-1; i++ {
+		if sess.RecordFailedClick() {
+			t.Fatalf("vectors triggered too early at click %d (threshold %d)", i+1, threshold)
+		}
+	}
+	if !sess.RecordFailedClick() {
+		t.Fatalf("expected vectors trigger at click %d", threshold)
+	}
+
+	// Once triggered, further clicks should not re-trigger
+	sess.SetHint("vectors", true)
+	if sess.RecordFailedClick() {
+		t.Error("should not re-trigger vectors after already enabled")
+	}
+
+	// LoadPuzzle should reset
+	archive, err := words.LoadArchive()
+	if err != nil {
+		t.Fatalf("failed to load archive: %v", err)
+	}
+	pz, err := puzzle.Generate(archive, 0, nil)
+	if err != nil {
+		t.Fatalf("puzzle generation failed: %v", err)
+	}
+	sess.LoadPuzzle(pz)
+
+	if sess.FailedClicks != 0 {
+		t.Error("expected FailedClicks reset after LoadPuzzle")
+	}
+	if sess.Hints.Vectors {
+		t.Error("expected Vectors hint reset after LoadPuzzle")
+	}
+	if sess.Hints.Heatmap != true {
+		t.Error("expected Heatmap to remain true after LoadPuzzle")
 	}
 }

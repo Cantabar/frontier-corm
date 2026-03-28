@@ -61,8 +61,10 @@ type Session struct {
 	Corruption int
 
 	// AI-controlled hint state
-	Hints       HintState
-	HintedCells map[string][]string // cell key -> active hint types (per-cell hints)
+	Hints            HintState
+	HintedCells      map[string][]string // cell key -> active hint types (per-cell hints)
+	VectorsThreshold int                 // random [4,8] failed clicks before vectors auto-enable
+	FailedClicks     int                 // non-target cell decrypts this puzzle
 
 	// Phase 0 click tracking
 	ClickLog        []ClickEvent
@@ -97,7 +99,8 @@ func NewSession(playerAddress, context string) *Session {
 		Phase:           PhaseAwakening,
 		CreatedAt:       time.Now(),
 		DecryptedCells:  make(map[string]bool),
-		Hints:           HintState{Decode: true},
+	Hints:            HintState{Decode: true, Heatmap: true},
+	VectorsThreshold: randVectorsThreshold(),
 		HintedCells:     make(map[string][]string),
 		ElementClickMap: make(map[string][]time.Time),
 		EventBuffer:     corm.NewRingBuffer(256),
@@ -180,6 +183,9 @@ func (s *Session) LoadPuzzle(p *GeneratedPuzzle) {
 	s.RecentDecrypts = nil
 	s.PendingDifficulty = nil
 	s.LastSolveCorrect = false
+	s.FailedClicks = 0
+	s.VectorsThreshold = randVectorsThreshold()
+	s.Hints.Vectors = false
 }
 
 // SetHint updates a global hint toggle.
@@ -231,6 +237,20 @@ func (s *Session) CellHasHint(row, col int, hintType string) bool {
 		}
 	}
 	return false
+}
+
+// randVectorsThreshold returns a random int in [4, 8].
+func randVectorsThreshold() int {
+	return randRange(4, 8)
+}
+
+// RecordFailedClick increments the failed click counter and returns true
+// if vectors should be auto-enabled (threshold just reached).
+func (s *Session) RecordFailedClick() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.FailedClicks++
+	return !s.Hints.Vectors && s.FailedClicks >= s.VectorsThreshold
 }
 
 func generateSessionID() string {
