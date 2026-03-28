@@ -1121,8 +1121,23 @@ body {
 
 .analysis-panel .panel-body {
     max-height: 500px;
-    overflow: hidden;
+    overflow-y: auto;
     transition: max-height 0.25s ease, padding 0.25s ease;
+}
+
+/* Thin scrollbar for panel bodies (sci-fi aesthetic) */
+.analysis-panel .panel-body::-webkit-scrollbar {
+    width: 4px;
+}
+.analysis-panel .panel-body::-webkit-scrollbar-track {
+    background: var(--bg-panel);
+}
+.analysis-panel .panel-body::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 2px;
+}
+.analysis-panel .panel-body::-webkit-scrollbar-thumb:hover {
+    background: var(--text-dim);
 }
 
 .analysis-panel--collapsed .panel-body {
