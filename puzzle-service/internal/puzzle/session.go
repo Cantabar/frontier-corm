@@ -53,6 +53,9 @@ type Session struct {
 	SolveCount        int
 	IncorrectAttempts int
 
+	// Solve state
+	LastSolveCorrect bool
+
 	// Meters (cached from corm-brain state_sync)
 	Stability  int
 	Corruption int
@@ -176,6 +179,7 @@ func (s *Session) LoadPuzzle(p *GeneratedPuzzle) {
 	s.HintedCells = make(map[string][]string)
 	s.RecentDecrypts = nil
 	s.PendingDifficulty = nil
+	s.LastSolveCorrect = false
 }
 
 // SetHint updates a global hint toggle.

@@ -71,6 +71,11 @@
                 <div class="boot-line">[SYS] awaiting input...</div>
                 {{end}}
             </div>
+            <!-- Terminal input line (visible during puzzle phase) -->
+            <div id="terminal-input" class="terminal-input-line{{if eq .Phase 0}} terminal-input-line--hidden{{end}}">
+                <span class="terminal-prompt">&gt; </span>
+                <input type="text" id="terminal-cmd" autocomplete="off" spellcheck="false" />
+            </div>
             <!-- Hidden SSE receivers for streaming log events -->
             <span id="delta-receiver" style="display:none"
                   sse-swap="corm-log-delta" hx-swap="innerHTML"></span>
@@ -118,6 +123,48 @@
             endRx.innerHTML = '';
         }).observe(endRx, { childList: true, subtree: true });
     })();
+
+    // Terminal input: Enter to submit word, echo command to log.
+    (function() {
+        var cmd = document.getElementById('terminal-cmd');
+        if (!cmd) return;
+        // Auto-focus when visible
+        if (!cmd.closest('.terminal-input-line--hidden')) cmd.focus();
+
+        cmd.addEventListener('keydown', function(e) {
+            if (e.key !== 'Enter') return;
+            e.preventDefault();
+            var word = cmd.value.trim();
+            if (!word) return;
+            // Echo typed command into the log
+            var log = document.getElementById('corm-log');
+            if (log) {
+                var echo = document.createElement('div');
+                echo.className = 'boot-line boot-line--cmd';
+                echo.textContent = '> ' + word;
+                log.appendChild(echo);
+            }
+            // Submit via HTMX
+            htmx.ajax('POST', '/puzzle/submit', {
+                target: '#corm-log',
+                swap: 'beforeend',
+                values: { word: word }
+            });
+            cmd.value = '';
+        });
+    })();
+
+    // Re-focus terminal input after HTMX swaps (result appended to log).
+    document.body.addEventListener('htmx:afterSwap', function() {
+        var cmd = document.getElementById('terminal-cmd');
+        if (cmd && !cmd.closest('.terminal-input-line--hidden')) cmd.focus();
+    });
+
+    // Reveal terminal input when transitioning from Phase 0 to Phase 1.
+    document.body.addEventListener('htmx:afterSwap', function(e) {
+        var input = document.getElementById('terminal-input');
+        if (input) input.classList.remove('terminal-input-line--hidden');
+    });
 
     // Listen for on-chain state updates from the parent React app.
     // Reveals meters on first non-zero value.

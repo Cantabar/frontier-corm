@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 	"unicode"
 
@@ -201,6 +202,7 @@ func (h *Handlers) PuzzleGrid(w http.ResponseWriter, r *http.Request) {
 }
 
 // PuzzleSubmit handles POST /puzzle/submit — validate a word guess.
+// The response is appended to #corm-log (the terminal) via HX-Retarget.
 func (h *Handlers) PuzzleSubmit(w http.ResponseWriter, r *http.Request) {
 	sess := getSession(r)
 	if sess == nil {
@@ -211,6 +213,14 @@ func (h *Handlers) PuzzleSubmit(w http.ResponseWriter, r *http.Request) {
 	word := r.FormValue("word")
 	if word == "" {
 		http.Error(w, "missing word", http.StatusBadRequest)
+		return
+	}
+
+	// Handle "next" command after a correct solve
+	if strings.EqualFold(word, "next") && sess.LastSolveCorrect {
+		sess.LastSolveCorrect = false
+		w.Header().Set("HX-Redirect", "/puzzle?transition=1")
+		w.WriteHeader(http.StatusNoContent)
 		return
 	}
 
@@ -229,6 +239,7 @@ func (h *Handlers) PuzzleSubmit(w http.ResponseWriter, r *http.Request) {
 		gain := max(5, 20-sess.SolveCount*2)
 		sess.Stability = min(100, sess.Stability+gain)
 		sess.SolveCount++
+		sess.LastSolveCorrect = true
 		resultData["Stability"] = sess.Stability
 		resultData["SolveCount"] = sess.SolveCount
 		resultData["ShowNext"] = true
@@ -259,9 +270,11 @@ func (h *Handlers) PuzzleSubmit(w http.ResponseWriter, r *http.Request) {
 	sess.EventBuffer.Push(evt)
 	go h.relay.BroadcastEvent(evt)
 
-	// Meters are now non-zero — ensure the OOB meters partial reveals them.
+	// Retarget response into the terminal log
 	resultData["MetersHidden"] = sess.Stability == 0 && sess.Corruption == 0
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("HX-Retarget", "#corm-log")
+	w.Header().Set("HX-Reswap", "beforeend")
 	h.templates.ExecuteTemplate(w, "result.html", resultData)
 	if sess.Phase == puzzle.PhasePuzzle {
 		analysis := buildCipherAnalysis(sess)
@@ -269,7 +282,6 @@ func (h *Handlers) PuzzleSubmit(w http.ResponseWriter, r *http.Request) {
 		h.templates.ExecuteTemplate(w, "cipher-analysis.html", analysis)
 	}
 }
-
 // buildPuzzleData converts session state into template-friendly data.
 func buildPuzzleData(sess *puzzle.Session) PuzzleData {
 	grid := make([][]CellData, sess.Grid.Rows)

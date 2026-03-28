@@ -894,6 +894,64 @@ body {
     content: '> ';
 }
 
+/* === Terminal Input Line === */
+.terminal-input-line {
+    display: flex;
+    align-items: center;
+    padding: 4px 12px;
+    border-top: 1px solid var(--border);
+    background: var(--bg);
+    flex-shrink: 0;
+}
+
+.terminal-input-line--hidden {
+    display: none;
+}
+
+.terminal-prompt {
+    color: var(--accent-cyan);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    line-height: 1.8;
+    flex-shrink: 0;
+    user-select: none;
+}
+
+#terminal-cmd {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text-bright);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    line-height: 1.8;
+    caret-color: var(--accent-cyan);
+    padding: 0;
+    margin: 0;
+}
+
+#terminal-cmd::placeholder {
+    color: transparent;
+}
+
+/* === Terminal Result Log Lines === */
+.boot-line--cmd {
+    color: var(--text-bright);
+}
+
+.boot-line--correct {
+    color: var(--accent-green);
+}
+
+.boot-line--incorrect {
+    color: var(--accent-red);
+}
+
+.boot-line--sys {
+    color: var(--text-dim);
+}
+
 /* === Responsive === */
 @media (max-width: 768px) {
     .app-layout-top {
