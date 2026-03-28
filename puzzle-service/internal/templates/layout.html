@@ -32,6 +32,10 @@
                 {{end}}
             </main>
 
+            {{if eq .Phase 1}}
+                {{template "cipher-analysis.html" .Analysis}}
+            {{end}}
+
             {{if ge .Phase 2}}
             <!-- Right sidebar: Contracts (Phase 2+ only) -->
             <aside class="right-sidebar">

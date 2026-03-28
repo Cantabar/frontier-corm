@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 	"time"
+	"unicode"
 
 	"github.com/frontier-corm/puzzle-service/internal/corm"
 	"github.com/frontier-corm/puzzle-service/internal/puzzle"
@@ -31,6 +33,32 @@ type SignalData struct {
 	CSS     string // CSS class suffix
 }
 
+// SubEntry represents a single encrypted → plaintext mapping for the analysis sidebar.
+type SubEntry struct {
+	Encrypted string
+	Plaintext string
+	IsAlpha   bool
+}
+
+// FreqEntry represents a character frequency count for the analysis sidebar.
+type FreqEntry struct {
+	Char     string
+	Count    int
+	BarWidth int
+	IsAlpha  bool
+}
+
+// CipherAnalysisData is the template data for the Phase 1 right sidebar.
+type CipherAnalysisData struct {
+	Substitutions  []SubEntry
+	SolveCount     int
+	DecryptedCount int
+	TotalCells     int
+	FreqEntries    []FreqEntry
+	ShowFreq       bool // true when decrypted count >= 5
+	SwapOOB        bool // true when the sidebar should be swapped out-of-band
+}
+
 // PuzzleData is the template data for the full puzzle page.
 type PuzzleData struct {
 	Phase        int // 0 = awakening, 1 = puzzle
@@ -45,6 +73,7 @@ type PuzzleData struct {
 	SignalHint   bool // whether signal meter should be visible
 	ShowEntrance bool // true when loaded via phase transition auto-load
 	MetersHidden bool // true when stability and corruption are both 0
+	Analysis     CipherAnalysisData
 }
 
 // PuzzlePage serves GET /puzzle — generates and renders a new puzzle.
@@ -72,7 +101,13 @@ func (h *Handlers) PuzzlePage(w http.ResponseWriter, r *http.Request) {
 
 	// HTMX partial request (e.g. "Next Puzzle" button or transition auto-load) — return just the main content
 	if r.Header.Get("HX-Request") != "" {
-		h.renderTemplate(w, "puzzle-content.html", data)
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		h.templates.ExecuteTemplate(w, "puzzle-content.html", data)
+		if data.Phase == int(puzzle.PhasePuzzle) {
+			analysis := data.Analysis
+			analysis.SwapOOB = true
+			h.templates.ExecuteTemplate(w, "cipher-analysis.html", analysis)
+		}
 		return
 	}
 	h.renderTemplate(w, "layout.html", data)
@@ -111,6 +146,8 @@ func (h *Handlers) PuzzleDecrypt(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cellData := buildCellData(sess, row, col)
+	analysis := buildCipherAnalysis(sess)
+	analysis.SwapOOB = true
 
 	// Emit decrypt event to corm-brain
 	if isNew {
@@ -140,14 +177,16 @@ func (h *Handlers) PuzzleDecrypt(w http.ResponseWriter, r *http.Request) {
 		sig := computeSignal(cell)
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		h.templates.ExecuteTemplate(w, "cell.html", cellData)
+		h.templates.ExecuteTemplate(w, "cipher-analysis.html", analysis)
 		fmt.Fprintf(w, `<div id="signal-meter" hx-swap-oob="innerHTML">`+
 			`<div class="signal-label">%s</div>`+
 			`<div class="signal-bar"><div class="signal-fill signal-fill--%s" style="width:%d%%"></div></div>`+
 			`</div>`, sig.Label, sig.CSS, sig.Percent)
 		return
 	}
-
-	h.renderTemplate(w, "cell.html", cellData)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	h.templates.ExecuteTemplate(w, "cell.html", cellData)
+	h.templates.ExecuteTemplate(w, "cipher-analysis.html", analysis)
 }
 
 // PuzzleGrid handles GET /puzzle/grid — re-renders just the grid partial.
@@ -222,8 +261,13 @@ func (h *Handlers) PuzzleSubmit(w http.ResponseWriter, r *http.Request) {
 
 	// Meters are now non-zero — ensure the OOB meters partial reveals them.
 	resultData["MetersHidden"] = sess.Stability == 0 && sess.Corruption == 0
-
-	h.renderTemplate(w, "result.html", resultData)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	h.templates.ExecuteTemplate(w, "result.html", resultData)
+	if sess.Phase == puzzle.PhasePuzzle {
+		analysis := buildCipherAnalysis(sess)
+		analysis.SwapOOB = true
+		h.templates.ExecuteTemplate(w, "cipher-analysis.html", analysis)
+	}
 }
 
 // buildPuzzleData converts session state into template-friendly data.
@@ -248,6 +292,7 @@ func buildPuzzleData(sess *puzzle.Session) PuzzleData {
 		Tier:         int(sess.Difficulty.Tier),
 		SignalHint:   sess.Hints.Signal,
 		MetersHidden: sess.Stability == 0 && sess.Corruption == 0,
+		Analysis:     buildCipherAnalysis(sess),
 	}
 }
 
@@ -334,6 +379,100 @@ func directionClassForCell(row, col int, placement puzzle.WordPlacement) string 
 	return "cell--dir-" + dir
 }
 
+// buildCipherAnalysis produces the data for the Phase 1 analysis sidebar.
+func buildCipherAnalysis(sess *puzzle.Session) CipherAnalysisData {
+	if sess.Grid == nil {
+		return CipherAnalysisData{}
+	}
+
+	totalCells := sess.Grid.Rows * sess.Grid.Cols
+	decryptedCount := len(sess.DecryptedCells)
+
+	type substitution struct {
+		encrypted rune
+		plaintext rune
+	}
+
+	seenSubs := make(map[substitution]bool)
+	freqMap := make(map[rune]int)
+
+	for key := range sess.DecryptedCells {
+		var row, col int
+		if _, err := fmt.Sscanf(key, "%d-%d", &row, &col); err != nil {
+			continue
+		}
+		if !sess.Grid.InBounds(row, col) {
+			continue
+		}
+
+		cell := &sess.Grid.Cells[row][col]
+		seenSubs[substitution{encrypted: cell.Encrypted, plaintext: cell.Plaintext}] = true
+		freqMap[cell.Plaintext]++
+	}
+
+	subKeys := make([]substitution, 0, len(seenSubs))
+	for sub := range seenSubs {
+		subKeys = append(subKeys, sub)
+	}
+	sort.Slice(subKeys, func(i, j int) bool {
+		if subKeys[i].encrypted == subKeys[j].encrypted {
+			return subKeys[i].plaintext < subKeys[j].plaintext
+		}
+		return subKeys[i].encrypted < subKeys[j].encrypted
+	})
+
+	substitutions := make([]SubEntry, 0, len(subKeys))
+	for _, sub := range subKeys {
+		substitutions = append(substitutions, SubEntry{
+			Encrypted: string(sub.encrypted),
+			Plaintext: string(sub.plaintext),
+			IsAlpha:   unicode.IsLetter(sub.plaintext),
+		})
+	}
+
+	type frequency struct {
+		char  rune
+		count int
+	}
+
+	freqKeys := make([]frequency, 0, len(freqMap))
+	maxCount := 0
+	for ch, count := range freqMap {
+		if count > maxCount {
+			maxCount = count
+		}
+		freqKeys = append(freqKeys, frequency{char: ch, count: count})
+	}
+	sort.Slice(freqKeys, func(i, j int) bool {
+		if freqKeys[i].count == freqKeys[j].count {
+			return freqKeys[i].char < freqKeys[j].char
+		}
+		return freqKeys[i].count > freqKeys[j].count
+	})
+
+	freqEntries := make([]FreqEntry, 0, len(freqKeys))
+	for _, freq := range freqKeys {
+		barWidth := 0
+		if maxCount > 0 {
+			barWidth = (freq.count * 100) / maxCount
+		}
+		freqEntries = append(freqEntries, FreqEntry{
+			Char:     string(freq.char),
+			Count:    freq.count,
+			BarWidth: barWidth,
+			IsAlpha:  unicode.IsLetter(freq.char),
+		})
+	}
+
+	return CipherAnalysisData{
+		Substitutions:  substitutions,
+		SolveCount:     sess.SolveCount,
+		DecryptedCount: decryptedCount,
+		TotalCells:     totalCells,
+		FreqEntries:    freqEntries,
+		ShowFreq:       decryptedCount >= 5,
+	}
+}
 // computeSignal returns signal intensity feedback for a cell.
 func computeSignal(cell *puzzle.Cell) SignalData {
 	if cell.Type == puzzle.CellTrap {
