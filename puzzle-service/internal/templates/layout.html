@@ -34,6 +34,9 @@
 
             {{if eq .Phase 1}}
                 {{template "cipher-analysis.html" .Analysis}}
+            {{else if eq .Phase 0}}
+                <!-- Hidden stub so OOB swap works when transitioning Phase 0 → 1 -->
+                <aside id="cipher-analysis" class="right-sidebar" style="display:none"></aside>
             {{end}}
 
             {{if ge .Phase 2}}
