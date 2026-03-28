@@ -2,7 +2,9 @@ package reasoning
 
 import (
 	"context"
+	"encoding/json"
 	"log"
+	"math/rand"
 
 	"github.com/frontier-corm/corm-brain/internal/transport"
 	"github.com/frontier-corm/corm-brain/internal/types"
@@ -26,11 +28,70 @@ func handlePhase1Effects(ctx context.Context, h *Handler, environment, cormID st
 			})
 
 			log.Printf("corm %s transitioned to Phase 2", cormID)
+			return
+		}
+
+		// Struggling hint: on every 4th consecutive incorrect submission,
+		// activate a hint on a decrypted target-word cell.
+		var p map[string]interface{}
+		if len(evt.Payload) > 0 {
+			json.Unmarshal(evt.Payload, &p)
+		}
+		if !types.BoolField(p, "correct") {
+			attempts := types.IntField(p, "incorrect_attempts")
+			if attempts >= 4 && attempts%4 == 0 {
+				dispatchStrugglingHint(ctx, h, environment, cormID, sender, evt.SessionID)
+			}
 		}
 
 	case types.EventDecrypt:
 		// Optionally evaluate boost targeting
 		evaluateBoost(ctx, h, environment, cormID, sender, traits, evt)
+	}
+}
+
+// dispatchStrugglingHint sends a hint to help a struggling player.
+// It looks for recently decrypted target-word cells and highlights one.
+// If no target-word cells have been decrypted, it enables the signal hint globally.
+func dispatchStrugglingHint(ctx context.Context, h *Handler, environment, cormID string, sender *transport.ActionSender, sessionID string) {
+	recentEvents, err := h.db.RecentEvents(ctx, environment, cormID, 50)
+	if err != nil {
+		log.Printf("phase1: struggling hint: fetch events: %v", err)
+		return
+	}
+
+	// Collect decrypted cells that are part of the target word.
+	var wordCells []types.CellRef
+	for _, e := range recentEvents {
+		if e.EventType != types.EventDecrypt {
+			continue
+		}
+		var p map[string]interface{}
+		if len(e.Payload) > 0 {
+			json.Unmarshal(e.Payload, &p)
+		}
+		if types.BoolField(p, "is_word") {
+			row := types.IntField(p, "row")
+			col := types.IntField(p, "col")
+			wordCells = append(wordCells, types.CellRef{Row: row, Col: col})
+		}
+	}
+
+	if len(wordCells) > 0 {
+		// Pick a random target-word cell and highlight it.
+		cell := wordCells[rand.Intn(len(wordCells))]
+		sender.SendPayload(ctx, types.ActionHintCell, sessionID, types.HintCellPayload{
+			Cells:    []types.CellRef{cell},
+			HintType: "heatmap",
+		})
+		log.Printf("phase1: sent heatmap hint on cell (%d,%d) for struggling player", cell.Row, cell.Col)
+	} else {
+		// No target-word cells decrypted yet — enable signal globally.
+		sender.SendPayload(ctx, types.ActionHintToggle, sessionID, types.HintTogglePayload{
+			HintType: "signal",
+			Enabled:  true,
+		})
+		log.Printf("phase1: enabled signal hint globally for struggling player")
 	}
 }
 

@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 	"time"
@@ -156,6 +157,88 @@ func TestTruncateResponse(t *testing.T) {
 	}
 	if !strings.HasSuffix(result, "...") {
 		t.Error("truncated response should end with ...")
+	}
+}
+
+func TestPhase1SignificanceTrap(t *testing.T) {
+	payload, _ := json.Marshal(map[string]any{"is_trap": true, "is_word": false})
+	evt := types.CormEvent{EventType: types.EventDecrypt, Payload: payload}
+	if sig := evt.Phase1Significance(); sig != 80 {
+		t.Errorf("trap decrypt significance = %d, want 80", sig)
+	}
+}
+
+func TestPhase1SignificanceWordChar(t *testing.T) {
+	payload, _ := json.Marshal(map[string]any{"is_word": true, "is_trap": false})
+	evt := types.CormEvent{EventType: types.EventDecrypt, Payload: payload}
+	if sig := evt.Phase1Significance(); sig != 70 {
+		t.Errorf("word char decrypt significance = %d, want 70", sig)
+	}
+}
+
+func TestPhase1SignificanceRoutineDecrypt(t *testing.T) {
+	payload, _ := json.Marshal(map[string]any{"is_word": false, "is_trap": false})
+	evt := types.CormEvent{EventType: types.EventDecrypt, Payload: payload}
+	if sig := evt.Phase1Significance(); sig != 5 {
+		t.Errorf("routine decrypt significance = %d, want 5", sig)
+	}
+}
+
+func TestPhase1SignificanceCorrectSubmit(t *testing.T) {
+	payload, _ := json.Marshal(map[string]any{"correct": true, "word": "test"})
+	evt := types.CormEvent{EventType: types.EventWordSubmit, Payload: payload}
+	if sig := evt.Phase1Significance(); sig != 70 {
+		t.Errorf("correct submit significance = %d, want 70", sig)
+	}
+}
+
+func TestPhase1SignificanceStrugglingSubmit(t *testing.T) {
+	payload, _ := json.Marshal(map[string]any{"correct": false, "incorrect_attempts": 4})
+	evt := types.CormEvent{EventType: types.EventWordSubmit, Payload: payload}
+	if sig := evt.Phase1Significance(); sig != 70 {
+		t.Errorf("4th incorrect submit significance = %d, want 70", sig)
+	}
+
+	// 3rd attempt should be suppressed
+	payload, _ = json.Marshal(map[string]any{"correct": false, "incorrect_attempts": 3})
+	evt = types.CormEvent{EventType: types.EventWordSubmit, Payload: payload}
+	if sig := evt.Phase1Significance(); sig != 5 {
+		t.Errorf("3rd incorrect submit significance = %d, want 5", sig)
+	}
+
+	// 8th attempt should also trigger
+	payload, _ = json.Marshal(map[string]any{"correct": false, "incorrect_attempts": 8})
+	evt = types.CormEvent{EventType: types.EventWordSubmit, Payload: payload}
+	if sig := evt.Phase1Significance(); sig != 70 {
+		t.Errorf("8th incorrect submit significance = %d, want 70", sig)
+	}
+}
+
+func TestPhase1PromptContainsTriggers(t *testing.T) {
+	traits := &types.CormTraits{
+		Phase:         1,
+		AgendaWeights: types.AgendaWeights{Industry: 0.33, Expansion: 0.33, Defense: 0.33},
+	}
+	payload, _ := json.Marshal(map[string]any{"is_trap": true})
+	evt := types.CormEvent{EventType: types.EventDecrypt, PlayerAddress: "0xabc123456789", Payload: payload}
+	msgs := llm.BuildPrompt(traits, nil, nil, nil, evt)
+
+	system := msgs[0].Content
+	for _, want := range []string{"TRAP HIT", "TARGET CHARACTER", "STRUGGLING"} {
+		if !strings.Contains(system, want) {
+			t.Errorf("Phase 1 prompt should contain %q", want)
+		}
+	}
+	if strings.Contains(system, "On decrypt:") {
+		t.Error("Phase 1 prompt should not contain generic 'On decrypt:' instruction")
+	}
+}
+
+func TestPhase1SignificanceFallsBackForOtherEvents(t *testing.T) {
+	evt := types.CormEvent{EventType: types.EventPhaseTransition}
+	// Phase1Significance should delegate to Significance for non-decrypt/submit events
+	if sig := evt.Phase1Significance(); sig != 100 {
+		t.Errorf("phase_transition via Phase1Significance = %d, want 100", sig)
 	}
 }
 

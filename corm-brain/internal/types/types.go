@@ -24,13 +24,13 @@ type CormEvent struct {
 
 // Event type constants.
 const (
-	EventClick           = "click"
-	EventDecrypt         = "decrypt"
-	EventWordSubmit      = "word_submit"
+	EventClick            = "click"
+	EventDecrypt          = "decrypt"
+	EventWordSubmit       = "submit"
 	EventContractComplete = "contract_complete"
-	EventContractFailed  = "contract_failed"
-	EventPurge           = "purge"
-	EventPhaseTransition = "phase_transition"
+	EventContractFailed   = "contract_failed"
+	EventPurge            = "purge"
+	EventPhaseTransition  = "phase_transition"
 )
 
 // Significance returns a priority score for the event type.
@@ -52,6 +52,60 @@ func (e CormEvent) Significance() int {
 	default:
 		return 5
 	}
+}
+
+// Phase1Significance returns a phase-1-aware priority score by inspecting
+// the event payload. Trap hits, target-word decrypts, correct submissions,
+// and struggling thresholds score high; everything else is suppressed.
+func (e CormEvent) Phase1Significance() int {
+	var p map[string]interface{}
+	if len(e.Payload) > 0 {
+		json.Unmarshal(e.Payload, &p)
+	}
+
+	switch e.EventType {
+	case EventDecrypt:
+		if BoolField(p, "is_trap") {
+			return 80
+		}
+		if BoolField(p, "is_word") {
+			return 70
+		}
+		return 5 // routine decrypt — suppress
+
+	case EventWordSubmit:
+		if BoolField(p, "correct") {
+			return 70
+		}
+		attempts := IntField(p, "incorrect_attempts")
+		if attempts >= 4 && attempts%4 == 0 {
+			return 70
+		}
+		return 5 // early incorrect — suppress
+
+	default:
+		return e.Significance()
+	}
+}
+
+// BoolField extracts a bool from a generic map, defaulting to false.
+func BoolField(m map[string]interface{}, key string) bool {
+	if m == nil {
+		return false
+	}
+	v, ok := m[key].(bool)
+	return ok && v
+}
+
+// IntField extracts an integer from a generic map (JSON numbers decode as float64).
+func IntField(m map[string]interface{}, key string) int {
+	if m == nil {
+		return 0
+	}
+	if v, ok := m[key].(float64); ok {
+		return int(v)
+	}
+	return 0
 }
 
 // MostSignificant returns the event with the highest significance from the slice.
@@ -86,6 +140,8 @@ const (
 	ActionStateSync       = "state_sync"
 	ActionContractCreated = "contract_created"
 	ActionContractUpdated = "contract_updated"
+	ActionHintToggle      = "hint_toggle"
+	ActionHintCell        = "hint_cell"
 )
 
 // --- Action Payloads ---
@@ -139,6 +195,18 @@ type ContractCreatedPayload struct {
 	Description  string `json:"description"`
 	Reward       string `json:"reward"`
 	Deadline     string `json:"deadline"`
+}
+
+// HintTogglePayload toggles a global hint system on or off.
+type HintTogglePayload struct {
+	HintType string `json:"hint_type"` // "heatmap", "vectors", "decode", "signal"
+	Enabled  bool   `json:"enabled"`
+}
+
+// HintCellPayload activates a per-cell hint on specific cells.
+type HintCellPayload struct {
+	Cells    []CellRef `json:"cells"`
+	HintType string    `json:"hint_type"` // "heatmap", "vectors", "signal"
 }
 
 // --- Per-Corm State ---

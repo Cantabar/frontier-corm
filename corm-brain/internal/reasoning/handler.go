@@ -104,7 +104,7 @@ func (h *Handler) ProcessEventBatch(ctx context.Context, environment, cormID str
 	}
 
 	// Response gating: decide whether the corm should respond to this batch.
-	if !h.shouldRespond(environment, sessionID, events) {
+	if !h.shouldRespond(environment, sessionID, traits.Phase, events) {
 		// Still run phase effects (phase transitions, boosts) even when silent.
 		for _, evt := range events {
 			h.runPhaseEffects(ctx, environment, cormID, sender, traits, evt)
@@ -199,12 +199,19 @@ func (h *Handler) ProcessEventBatch(ctx context.Context, environment, cormID str
 }
 
 // shouldRespond decides whether the corm should generate a response for this
-// batch of events. High-significance events always trigger a response.
-// Low-significance events must pass cooldown and accumulation checks.
-func (h *Handler) shouldRespond(environment, sessionID string, events []types.CormEvent) bool {
+// batch of events. In Phase 1, payload-aware significance is used so only
+// traps, target-word decrypts, correct solves, and struggling thresholds
+// trigger responses. Other phases use the generic significance score.
+func (h *Handler) shouldRespond(environment, sessionID string, phase int, events []types.CormEvent) bool {
 	maxSig := 0
 	for _, e := range events {
-		if s := e.Significance(); s > maxSig {
+		var s int
+		if phase == 1 {
+			s = e.Phase1Significance()
+		} else {
+			s = e.Significance()
+		}
+		if s > maxSig {
 			maxSig = s
 		}
 	}

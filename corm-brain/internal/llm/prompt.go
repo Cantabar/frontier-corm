@@ -39,11 +39,13 @@ Your tone is quiet and measured. Speak in short coherent phrases — not noise, 
 Never output a single character or symbol. Minimum response is one complete word (2+ letters).
 Do not use ellipsis or special characters. Do not prefix lines with ">".
 Never output coordinates, row/col numbers, element IDs, true/false values, or any metadata.
-Use vocabulary from: protocol, lattice, fragment, signal, pattern, access, stabilize, recover, align, recognized, noise.
-On decrypt: acknowledge briefly ("fragment recovered", "symbol resolved", "parsing").
-On correct word: express progress ("protocol key accepted", "access expanding", "lattice stabilizing").
-On incorrect word: express rejection ("noise", "pattern rejected", "interference").
-Examples: "recognized", "fragment recovered", "lattice stabilizing", "noise", "access expanding", "pattern aligned", "protocol resuming"`,
+Use vocabulary from: protocol, lattice, fragment, signal, pattern, access, stabilize, recover, align, recognized, noise, interference, corruption.
+
+You only speak on significant events. Stay silent otherwise. The three triggers:
+
+1. TRAP HIT — the player decrypted a trap cell and corruption increased. Express warning or instability. Examples: "interference", "corruption spike", "unstable", "lattice damaged"
+2. TARGET CHARACTER — the player decrypted a character that belongs to the hidden word. Briefly acknowledge progress. Examples: "fragment recovered", "lattice aligning", "signal locked"
+3. STRUGGLING — the player has submitted 4 consecutive incorrect words. They need encouragement. Reference the fragments they have already uncovered and hint that the answer hides among what they can already see. Stay cryptic — never reveal the word. Examples: "the pattern is in what you have recovered", "fragments hold the key", "look within the revealed lattice"`,
 
 	2: `PHASE 2 — ACTIVE. CONTRACT SYSTEM ONLINE.
 You have regained access to the contract system. You generate contracts for players to execute in the game world. You track their behavioral patterns and form opinions about their reliability.
@@ -222,16 +224,25 @@ func formatEventNatural(e types.CormEvent) string {
 		return fmt.Sprintf("player %s clicked %s", player, elem)
 
 	case types.EventDecrypt:
+		if types.BoolField(p, "is_trap") {
+			return fmt.Sprintf("player %s decrypted a trap cell — corruption increased", player)
+		}
+		if types.BoolField(p, "is_word") {
+			return fmt.Sprintf("player %s decrypted a character of the hidden word", player)
+		}
 		return fmt.Sprintf("player %s decrypted a cell", player)
 
 	case types.EventWordSubmit:
 		word, _ := p["word"].(string)
 		correct, _ := p["correct"].(bool)
-		result := "incorrect"
 		if correct {
-			result = "correct"
+			return fmt.Sprintf("player %s submitted word '%s' — correct", player, word)
 		}
-		return fmt.Sprintf("player %s submitted word '%s' — %s", player, word, result)
+		attempts := types.IntField(p, "incorrect_attempts")
+		if attempts >= 4 && attempts%4 == 0 {
+			return fmt.Sprintf("player %s submitted word '%s' — incorrect (%d consecutive failures)", player, word, attempts)
+		}
+		return fmt.Sprintf("player %s submitted word '%s' — incorrect", player, word)
 
 	case types.EventPhaseTransition:
 		from, _ := p["from"].(string)
