@@ -22,6 +22,7 @@ world-contracts/
 
 # Static game data (large binary/embedded repos) — ignore bulk, allow curated files
 static-data/*
+!static-data/design-doc.md
 !static-data/data
 static-data/data/*
 !static-data/data/icons
@@ -48,6 +49,7 @@ mprocs.log
 .world-ready
 
 dev-tools/*
+!dev-tools/design-doc.md
 !dev-tools/dev-wallet
 !dev-tools/give-item-helper
 !dev-tools/world-contract-tracker
