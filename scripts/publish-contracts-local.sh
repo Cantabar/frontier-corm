@@ -7,6 +7,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 ENV_FILE="$PROJECT_ROOT/.env.localnet"
+WEB_ENV_FILE="$PROJECT_ROOT/web/.env.localnet"
 PUB_FILE="$PROJECT_ROOT/Pub.localnet.toml"
 GAS_BUDGET=2000000000  # 2 SUI — publishing with deps needs more than 0.5
 
@@ -28,7 +29,7 @@ write_env_var() {
 # ── Clear stale package IDs from previous runs ────────────────────
 if [ -f "$ENV_FILE" ]; then
   echo "Clearing stale contract IDs from $ENV_FILE..."
-  for var in "${ENV_VARS[@]}" "${VITE_VARS[@]}" VITE_TRIBE_REGISTRY_ID CORM_STATE_PACKAGE_ID VITE_METADATA_REGISTRY_ID; do
+  for var in "${ENV_VARS[@]}" "${VITE_VARS[@]}" VITE_TRIBE_REGISTRY_ID CORM_STATE_PACKAGE_ID VITE_METADATA_REGISTRY_ID VITE_CORM_CONFIG_ID; do
     [ -z "$var" ] && continue
     sed -i "s|^${var}=.*|${var}=|" "$ENV_FILE"
   done
@@ -156,6 +157,11 @@ for i in "${!PACKAGES[@]}"; do
   write_env_var "$var" "$PACKAGE_ID" "$ENV_FILE"
   [ -n "$vite_var" ] && write_env_var "$vite_var" "$PACKAGE_ID" "$ENV_FILE"
 
+  # Also update the web env file so vite picks up the IDs
+  if [ -f "$WEB_ENV_FILE" ] && [ -n "$vite_var" ]; then
+    write_env_var "$vite_var" "$PACKAGE_ID" "$WEB_ENV_FILE"
+  fi
+
   # Write CORM_STATE_PACKAGE_ID alias (used by corm-brain config)
   if [ "$pkg" = "corm_state" ]; then
     write_env_var "CORM_STATE_PACKAGE_ID" "$PACKAGE_ID" "$ENV_FILE"
@@ -174,6 +180,9 @@ for i in "${!PACKAGES[@]}"; do
     if [ -n "$TRIBE_REGISTRY_ID" ] && [ "$TRIBE_REGISTRY_ID" != "null" ]; then
       echo "  VITE_TRIBE_REGISTRY_ID=$TRIBE_REGISTRY_ID"
       write_env_var "VITE_TRIBE_REGISTRY_ID" "$TRIBE_REGISTRY_ID" "$ENV_FILE"
+      if [ -f "$WEB_ENV_FILE" ]; then
+        write_env_var "VITE_TRIBE_REGISTRY_ID" "$TRIBE_REGISTRY_ID" "$WEB_ENV_FILE"
+      fi
     else
       echo "  WARNING: Could not extract TribeRegistry ID from publish events" >&2
     fi
@@ -190,11 +199,78 @@ for i in "${!PACKAGES[@]}"; do
     if [ -n "$METADATA_REGISTRY_ID" ] && [ "$METADATA_REGISTRY_ID" != "null" ]; then
       echo "  VITE_METADATA_REGISTRY_ID=$METADATA_REGISTRY_ID"
       write_env_var "VITE_METADATA_REGISTRY_ID" "$METADATA_REGISTRY_ID" "$ENV_FILE"
+      if [ -f "$WEB_ENV_FILE" ]; then
+        write_env_var "VITE_METADATA_REGISTRY_ID" "$METADATA_REGISTRY_ID" "$WEB_ENV_FILE"
+      fi
     else
       echo "  WARNING: Could not extract MetadataRegistry ID from publish events" >&2
     fi
   fi
 done
 
+# ── Create CormConfig (post-deploy admin setup) ──────────────────
+# The permissionless `install` function requires a shared CormConfig
+# object on-chain. We create it here using the CormAdminCap (owned by
+# the publisher from corm_auth init) and the brain address.
+CORM_AUTH_PKG=$(grep '^PACKAGE_CORM_AUTH=' "$ENV_FILE" | cut -d= -f2)
+CORM_STATE_PKG=$(grep '^PACKAGE_CORM_STATE=' "$ENV_FILE" | cut -d= -f2)
+
+if [ -n "$CORM_AUTH_PKG" ] && [ -n "$CORM_STATE_PKG" ]; then
+  echo ""
+  echo "Creating CormConfig..."
+
+  PUBLISHER_ADDR=$(sui client active-address)
+
+  # Find CormAdminCap owned by the publisher
+  ADMIN_CAP_ID=$(
+    curl -s http://127.0.0.1:9000 -X POST \
+      -H 'Content-Type: application/json' \
+      -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"suix_getOwnedObjects\",\"params\":[\"$PUBLISHER_ADDR\",{\"filter\":{\"StructType\":\"${CORM_AUTH_PKG}::corm_auth::CormAdminCap\"},\"options\":{\"showType\":true}},null,1]}" \
+    | jq -r '.result.data[0].data.objectId'
+  )
+
+  if [ -z "$ADMIN_CAP_ID" ] || [ "$ADMIN_CAP_ID" = "null" ]; then
+    echo "  WARNING: Could not find CormAdminCap. Skipping CormConfig creation." >&2
+  else
+    # For localnet, use the publisher's own address as the brain address.
+    # The corm-brain service runs on the same keypair in local dev.
+    BRAIN_ADDRESS="$PUBLISHER_ADDR"
+    echo "  CormAdminCap: $ADMIN_CAP_ID"
+    echo "  Brain address: $BRAIN_ADDRESS"
+
+    sui client call \
+      --package "$CORM_STATE_PKG" \
+      --module corm_state \
+      --function create_config \
+      --args "$ADMIN_CAP_ID" "$BRAIN_ADDRESS" \
+      --gas-budget "$GAS_BUDGET" \
+      --json > /tmp/create-config-result.json 2>&1 || {
+      echo "  ERROR: create_config call failed" >&2
+      cat /tmp/create-config-result.json >&2
+    }
+
+    CORM_CONFIG_ID=$(
+      jq -r '.objectChanges[] | select(.type == "created") | select(.objectType | contains("CormConfig")) | .objectId' /tmp/create-config-result.json
+    )
+
+    if [ -n "$CORM_CONFIG_ID" ] && [ "$CORM_CONFIG_ID" != "null" ]; then
+      echo "  VITE_CORM_CONFIG_ID=$CORM_CONFIG_ID"
+      write_env_var "VITE_CORM_CONFIG_ID" "$CORM_CONFIG_ID" "$ENV_FILE"
+      if [ -f "$WEB_ENV_FILE" ]; then
+        write_env_var "VITE_CORM_CONFIG_ID" "$CORM_CONFIG_ID" "$WEB_ENV_FILE"
+      fi
+    else
+      echo "  WARNING: Could not extract CormConfig ID from create_config result" >&2
+    fi
+
+    rm -f /tmp/create-config-result.json
+  fi
+else
+  echo ""
+  echo "WARNING: corm_auth or corm_state package not found. Skipping CormConfig creation." >&2
+fi
+
 echo ""
-echo "All contracts published. Package IDs written to $ENV_FILE"
+echo "All contracts published. Package IDs written to:"
+echo "  $ENV_FILE"
+[ -f "$WEB_ENV_FILE" ] && echo "  $WEB_ENV_FILE"

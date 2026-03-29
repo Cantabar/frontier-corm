@@ -156,7 +156,7 @@ echo "Generated $PUB_FILE"
 
 # ── Clear stale package IDs ────────────────────────────────────────
 echo "Clearing stale contract IDs from $ENV_FILE..."
-for var in "${ENV_VARS[@]}" "${VITE_VARS[@]}" VITE_TRIBE_REGISTRY_ID; do
+for var in "${ENV_VARS[@]}" "${VITE_VARS[@]}" VITE_TRIBE_REGISTRY_ID VITE_CORM_CONFIG_ID; do
   if grep -q "^${var}=" "$ENV_FILE" 2>/dev/null; then
     sed -i "s|^${var}=.*|${var}=|" "$ENV_FILE"
   fi
@@ -224,6 +224,80 @@ for i in "${!PACKAGES[@]}"; do
 done
 
 rm -f /tmp/publish-result.json
+
+# ── Create CormConfig (post-deploy admin setup) ──────────────────
+# The permissionless `install` function requires a shared CormConfig
+# object on-chain. We create it here using the CormAdminCap (owned by
+# the publisher from corm_auth init) and the brain address.
+CORM_AUTH_PKG=$(grep '^PACKAGE_CORM_AUTH=' "$ENV_FILE" | cut -d= -f2)
+CORM_STATE_PKG=$(grep '^PACKAGE_CORM_STATE=' "$ENV_FILE" | cut -d= -f2)
+
+if [ -n "$CORM_AUTH_PKG" ] && [ -n "$CORM_STATE_PKG" ]; then
+  echo ""
+  echo "Creating CormConfig..."
+
+  PUBLISHER_ADDR=$(sui client active-address)
+
+  # Find CormAdminCap owned by the publisher
+  ADMIN_CAP_ID=$(
+    curl -s "$SUI_RPC" -X POST \
+      -H 'Content-Type: application/json' \
+      -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"suix_getOwnedObjects\",\"params\":[\"$PUBLISHER_ADDR\",{\"filter\":{\"StructType\":\"${CORM_AUTH_PKG}::corm_auth::CormAdminCap\"},\"options\":{\"showType\":true}},null,1]}" \
+    | jq -r '.result.data[0].data.objectId'
+  )
+
+  if [ -z "$ADMIN_CAP_ID" ] || [ "$ADMIN_CAP_ID" = "null" ]; then
+    echo "  WARNING: Could not find CormAdminCap. Skipping CormConfig creation." >&2
+  else
+    # Resolve brain address from env var or prompt interactively
+    BRAIN_ADDRESS="${CORM_BRAIN_ADDRESS:-}"
+    if [ -z "$BRAIN_ADDRESS" ] && [ -f "$ENV_FILE" ]; then
+      BRAIN_ADDRESS=$(grep '^CORM_BRAIN_ADDRESS=' "$ENV_FILE" 2>/dev/null | cut -d= -f2 || true)
+    fi
+    if [ -z "$BRAIN_ADDRESS" ]; then
+      echo ""
+      echo "A brain address is required to create CormConfig. This is the Sui address"
+      echo "of the corm-brain service keypair that will administer all corms."
+      read -rp "Enter the brain address (0x...): " BRAIN_ADDRESS
+    fi
+    if [ -z "$BRAIN_ADDRESS" ]; then
+      echo "  WARNING: No brain address provided. Skipping CormConfig creation." >&2
+    else
+      echo "  CormAdminCap: $ADMIN_CAP_ID"
+      echo "  Brain address: $BRAIN_ADDRESS"
+
+      sui client call \
+        --package "$CORM_STATE_PKG" \
+        --module corm_state \
+        --function create_config \
+        --args "$ADMIN_CAP_ID" "$BRAIN_ADDRESS" \
+        --gas-budget "$GAS_BUDGET" \
+        --json > /tmp/create-config-result.json 2>&1 || {
+        echo "  ERROR: create_config call failed" >&2
+        cat /tmp/create-config-result.json >&2
+      }
+
+      CORM_CONFIG_ID=$(
+        jq -r '.objectChanges[] | select(.type == "created") | select(.objectType | contains("CormConfig")) | .objectId' /tmp/create-config-result.json
+      )
+
+      if [ -n "$CORM_CONFIG_ID" ] && [ "$CORM_CONFIG_ID" != "null" ]; then
+        echo "  VITE_CORM_CONFIG_ID=$CORM_CONFIG_ID"
+        write_env_var "VITE_CORM_CONFIG_ID" "$CORM_CONFIG_ID" "$ENV_FILE"
+        if [ -f "$WEB_ENV_FILE" ]; then
+          write_env_var "VITE_CORM_CONFIG_ID" "$CORM_CONFIG_ID" "$WEB_ENV_FILE"
+        fi
+      else
+        echo "  WARNING: Could not extract CormConfig ID from create_config result" >&2
+      fi
+
+      rm -f /tmp/create-config-result.json
+    fi
+  fi
+else
+  echo ""
+  echo "WARNING: corm_auth or corm_state package not found. Skipping CormConfig creation." >&2
+fi
 
 echo ""
 echo "All contracts published to testnet ($ENV). Package IDs written to:"

@@ -103,6 +103,7 @@ Each contract package has a `Move.toml` with dependency addresses. Package IDs a
 - **Local:** `scripts/publish-contracts-local.sh` (publishes all packages in dependency order after world contracts are deployed)
 - **Testnet:** `make publish-contracts ENV=utopia|stillness` (via `scripts/publish-contracts.sh`)
 - Publishing order: `corm_auth` → `corm_state` → `tribe` → `trustless_contracts` → `witnessed_contracts` → `assembly_metadata`
+- **Post-deploy:** Both scripts automatically call `corm_state::create_config` after publishing, using the `CormAdminCap` (owned by the publisher from `corm_auth` init) and a brain address. This creates the shared `CormConfig` object required by the permissionless `install` function. The resulting `VITE_CORM_CONFIG_ID` is written to `.env.*` and `web/.env.*` files. For testnet, the brain address is read from `CORM_BRAIN_ADDRESS` env var or prompted interactively.
 
 ## Features
 
