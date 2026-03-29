@@ -60,7 +60,7 @@ func TestSummarizeEvents_ContentResponse(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := &Consolidator{llm: llm.NewClient(srv.URL, srv.URL)}
+	c := &Consolidator{llm: llm.NewClient(srv.URL, srv.URL, llm.DefaultTokenLimits())}
 	memories, err := c.summarizeEvents(context.Background(), "corm-1", sampleEvents())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -88,7 +88,7 @@ func TestSummarizeEvents_ReasoningFallback(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := &Consolidator{llm: llm.NewClient(srv.URL, srv.URL)}
+	c := &Consolidator{llm: llm.NewClient(srv.URL, srv.URL, llm.DefaultTokenLimits())}
 	memories, err := c.summarizeEvents(context.Background(), "corm-1", sampleEvents())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -109,7 +109,7 @@ func TestSummarizeEvents_EmptyResponse(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := &Consolidator{llm: llm.NewClient(srv.URL, srv.URL)}
+	c := &Consolidator{llm: llm.NewClient(srv.URL, srv.URL, llm.DefaultTokenLimits())}
 	memories, err := c.summarizeEvents(context.Background(), "corm-1", sampleEvents())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -127,7 +127,7 @@ func TestSummarizeEvents_EmptyArray(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := &Consolidator{llm: llm.NewClient(srv.URL, srv.URL)}
+	c := &Consolidator{llm: llm.NewClient(srv.URL, srv.URL, llm.DefaultTokenLimits())}
 	memories, err := c.summarizeEvents(context.Background(), "corm-1", sampleEvents())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -146,7 +146,7 @@ func TestSummarizeEvents_MarkdownFencedJSON(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := &Consolidator{llm: llm.NewClient(srv.URL, srv.URL)}
+	c := &Consolidator{llm: llm.NewClient(srv.URL, srv.URL, llm.DefaultTokenLimits())}
 	memories, err := c.summarizeEvents(context.Background(), "corm-1", sampleEvents())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -177,7 +177,7 @@ func TestSummarizeEvents_DisableReasoningSent(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := &Consolidator{llm: llm.NewClient(srv.URL, srv.URL)}
+	c := &Consolidator{llm: llm.NewClient(srv.URL, srv.URL, llm.DefaultTokenLimits())}
 	c.summarizeEvents(context.Background(), "corm-1", sampleEvents())
 
 	if !gotKwargs {
@@ -193,7 +193,7 @@ func TestSummarizeEvents_MalformedJSON(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := &Consolidator{llm: llm.NewClient(srv.URL, srv.URL)}
+	c := &Consolidator{llm: llm.NewClient(srv.URL, srv.URL, llm.DefaultTokenLimits())}
 	memories, err := c.summarizeEvents(context.Background(), "corm-1", sampleEvents())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -211,7 +211,7 @@ func TestSummarizeEvents_SourceEventIDs(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := &Consolidator{llm: llm.NewClient(srv.URL, srv.URL)}
+	c := &Consolidator{llm: llm.NewClient(srv.URL, srv.URL, llm.DefaultTokenLimits())}
 	events := sampleEvents()
 	memories, err := c.summarizeEvents(context.Background(), "corm-1", events)
 	if err != nil {

@@ -16,19 +16,39 @@ import (
 	"github.com/frontier-corm/corm-brain/internal/types"
 )
 
+// TokenLimits holds the maximum generation tokens for each task tier.
+type TokenLimits struct {
+	Fast    int // Phase 0/1 streaming (short log fragments)
+	Default int // Standard streaming
+	Deep    int // Deep reasoning streaming (Phase 2 contracts, agenda)
+	Sync    int // Non-streaming consolidation
+}
+
+// DefaultTokenLimits returns sensible defaults.
+func DefaultTokenLimits() TokenLimits {
+	return TokenLimits{
+		Fast:    60,
+		Default: 150,
+		Deep:    400,
+		Sync:    500,
+	}
+}
+
 // Client wraps HTTP access to the local TRT-LLM inference servers.
 type Client struct {
-	superURL   string
-	fastURL    string
-	httpClient *http.Client
+	superURL    string
+	fastURL     string
+	httpClient  *http.Client
+	tokenLimits TokenLimits
 }
 
 // NewClient creates an LLM client targeting the given Super and Nano endpoints.
-func NewClient(superURL, fastURL string) *Client {
+func NewClient(superURL, fastURL string, limits TokenLimits) *Client {
 	return &Client{
-		superURL:   superURL,
-		fastURL:    fastURL,
-		httpClient: &http.Client{},
+		superURL:    superURL,
+		fastURL:     fastURL,
+		httpClient:  &http.Client{},
+		tokenLimits: limits,
 	}
 }
 
@@ -89,11 +109,11 @@ func (c *Client) Complete(ctx context.Context, task types.Task, prompt []types.M
 			model = "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-NVFP4"
 		}
 
-		maxTokens := 80
+		maxTokens := c.tokenLimits.Default
 		if task.RequiresDeepReasoning() {
-			maxTokens = 200
+			maxTokens = c.tokenLimits.Deep
 		} else if task.Phase <= 1 {
-			maxTokens = 30
+			maxTokens = c.tokenLimits.Fast
 		}
 
 		req := chatCompletionRequest{
@@ -151,7 +171,7 @@ func (c *Client) Complete(ctx context.Context, task types.Task, prompt []types.M
 				continue
 			}
 
-			for _, choice := range delta.Choices {
+		for _, choice := range delta.Choices {
 				if choice.Delta.Content != "" {
 					hadContent = true
 					select {
@@ -159,6 +179,9 @@ func (c *Client) Complete(ctx context.Context, task types.Task, prompt []types.M
 					case <-ctx.Done():
 						return
 					}
+				}
+				if choice.FinishReason != nil && *choice.FinishReason == "length" {
+					log.Printf("llm stream: generation truncated (finish_reason=length, max_tokens=%d, corm=%s)", maxTokens, task.CormID)
 				}
 			}
 		}
@@ -194,7 +217,7 @@ func (c *Client) CompleteSync(ctx context.Context, task types.Task, prompt []typ
 	}
 
 	if maxTokens <= 0 {
-		maxTokens = 300
+		maxTokens = c.tokenLimits.Sync
 	}
 
 	req := chatCompletionRequest{

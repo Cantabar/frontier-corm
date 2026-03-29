@@ -82,6 +82,10 @@ puzzle-service (per env)           corm-brain
 All via environment variables (see `internal/config/config.go`):
 
 - `LLM_SUPER_URL` / `LLM_FAST_URL` — TRT-LLM endpoints (default: localhost:8000/8001)
+- `LLM_MAX_TOKENS_FAST` — max generation tokens for Phase 0/1 streaming (default: 60)
+- `LLM_MAX_TOKENS_DEFAULT` — max generation tokens for standard streaming (default: 150)
+- `LLM_MAX_TOKENS_DEEP` — max generation tokens for deep reasoning streaming (default: 400)
+- `LLM_MAX_TOKENS_SYNC` — max generation tokens for sync consolidation (default: 500)
 - `EMBED_MODEL_PATH` — path to nomic-embed GGUF model
 - `DATABASE_URL` — Postgres connection string
 - `EVENT_COALESCE_MS` — debounce window (default: 300ms)

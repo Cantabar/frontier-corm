@@ -40,7 +40,12 @@ func main() {
 	log.Println("database connected, migrations applied")
 
 	// --- LLM Client (shared) ---
-	llmClient := llm.NewClient(cfg.LLMSuperURL, cfg.LLMFastURL)
+	llmClient := llm.NewClient(cfg.LLMSuperURL, cfg.LLMFastURL, llm.TokenLimits{
+		Fast:    cfg.LLMMaxTokensFast,
+		Default: cfg.LLMMaxTokensDefault,
+		Deep:    cfg.LLMMaxTokensDeep,
+		Sync:    cfg.LLMMaxTokensSync,
+	})
 
 	// --- Embedder (shared) ---
 	embedder := embed.NewEmbedder(cfg.EmbedModelPath)

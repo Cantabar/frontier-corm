@@ -27,6 +27,12 @@ type Config struct {
 	LLMSuperURL string
 	LLMFastURL  string
 
+	// LLM token limits (max generation tokens per tier)
+	LLMMaxTokensFast    int
+	LLMMaxTokensDefault int
+	LLMMaxTokensDeep    int
+	LLMMaxTokensSync    int
+
 	// Embedding model (shared)
 	EmbedModelPath string
 
@@ -76,6 +82,10 @@ func Load() Config {
 	cfg := Config{
 		LLMSuperURL:           envOrDefault("LLM_SUPER_URL", "http://localhost:8000"),
 		LLMFastURL:            envOrDefault("LLM_FAST_URL", "http://localhost:8001"),
+		LLMMaxTokensFast:      envInt("LLM_MAX_TOKENS_FAST", 60),
+		LLMMaxTokensDefault:   envInt("LLM_MAX_TOKENS_DEFAULT", 150),
+		LLMMaxTokensDeep:      envInt("LLM_MAX_TOKENS_DEEP", 400),
+		LLMMaxTokensSync:      envInt("LLM_MAX_TOKENS_SYNC", 500),
 		EmbedModelPath:        envOrDefault("EMBED_MODEL_PATH", "./models/nomic-embed"),
 		WSReconnectMax:        envDurationMs("WS_RECONNECT_MAX_MS", 30000),
 		FallbackPollInterval:  envDurationMs("FALLBACK_POLL_INTERVAL_MS", 2000),
