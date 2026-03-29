@@ -25,6 +25,8 @@ import {
   upsertLocationPodWithNode,
   getDerivedPodsByNetworkNode,
   deleteStaleDerivedPods,
+  getFilterProofsForStructure,
+  getLocationTagsByStructure,
 } from "../db/location-queries.js";
 import { getConnectedAssemblies } from "../location/sui-rpc.js";
 
@@ -151,6 +153,72 @@ export function createLocationRouter(pool: pg.Pool): Router {
     } catch (err) {
       console.error("[locations] Failed to fetch POD:", err);
       res.status(500).json({ error: "Failed to fetch POD" });
+    }
+  });
+
+  // ================================================================
+  // GET /pod/:structureId/proof — Shareable proof bundle for a POD
+  //
+  // Returns the public (non-encrypted) POD metadata, any associated
+  // ZK filter proofs, and location tags. Owner-only — the proof bundle
+  // is intended to be copied and shared with external applications.
+  // ================================================================
+  router.get("/pod/:structureId/proof", async (req: Request, res: Response) => {
+    const address = await authenticate(req, res);
+    if (!address) return;
+
+    const structureId = req.params.structureId as string;
+    const tribeId = req.query.tribeId as string;
+    if (!tribeId) {
+      res.status(400).json({ error: "tribeId query param required" });
+      return;
+    }
+
+    try {
+      const pod = await getLocationPod(pool, structureId, tribeId);
+      if (!pod) {
+        res.status(404).json({ error: "POD not found" });
+        return;
+      }
+
+      if (pod.owner_address.toLowerCase() !== address.toLowerCase()) {
+        res.status(403).json({ error: "Only the POD owner can export a proof bundle" });
+        return;
+      }
+
+      // Fetch associated ZK proofs and public tags
+      const [filterProofs, locationTags] = await Promise.all([
+        getFilterProofsForStructure(pool, structureId, tribeId),
+        getLocationTagsByStructure(pool, structureId),
+      ]);
+
+      res.json({
+        structure_id: pod.structure_id,
+        owner_address: pod.owner_address,
+        tribe_id: pod.tribe_id,
+        location_hash: pod.location_hash,
+        signature: pod.signature,
+        pod_version: pod.pod_version,
+        tlk_version: pod.tlk_version,
+        created_at: pod.created_at,
+        updated_at: pod.updated_at,
+        zk_proofs: filterProofs.map((fp) => ({
+          filter_type: fp.filter_type,
+          filter_key: fp.filter_key,
+          public_signals: fp.public_signals,
+          proof_json: fp.proof_json,
+          verified_at: fp.verified_at,
+        })),
+        location_tags: locationTags.map((t) => ({
+          tag_type: t.tag_type,
+          tag_id: t.tag_id,
+          location_hash: t.location_hash,
+          verified_at: t.verified_at,
+        })),
+      });
+    } catch (err) {
+      console.error("[locations] Failed to build proof bundle:", err);
+      res.status(500).json({ error: "Failed to build proof bundle" });
     }
   });
 

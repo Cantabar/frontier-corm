@@ -102,6 +102,7 @@ Mounted under `/api/v1/locations`. All endpoints (except `/proofs/tags`) require
 - `POST /pod` — submit or update an encrypted location POD
 - `GET /tribe/:tribeId` — list all PODs for a tribe
 - `GET /pod/:structureId?tribeId=X` — fetch a single POD
+- `GET /pod/:structureId/proof?tribeId=X` — shareable proof bundle (owner only): public POD metadata, ZK proofs, location tags (excludes encrypted blob)
 - `DELETE /pod/:structureId` — revoke a POD (owner only)
 - `POST /network-node-pod` — register a Network Node location + derive PODs for connected assemblies
 - `POST /network-node-pod/refresh` — re-derive PODs for a Network Node (sync new/removed assemblies)
@@ -165,6 +166,7 @@ Each archived event includes proof metadata for independent verification:
 - ZK proof verification and storage for region and proximity location filters (Groth16/snarkjs)
 - Public location tagging from verified ZK proofs (region/constellation membership)
 - Wallet signature authentication for location API endpoints
+- Shareable POD proof bundle export (public attestation + ZK proofs + location tags, no encrypted data)
 
 ## Open Questions / Future Work
 

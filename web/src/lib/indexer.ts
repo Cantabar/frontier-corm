@@ -240,6 +240,40 @@ export function deleteLocationPod(structureId: string, authHeader: string) {
   );
 }
 
+// ---- POD Proof Bundle ----
+
+export interface PodProofBundle {
+  structure_id: string;
+  owner_address: string;
+  tribe_id: string;
+  location_hash: string;
+  signature: string;
+  pod_version: number;
+  tlk_version: number;
+  created_at: string;
+  updated_at: string;
+  zk_proofs: {
+    filter_type: string;
+    filter_key: string;
+    public_signals: string[];
+    proof_json: Record<string, unknown>;
+    verified_at: string;
+  }[];
+  location_tags: {
+    tag_type: string;
+    tag_id: number;
+    location_hash: string;
+    verified_at: string;
+  }[];
+}
+
+export function getLocationPodProof(structureId: string, tribeId: string, authHeader: string) {
+  return authedGet<PodProofBundle>(
+    `/locations/pod/${structureId}/proof?tribeId=${encodeURIComponent(tribeId)}`,
+    authHeader,
+  );
+}
+
 export function getTlkStatus(tribeId: string, authHeader: string) {
   return authedGet<{ tribe_id: string; initialized: boolean; tlk_version: number; has_wrapped_key: boolean }>(
     `/locations/keys/${tribeId}/status`,

@@ -15,6 +15,7 @@ import { useTlkDistribution } from "../hooks/useTlkDistribution";
 import { useMyStructures } from "../hooks/useStructures";
 import { TlkStatusBanner } from "../components/locations/TlkStatusBanner";
 import { RegisterNetworkNodeLocationModal } from "../components/locations/RegisterNetworkNodeLocationModal";
+import { PodProofModal } from "../components/locations/PodProofModal";
 import { LoadingSpinner } from "../components/shared/LoadingSpinner";
 import { EmptyState } from "../components/shared/EmptyState";
 import { PrimaryButton, SecondaryButton, DangerButton } from "../components/shared/Button";
@@ -225,6 +226,7 @@ export function LocationsPage() {
   const { structures } = useMyStructures();
 
   const [showRegisterModal, setShowRegisterModal] = useState(false);
+  const [proofStructureId, setProofStructureId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [refreshingNodeId, setRefreshingNodeId] = useState<string | null>(null);
   const [unlockLoading, setUnlockLoading] = useState(false);
@@ -558,15 +560,23 @@ export function LocationsPage() {
 
                       <OwnerBadge>{truncateAddress(pod.ownerAddress, 6, 4)}</OwnerBadge>
 
-                      {/* Revoke — only the primary Network Node POD owner, and only for non-derived */}
+                      {/* Proof + Revoke — only the primary Network Node POD owner, and only for non-derived */}
                       {!pod.networkNodeId &&
                         pod.ownerAddress.toLowerCase() === address.toLowerCase() && (
-                          <DangerButton
-                            onClick={() => handleDelete(pod.structureId)}
-                            disabled={deletingId === pod.structureId}
-                          >
-                            {deletingId === pod.structureId ? "…" : "Revoke"}
-                          </DangerButton>
+                          <>
+                            <SecondaryButton
+                              onClick={() => setProofStructureId(pod.structureId)}
+                              style={{ padding: "2px 8px", fontSize: "11px" }}
+                            >
+                              Proof
+                            </SecondaryButton>
+                            <DangerButton
+                              onClick={() => handleDelete(pod.structureId)}
+                              disabled={deletingId === pod.structureId}
+                            >
+                              {deletingId === pod.structureId ? "…" : "Revoke"}
+                            </DangerButton>
+                          </>
                         )}
                     </PodRow>
                   ))}
@@ -605,12 +615,20 @@ export function LocationsPage() {
                     <OwnerBadge>{truncateAddress(pod.ownerAddress, 6, 4)}</OwnerBadge>
 
                     {pod.ownerAddress.toLowerCase() === address.toLowerCase() && (
-                      <DangerButton
-                        onClick={() => handleDelete(pod.structureId)}
-                        disabled={deletingId === pod.structureId}
-                      >
-                        {deletingId === pod.structureId ? "…" : "Revoke"}
-                      </DangerButton>
+                      <>
+                        <SecondaryButton
+                          onClick={() => setProofStructureId(pod.structureId)}
+                          style={{ padding: "2px 8px", fontSize: "11px" }}
+                        >
+                          Proof
+                        </SecondaryButton>
+                        <DangerButton
+                          onClick={() => handleDelete(pod.structureId)}
+                          disabled={deletingId === pod.structureId}
+                        >
+                          {deletingId === pod.structureId ? "…" : "Revoke"}
+                        </DangerButton>
+                      </>
                     )}
                   </PodRow>
                 ))}
@@ -628,6 +646,16 @@ export function LocationsPage() {
           tlkVersion={tlk.tlkVersion}
           onClose={() => setShowRegisterModal(false)}
           onSuccess={handleRefresh}
+        />
+      )}
+
+      {/* Proof modal */}
+      {proofStructureId && (
+        <PodProofModal
+          structureId={proofStructureId}
+          tribeId={tribeId}
+          getAuthHeader={getAuthHeader}
+          onClose={() => setProofStructureId(null)}
         />
       )}
     </Page>

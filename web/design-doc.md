@@ -52,6 +52,7 @@ Client-side privacy-preserving location sharing with ZK proof generation. The se
 - **ZK Filter Hook** (`hooks/useZkLocationFilter`) — generates and submits region/proximity proofs for batches of PODs, queries verified results. Supports named region/constellation proof by ID. Deduplicates Network Node derived PODs.
 - **Region Data** (`lib/regions.ts`, `lib/solarSystems.ts`) — client-side region/constellation/solar system reference data with bounding boxes.
 - **Locations Page** (`pages/LocationsPage`) — TLK status banner, decrypted POD listing grouped by solar system, register/revoke actions, pending member key distribution.
+- **POD Proof Modal** (`components/locations/PodProofModal`) — review and copy a shareable proof bundle for an owned POD. Displays public attestation fields (location hash, wallet signature, versions), associated ZK proofs, and location tags. Supports details and raw JSON views with copy-to-clipboard.
 
 ### Forge Planner
 
@@ -136,6 +137,7 @@ Per-environment defaults are defined in `config.ts` and overridden by explicit `
 - Continuity Engine with on-chain CormState bridge
 - Shadow Location Network: encrypted POD management, TLK lifecycle (init/wrap/rotate), signature-derived X25519 keypairs, Poseidon hash commitments
 - Browser-side ZK proof generation (Groth16/snarkjs) for region and proximity location filters
+- POD proof review and copy: owners can review and export a shareable proof bundle (public attestation + ZK proofs + location tags) for external applications
 - Named region/constellation proof with canonical bounding box validation
 - SSU Delivery dApp for in-game contract fulfillment
 - Payout and item pickup notification watcher
