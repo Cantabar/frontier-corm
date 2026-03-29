@@ -49,8 +49,8 @@ corm_state::corm_coin    witness_utils (shared)
 **Purpose:** On-chain shared object representing a corm's canonical state and its fungible token.
 
 - `CormState` — shared object per corm (one per network node). Fields: `network_node_id`, `phase` (0–6, one-way progression), `stability` (0–100), `corruption` (0–100), `admin` (corm-brain keypair). Functions: `create` (requires `CormAdminCap`, returns `MintCap`), `update_state` (admin-only), `transfer_admin`.
-- `CormCoin` (via `corm_coin` module) — fungible token (`Coin<CORM_COIN>`) mintable by the corm-brain via `MintCap`. Used for in-game rewards.
-- Events: `CormStateCreatedEvent`, `CormStateUpdatedEvent`.
+- `CormCoin` (via `corm_coin` module) — fungible token (`Coin<CORM_COIN>`) mintable by the corm-brain via `MintCap`. Used for in-game rewards. Key functions: `mint` (requires `MintCap`), `burn` (permissionless — any holder may burn their own coins as a token sink), `total_supply` (view — returns current circulating supply from `TreasuryCap`).
+- Events: `CormStateCreatedEvent`, `CormStateUpdatedEvent`, `CormCoinMintedEvent`, `CormCoinBurnedEvent` (includes `burner`, `amount`, `new_total_supply`).
 
 ### tribe
 
@@ -109,6 +109,7 @@ Each contract package has a `Move.toml` with dependency addresses. Package IDs a
 - Ed25519 witness registry for off-chain attestation verification
 - CormState shared object with phase progression (0–6), stability/corruption meters, and admin-gated updates
 - CORM fungible token with per-corm MintCap and shared CoinAuthority
+- Permissionless CORM burn (token sink) with `CormCoinBurnedEvent` and on-chain `total_supply` view
 - Tribe registry with 1:1 in-game tribe mapping, membership roles (Leader/Officer/Member), autonomous self-join, and versioned migration
 - Six trustless contract types with on-chain escrow: coin-for-coin, coin-for-item, item-for-coin, item-for-item, multi-input, transport
 - Partial fills, free giveaways (wanted_amount=0), filler access control (character/tribe allowlists)

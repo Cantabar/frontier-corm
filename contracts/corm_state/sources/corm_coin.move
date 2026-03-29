@@ -50,6 +50,12 @@ public struct CormCoinMintedEvent has copy, drop {
     total_minted: u64,
 }
 
+public struct CormCoinBurnedEvent has copy, drop {
+    burner: address,
+    amount: u64,
+    new_total_supply: u64,
+}
+
 // === Init ===
 
 /// Module initializer — creates the CORM currency and shares the
@@ -114,7 +120,29 @@ public fun mint(
     transfer::public_transfer(minted, recipient);
 }
 
+/// Burn CORM tokens. Any holder may burn their own coins (permissionless
+/// token sink). Emits `CormCoinBurnedEvent` with the post-burn total supply.
+public fun burn(
+    authority: &mut CoinAuthority,
+    coin: coin::Coin<CORM_COIN>,
+    ctx: &TxContext,
+) {
+    let amount = coin.value();
+    coin::burn(&mut authority.treasury_cap, coin);
+    let new_total_supply = coin::total_supply(&authority.treasury_cap);
+
+    event::emit(CormCoinBurnedEvent {
+        burner: ctx.sender(),
+        amount,
+        new_total_supply,
+    });
+}
+
 // === View functions ===
+
+public fun total_supply(authority: &CoinAuthority): u64 {
+    coin::total_supply(&authority.treasury_cap)
+}
 
 public fun mint_cap_corm_state_id(cap: &MintCap): ID { cap.corm_state_id }
 public fun mint_cap_total_minted(cap: &MintCap): u64 { cap.total_minted }

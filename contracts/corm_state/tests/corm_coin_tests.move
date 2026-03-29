@@ -103,6 +103,91 @@ fun test_mint_multiple_accumulates() {
 }
 
 #[test]
+fun test_total_supply_after_mint() {
+    let mut scenario = ts::begin(ADMIN);
+
+    {
+        corm_coin::init_for_testing(scenario.ctx());
+    };
+
+    scenario.next_tx(ADMIN);
+    {
+        let admin_cap = corm_auth::create_admin_cap_for_testing(scenario.ctx());
+        let network_node_id = object::id_from_address(@0x1234);
+        let mint_cap = corm_state::create(&admin_cap, network_node_id, scenario.ctx());
+        transfer::public_transfer(mint_cap, ADMIN);
+        corm_auth::destroy_admin_cap_for_testing(admin_cap);
+    };
+
+    scenario.next_tx(ADMIN);
+    {
+        let mut authority = scenario.take_shared<CoinAuthority>();
+        let mut mint_cap = scenario.take_from_sender<MintCap>();
+        let state = scenario.take_shared<corm_state::CormState>();
+        let corm_state_id = object::id(&state);
+
+        corm_coin::mint(&mut authority, &mut mint_cap, corm_state_id, 200, PLAYER, scenario.ctx());
+
+        assert!(corm_coin::total_supply(&authority) == 200);
+
+        ts::return_shared(authority);
+        ts::return_shared(state);
+        scenario.return_to_sender(mint_cap);
+    };
+
+    scenario.end();
+}
+
+#[test]
+fun test_burn_reduces_supply() {
+    let mut scenario = ts::begin(ADMIN);
+
+    {
+        corm_coin::init_for_testing(scenario.ctx());
+    };
+
+    scenario.next_tx(ADMIN);
+    {
+        let admin_cap = corm_auth::create_admin_cap_for_testing(scenario.ctx());
+        let network_node_id = object::id_from_address(@0x1234);
+        let mint_cap = corm_state::create(&admin_cap, network_node_id, scenario.ctx());
+        transfer::public_transfer(mint_cap, ADMIN);
+        corm_auth::destroy_admin_cap_for_testing(admin_cap);
+    };
+
+    // Mint 100 to PLAYER
+    scenario.next_tx(ADMIN);
+    {
+        let mut authority = scenario.take_shared<CoinAuthority>();
+        let mut mint_cap = scenario.take_from_sender<MintCap>();
+        let state = scenario.take_shared<corm_state::CormState>();
+        let corm_state_id = object::id(&state);
+
+        corm_coin::mint(&mut authority, &mut mint_cap, corm_state_id, 100, PLAYER, scenario.ctx());
+
+        ts::return_shared(authority);
+        ts::return_shared(state);
+        scenario.return_to_sender(mint_cap);
+    };
+
+    // PLAYER burns 40
+    scenario.next_tx(PLAYER);
+    {
+        let mut authority = scenario.take_shared<CoinAuthority>();
+        let mut coin = scenario.take_from_sender<Coin<CORM_COIN>>();
+        let burn_coin = coin.split(40, scenario.ctx());
+        corm_coin::burn(&mut authority, burn_coin, scenario.ctx());
+
+        assert!(corm_coin::total_supply(&authority) == 60);
+
+        ts::return_shared(authority);
+        scenario.return_to_sender(coin);
+    };
+
+    scenario.end();
+}
+
+#[test]
 #[expected_failure(abort_code = 0)] // ECormStateMismatch
 fun test_mint_wrong_corm_state() {
     let mut scenario = ts::begin(ADMIN);
