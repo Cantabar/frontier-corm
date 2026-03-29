@@ -152,7 +152,7 @@ Vectors auto-enable after a random threshold of 4–8 non-target cell clicks per
 - **Transport:** HTTP (handlers) + SSE (log streaming) + WebSocket (corm relay)
 - **Assets:** Embedded via `go:embed` (templates in `internal/templates/`, static files in `static/`)
 - **Client-side JS:** Minimal — pulse animation system, terminal command dispatcher, collapsible sidebar, streaming log relay, grid-entrance cleanup. No framework.
-- **Layout:** Fixed viewport (`100vh`) split vertically — puzzle area on top, terminal bar (120px–30vh) on bottom. Left sidebar: contract list (200px). Right sidebar: node key + cipher analysis (280px). The grid is dynamically sized to fit the available space without scrolling (`overflow: hidden`).
+- **Layout:** Fixed viewport (`100vh`) split vertically — puzzle area on top, terminal bar (120px–30vh) on bottom. Left sidebar: contract list (200px, Phase 1 only — hidden during Phase 0 and revealed via OOB swap on transition). Right sidebar: node key + cipher analysis (280px). The grid is dynamically sized to fit the available space without scrolling (`overflow: hidden`).
 
 ## Configuration
 

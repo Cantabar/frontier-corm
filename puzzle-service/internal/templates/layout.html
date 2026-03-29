@@ -14,10 +14,15 @@
         <div class="app-layout-top"
              sse-swap="corm-hint" hx-swap="beforeend"
              sse-swap="corm-hint-cell" hx-swap="beforeend">
-            <!-- Left sidebar: Contract list -->
-            <aside class="contracts-sidebar">
-                {{template "contract-list.html" .ContractList}}
-            </aside>
+            <!-- Left sidebar: Contract list (Phase 1+ only) -->
+            {{if eq .Phase 1}}
+                <aside id="contracts-sidebar" class="contracts-sidebar">
+                    {{template "contract-list.html" .ContractList}}
+                </aside>
+            {{else if eq .Phase 0}}
+                <!-- Hidden stub so OOB swap works when transitioning Phase 0 → 1 -->
+                <aside id="contracts-sidebar" class="contracts-sidebar" style="display:none"></aside>
+            {{end}}
 
             <!-- Main content: swappable between phases -->
             <main id="main-display" class="puzzle-main">

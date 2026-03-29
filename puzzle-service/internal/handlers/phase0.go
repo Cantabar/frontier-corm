@@ -104,6 +104,11 @@ func (h *Handlers) Phase0Interact(w http.ResponseWriter, r *http.Request) {
 		rewriteBuf.WriteTo(w)
 		fmt.Fprint(w, `</main>`)
 
+		// OOB swap: reveal contracts sidebar (was hidden during Phase 0)
+		fmt.Fprint(w, `<aside id="contracts-sidebar" class="contracts-sidebar" hx-swap-oob="outerHTML">`)
+		h.templates.ExecuteTemplate(w, "contract-list.html", buildContractListData(sess, false))
+		fmt.Fprint(w, `</aside>`)
+
 		return
 	}
 
