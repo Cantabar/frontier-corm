@@ -19,13 +19,38 @@ type DifficultyConfig struct {
 // AddressLength is the total length of a shortened SUI address ("0x" + 10 hex chars).
 const AddressLength = 12
 
+// MinCellPx is the minimum cell size in pixels used when computing grid
+// dimensions from the client viewport.
+const MinCellPx = 32
+
+// GridDimensionsForViewport computes the grid rows and columns that fit
+// within the given pixel dimensions while keeping each cell at least
+// MinCellPx wide and tall. Returns (0, 0) when the inputs are invalid,
+// signalling the caller to fall back to defaults.
+func GridDimensionsForViewport(availWidth, availHeight int) (rows, cols int) {
+	if availWidth <= 0 || availHeight <= 0 {
+		return 0, 0
+	}
+	cols = clamp(availWidth/MinCellPx, 14, 30)
+	rows = clamp(availHeight/MinCellPx, 6, 30)
+	return rows, cols
+}
+
 // DefaultDifficulty returns the base difficulty for a given solve count,
 // optionally modified by a pending corm-brain adjustment.
-func DefaultDifficulty(solveCount int, mod *DifficultyMod) DifficultyConfig {
+// vpRows/vpCols override the default grid dimensions when the client has
+// reported its viewport size. Pass 0 to use the hardcoded defaults.
+func DefaultDifficulty(solveCount int, mod *DifficultyMod, vpRows, vpCols int) DifficultyConfig {
 	tier := TierForSolveCount(solveCount)
+
+	gridRows, gridCols := 20, 20
+	if vpRows > 0 && vpCols > 0 {
+		gridRows, gridCols = vpRows, vpCols
+	}
+
 	cfg := DifficultyConfig{
-		GridRows:   20,
-		GridCols:   20,
+		GridRows:   gridRows,
+		GridCols:   gridCols,
 		DecoyCount: 4,
 		TrapCount:  4,
 		Tier:       tier,
@@ -80,8 +105,9 @@ type GeneratedPuzzle struct {
 }
 
 // Generate creates a new puzzle. The target is a shortened SUI address.
-func Generate(solveCount int, mod *DifficultyMod) (*GeneratedPuzzle, error) {
-	cfg := DefaultDifficulty(solveCount, mod)
+// vpRows/vpCols are viewport-derived grid dimensions (pass 0 to use defaults).
+func Generate(solveCount int, mod *DifficultyMod, vpRows, vpCols int) (*GeneratedPuzzle, error) {
+	cfg := DefaultDifficulty(solveCount, mod, vpRows, vpCols)
 
 	addr := GenerateAddress()
 	grid := NewGrid(cfg.GridRows, cfg.GridCols)

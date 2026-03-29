@@ -105,6 +105,7 @@ type PuzzleData struct {
 	SignalHint   bool // whether signal meter should be visible
 	ShowEntrance bool // true when loaded via phase transition auto-load
 	MetersHidden bool // true when stability and corruption are both 0
+	NeedsMeasure bool // true on initial puzzle load before client has sent viewport dims
 	Analysis     CipherAnalysisData
 }
 
@@ -116,8 +117,41 @@ func (h *Handlers) PuzzlePage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Compute grid dimensions from client viewport (cw/ch query params).
+	// Store on session so subsequent loads ("next puzzle") reuse them.
+	if cw, err := strconv.Atoi(r.URL.Query().Get("cw")); err == nil && cw > 0 {
+		if ch, err := strconv.Atoi(r.URL.Query().Get("ch")); err == nil && ch > 0 {
+			vpRows, vpCols := puzzle.GridDimensionsForViewport(cw, ch)
+			if vpRows > 0 {
+				sess.ViewportRows = vpRows
+				sess.ViewportCols = vpCols
+			}
+		}
+	}
+
+	// On the very first puzzle load the client hasn't measured the container
+	// yet. Render an empty placeholder so JS can measure and re-request.
+	if sess.ViewportRows == 0 && sess.Phase == puzzle.PhasePuzzle {
+		data := PuzzleData{
+			Phase:        int(sess.Phase),
+			SessionID:    sess.ID,
+			Stability:    sess.Stability,
+			Corruption:   sess.Corruption,
+			SignalHint:   sess.Hints.Signal,
+			MetersHidden: sess.Stability == 0 && sess.Corruption == 0,
+			NeedsMeasure: true,
+		}
+		if r.Header.Get("HX-Request") != "" {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			h.templates.ExecuteTemplate(w, "puzzle-content.html", data)
+			return
+		}
+		h.renderTemplate(w, "layout.html", data)
+		return
+	}
+
 	// Generate puzzle
-	gen, err := puzzle.Generate(sess.SolveCount, sess.PendingDifficulty)
+	gen, err := puzzle.Generate(sess.SolveCount, sess.PendingDifficulty, sess.ViewportRows, sess.ViewportCols)
 	if err != nil {
 		http.Error(w, "puzzle generation failed", http.StatusInternalServerError)
 		return

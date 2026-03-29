@@ -29,7 +29,7 @@ Browser (HTMX)                   puzzle-service                    corm-brain
 - **Session Store** (`internal/puzzle`) — in-memory concurrent map of player sessions. Each session tracks phase, puzzle state (grid, cipher params, target address, decrypted/garbled cells), AI hint state, click logs, stability/corruption meters, and a corm event ring buffer.
 - **Corm Relay** (`internal/corm`) — WebSocket hub that accepts connections from corm-brain. Broadcasts player events to all connected brains and dispatches corm actions (log streams, difficulty adjustments, hint toggles, state syncs) back to the target session's action channel.
 - **Handlers** (`internal/handlers`) — HTTP handlers for each game interaction, returning HTMX partial HTML fragments. The decrypt handler implements three distinct code paths: address group reveal, trap explosion, and normal cell decrypt — each with pulse data for client-side animation.
-- **Puzzle Generator** (`internal/puzzle`) — creates 20×20 cipher grids with configurable difficulty. Places a target SUI address, decoy addresses, trap nodes, and sensor nodes, then applies a tiered cipher.
+- **Puzzle Generator** (`internal/puzzle`) — creates dynamically-sized cipher grids (rows and columns computed from the client's viewport) with configurable difficulty. Places a target SUI address, decoy addresses, trap nodes, and sensor nodes, then applies a tiered cipher.
 
 ### Game Phases
 
@@ -93,9 +93,17 @@ A legend panel in the left sidebar displays the node key:
 
 All ciphers operate on printable ASCII range 0x21–0x7E (94 characters). The cipher parameters are never sent to the client.
 
+### Dynamic Grid Sizing
+
+The grid dimensions are computed at puzzle generation time based on the player's viewport. On the first `GET /puzzle`, the server renders an empty placeholder; client-side JS measures `.puzzle-main`'s available width and height, then re-requests `GET /puzzle?cw=<width>&ch=<height>`. The server divides each dimension by `MinCellPx` (32 px) and clamps the result (cols: 14–30, rows: 6–30). The computed dimensions are cached on the session so subsequent puzzle loads ("next puzzle", phase transitions) reuse them without re-measuring. An `htmx:configRequest` interceptor also appends `cw`/`ch` to any HTMX-initiated `/puzzle` request, keeping the dimensions fresh if the viewport changes.
+
+The CSS grid uses explicit `grid-template-rows` and `grid-template-columns` with `1fr` tracks so cells fill the container without overflow. `.puzzle-main` has `overflow: hidden` — the grid never scrolls.
+
+Fallback: when no viewport dimensions are available (e.g. non-browser clients), the grid defaults to 20×20.
+
 ### Difficulty Scaling
 
-Base grid size is 20×20. Difficulty scales with solve count:
+Difficulty scales with solve count:
 - Tier 1: 4 decoy addresses, 4 trap nodes
 - Tier 2: 4+ decoy addresses (scales with solve count), 7 trap nodes
 - Tier 3: 5+ decoy addresses, 10 trap nodes
@@ -122,7 +130,7 @@ Vectors auto-enable after a random threshold of 4–8 non-target cell clicks per
 - **Transport:** HTTP (handlers) + SSE (log streaming) + WebSocket (corm relay)
 - **Assets:** Embedded via `go:embed` (templates in `internal/templates/`, static files in `static/`)
 - **Client-side JS:** Minimal — pulse animation system, terminal command dispatcher, collapsible sidebar, streaming log relay, grid-entrance cleanup. No framework.
-- **Layout:** Fixed viewport (`100vh`) split vertically — scrollable puzzle area on top, terminal bar (120px–30vh) on bottom. The puzzle main area scrolls independently when the grid exceeds available height.
+- **Layout:** Fixed viewport (`100vh`) split vertically — puzzle area on top, terminal bar (120px–30vh) on bottom. The grid is dynamically sized to fit the available space without scrolling (`overflow: hidden`).
 
 ## Configuration
 
@@ -221,7 +229,7 @@ puzzle-service/
 
 - Three-phase game progression: awakening (Phase 0), SUI address discovery puzzles (Phase 1), trustless contracts (Phase 2)
 - Phase 0 awakening with random frustration trigger threshold (3–5 clicks) and animated transition sequence
-- Phase 1 cipher grid puzzles with 20×20 grid, configurable difficulty, and three cipher tiers (Caesar, variable shift, position-based)
+- Phase 1 cipher grid puzzles with dynamically-sized grid (viewport-fitted, min 32px/cell), configurable difficulty, and three cipher tiers (Caesar, variable shift, position-based)
 - SUI address discovery mechanic with group-reveal (clicking any cell reveals the entire address)
 - Auto-complete on target address discovery with "PATTERN ANCHOR ISOLATED" overlay (semi-transparent, positioned over the grid so the solved puzzle remains visible) and staggered entrance animation
 - Seven cell types: noise, symbol, target, decoy, trap, sensor (sonar/thermal/vector), garbled

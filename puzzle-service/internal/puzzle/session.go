@@ -42,6 +42,10 @@ type Session struct {
 	Phase         Phase
 	CreatedAt     time.Time
 
+	// Viewport-derived grid dimensions (cached across puzzle loads)
+	ViewportRows int
+	ViewportCols int
+
 	// Puzzle state
 	PuzzleID          string
 	Grid              *Grid

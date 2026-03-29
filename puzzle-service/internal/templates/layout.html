@@ -323,6 +323,49 @@
         }
     })();
 
+    // === Viewport measurement for dynamic grid sizing ===
+    // Detects the data-needs-measure placeholder, measures .puzzle-main,
+    // and fires an HTMX request with cw/ch params so the server can
+    // compute grid dimensions that fit without scrolling.
+    (function() {
+        function getGridDims() {
+            var main = document.getElementById('main-display');
+            if (!main) return null;
+            // Subtract padding (8px each side)
+            return { cw: main.clientWidth - 16, ch: main.clientHeight - 16 };
+        }
+
+        function measureAndLoad() {
+            var placeholder = document.querySelector('[data-needs-measure]');
+            if (!placeholder) return;
+            var dims = getGridDims();
+            if (!dims || dims.cw <= 0 || dims.ch <= 0) return;
+            htmx.ajax('GET', '/puzzle?cw=' + dims.cw + '&ch=' + dims.ch, {
+                target: '#main-display',
+                swap: 'innerHTML'
+            });
+        }
+
+        // Initial page load
+        measureAndLoad();
+
+        // Also catch HTMX-driven loads that produce a placeholder
+        document.body.addEventListener('htmx:afterSettle', measureAndLoad);
+
+        // Intercept all HTMX requests to /puzzle to append cw/ch params
+        // so "next puzzle" and transition loads get viewport-sized grids.
+        document.body.addEventListener('htmx:configRequest', function(e) {
+            var path = e.detail.path || '';
+            if (path.indexOf('/puzzle') !== 0) return;
+            // Don't overwrite if already present
+            if (path.indexOf('cw=') !== -1) return;
+            var dims = getGridDims();
+            if (!dims || dims.cw <= 0 || dims.ch <= 0) return;
+            var sep = path.indexOf('?') === -1 ? '?' : '&';
+            e.detail.path = path + sep + 'cw=' + dims.cw + '&ch=' + dims.ch;
+        });
+    })();
+
     // === Grid entrance cleanup ===
     // Remove .grid-entrance after the cascade animation completes so that
     // its higher-specificity animation rule no longer blocks pulse/garble/
