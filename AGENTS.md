@@ -13,3 +13,4 @@ Plans
  Plans should always include a step to update the design doc for each service. The design doc should live at the root of the service. For example, the puzzle service should have a design doc at ./puzzle-service/design-doc.md
 Documentation
  each service should have a design doc that explains what the service does
+ the design-doc should contain a list of features that exist in the service
