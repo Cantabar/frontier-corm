@@ -32,11 +32,7 @@ func handlePhase1Effects(ctx context.Context, h *Handler, environment, cormID st
 				log.Printf("phase1: upsert traits: %v", err)
 			}
 
-			sender.SendPayload(ctx, types.ActionStateSync, evt.SessionID, types.StateSyncPayload{
-				Phase:      2,
-				Stability:  int(traits.Stability),
-				Corruption: int(traits.Corruption),
-			})
+		sender.SendPayload(ctx, types.ActionStateSync, evt.SessionID, h.buildStateSyncPayload(ctx, environment, cormID, traits))
 
 			log.Printf("corm %s transitioned to Phase 2", cormID)
 			return

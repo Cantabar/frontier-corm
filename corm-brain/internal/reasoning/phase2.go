@@ -25,21 +25,13 @@ func handlePhase2Effects(ctx context.Context, h *Handler, environment, cormID st
 	switch evt.EventType {
 	case types.EventContractComplete:
 		// Sync updated state
-		sender.SendPayload(ctx, types.ActionStateSync, evt.SessionID, types.StateSyncPayload{
-			Phase:      traits.Phase,
-			Stability:  int(traits.Stability),
-			Corruption: int(traits.Corruption),
-		})
+		sender.SendPayload(ctx, types.ActionStateSync, evt.SessionID, h.buildStateSyncPayload(ctx, environment, cormID, traits))
 
 		// TODO: Evaluate pattern alignment and mint CORM reward
 		// TODO: Check if progression requirements met for Phase 3
 
 	case types.EventContractFailed:
-		sender.SendPayload(ctx, types.ActionStateSync, evt.SessionID, types.StateSyncPayload{
-			Phase:      traits.Phase,
-			Stability:  int(traits.Stability),
-			Corruption: int(traits.Corruption),
-		})
+		sender.SendPayload(ctx, types.ActionStateSync, evt.SessionID, h.buildStateSyncPayload(ctx, environment, cormID, traits))
 
 	default:
 		// Attempt contract generation (rate-limited)

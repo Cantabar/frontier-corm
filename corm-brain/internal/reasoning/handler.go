@@ -294,6 +294,23 @@ func (h *Handler) rollJitter() time.Duration {
 	return time.Duration(rand.Int63n(int64(h.observationJitter)))
 }
 
+// buildStateSyncPayload constructs a StateSyncPayload with the corm's
+// current traits and resolved primary network node.
+func (h *Handler) buildStateSyncPayload(ctx context.Context, environment, cormID string, traits *types.CormTraits) types.StateSyncPayload {
+	payload := types.StateSyncPayload{
+		Phase:      traits.Phase,
+		Stability:  int(traits.Stability),
+		Corruption: int(traits.Corruption),
+	}
+	nodeID, err := h.db.ResolveNetworkNodeByCorm(ctx, environment, cormID)
+	if err != nil {
+		log.Printf("resolve network node for corm %s: %v", cormID, err)
+	} else {
+		payload.NetworkNodeID = nodeID
+	}
+	return payload
+}
+
 // isSilence returns true if the LLM response is a silence token.
 func isSilence(response string) bool {
 	trimmed := strings.TrimSpace(strings.ToUpper(response))
@@ -310,6 +327,12 @@ func safePrefix(s string, n int) string {
 
 // runPhaseEffects executes phase-specific side effects (boost, difficulty, etc.).
 func (h *Handler) runPhaseEffects(ctx context.Context, environment, cormID string, sender *transport.ActionSender, traits *types.CormTraits, evt types.CormEvent) {
+	// Handle phase2_load from any phase — always respond with current state.
+	if evt.EventType == types.EventPhase2Load {
+		sender.SendPayload(ctx, types.ActionStateSync, evt.SessionID, h.buildStateSyncPayload(ctx, environment, cormID, traits))
+		return
+	}
+
 	switch traits.Phase {
 	case 0:
 		handlePhase0Effects(ctx, h, environment, cormID, sender, traits, evt)

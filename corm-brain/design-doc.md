@@ -138,6 +138,7 @@ Per-environment config (in JSON file): `name`, `puzzle_service_url`, `sui_rpc_ur
 - Chain stubs for contract creation, inventory reading, and CORM minting
 - Seed chain data mode (`SEED_CHAIN_DATA`) for development without live SUI
 - Network node binding via `node_bind` event (triggered by puzzle-service Phase 2 UI)
+- Network node recovery for returning players via `phase2_load` event and `state_sync` with `network_node_id`
 - Interactive test harness for local development
 
 ## Phase 2 Contract Generation
@@ -162,6 +163,11 @@ Before each contract generation, chain state is fetched in parallel: corm CORM b
 
 ### Network Node Binding
 Contract generation requires a `network_node_id` on events so the corm can be linked to a CormState on-chain. The puzzle-service Phase 2 UI includes a binding form (`POST /phase2/bind-node`) that stores the node ID on the session and emits a `node_bind` event. For SSU sessions, the node ID is auto-extracted from the session context (`ssu:<entity_id>`). Once bound, all subsequent events carry the `network_node_id`, enabling the corm-brain event processor to resolve/create the CormState and populate the world snapshot.
+
+### Network Node Recovery for Returning Players
+Since puzzle-service sessions are ephemeral, a returning player's network node binding is lost when their session expires. To resolve this, `StateSyncPayload` includes an optional `network_node_id` field. `ResolveNetworkNodeByCorm` (`db/queries.go`) performs a reverse lookup from `corm_id` → primary network node (with fallback to oldest node by `linked_at`). All `state_sync` emissions use `buildStateSyncPayload` (`reasoning/handler.go`) which resolves and includes the network node.
+
+The puzzle-service emits a `phase2_load` event on every `GET /phase2` page load. The corm-brain `runPhaseEffects` handler responds immediately with a `state_sync` carrying the resolved network node ID. The puzzle-service SSE handler updates the session and performs an OOB swap to replace the bind form with the linked indicator.
 
 ### Contract Types (Phase 2)
 - **CoinForItem** — corm pays CORM, wants items from player

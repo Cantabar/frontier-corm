@@ -195,6 +195,9 @@ All state is in-memory (no persistent storage). Key structures:
 - **CormEvent** — player event envelope (session ID, player address, context, event type, payload, timestamp)
 - **CormAction** — corm-brain command (action type, session ID, payload: log stream start/delta/end, boost, difficulty mod, state sync, contract created/updated, hint toggle, guided cell)
 
+### Network Node Recovery
+Puzzle-service sessions are ephemeral — the `NetworkNodeID` binding is lost when a session expires. To recover it for returning players, `GET /phase2` emits a `phase2_load` event to corm-brain on every load. Corm-brain responds with a `state_sync` action that includes the corm's persistent `network_node_id`. The SSE handler in `stream.go` updates the session's `NetworkNodeID` and performs an OOB HTMX swap to replace the bind form (`#phase2-node-bind`) with the linked indicator (`node-bound.html`). This ensures browser-context sessions that previously linked a network node see the correct linked status without re-binding.
+
 ## Project Structure
 
 ```

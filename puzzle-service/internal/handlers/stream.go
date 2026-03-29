@@ -166,6 +166,20 @@ func writeSSEAction(w http.ResponseWriter, flusher http.Flusher, action corm.Cor
 		sess.Phase = puzzle.Phase(p.Phase)
 		sess.Stability = p.Stability
 		sess.Corruption = p.Corruption
+
+		// Resolve network node binding from corm-brain's persistent state.
+		if p.NetworkNodeID != "" && sess.GetNetworkNodeID() == "" {
+			sess.SetNetworkNodeID(p.NetworkNodeID)
+			// OOB swap the bind form with the linked indicator (Phase 2 only).
+			if sess.Phase >= puzzle.PhaseContracts {
+				var buf strings.Builder
+				h.templates.ExecuteTemplate(&buf, "node-bound.html", map[string]string{
+					"NetworkNodeID": p.NetworkNodeID,
+				})
+				writeSSE(w, "corm-node-bind", fmt.Sprintf(`<div id="phase2-node-bind" hx-swap-oob="innerHTML">%s</div>`, buf.String()))
+			}
+		}
+
 		// Reveal meters via OOB swap when values become non-zero
 		if p.Stability > 0 || p.Corruption > 0 {
 			var buf strings.Builder

@@ -24,11 +24,7 @@ func handlePhase0Effects(ctx context.Context, h *Handler, environment, cormID st
 		}
 
 		// Sync state to puzzle-service
-		sender.SendPayload(ctx, types.ActionStateSync, evt.SessionID, types.StateSyncPayload{
-			Phase:      1,
-			Stability:  int(traits.Stability),
-			Corruption: int(traits.Corruption),
-		})
+		sender.SendPayload(ctx, types.ActionStateSync, evt.SessionID, h.buildStateSyncPayload(ctx, environment, cormID, traits))
 
 		log.Printf("corm %s transitioned to Phase 1", cormID)
 	}

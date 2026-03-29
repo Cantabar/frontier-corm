@@ -90,9 +90,10 @@ type DifficultyPayload struct {
 
 // StateSyncPayload is for ActionStateSync.
 type StateSyncPayload struct {
-	Phase      int `json:"phase"`
-	Stability  int `json:"stability"`
-	Corruption int `json:"corruption"`
+	Phase         int    `json:"phase"`
+	Stability     int    `json:"stability"`
+	Corruption    int    `json:"corruption"`
+	NetworkNodeID string `json:"network_node_id,omitempty"`
 }
 
 // ContractCreatedPayload is for ActionContractCreated.

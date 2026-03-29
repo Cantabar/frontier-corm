@@ -32,6 +32,7 @@ const (
 	EventPurge            = "purge"
 	EventPhaseTransition  = "phase_transition"
 	EventNodeBind         = "node_bind"
+	EventPhase2Load       = "phase2_load"
 )
 
 // Significance returns a priority score for the event type.
@@ -179,9 +180,10 @@ type LogStreamEndPayload struct {
 
 // StateSyncPayload carries updated corm state values.
 type StateSyncPayload struct {
-	Phase      int `json:"phase"`
-	Stability  int `json:"stability"`
-	Corruption int `json:"corruption"`
+	Phase         int    `json:"phase"`
+	Stability     int    `json:"stability"`
+	Corruption    int    `json:"corruption"`
+	NetworkNodeID string `json:"network_node_id,omitempty"`
 }
 
 // BoostPayload carries boost effect data.

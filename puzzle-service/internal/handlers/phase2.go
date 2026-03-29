@@ -78,9 +78,15 @@ func (h *Handlers) Phase2Page(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("HX-Request") != "" {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		h.templates.ExecuteTemplate(w, "phase2-content.html", data)
-		return
+	} else {
+		h.renderTemplate(w, "layout.html", data)
 	}
-	h.renderTemplate(w, "layout.html", data)
+
+	// Emit phase2_load so corm-brain sends back a state_sync with the
+	// network node (resolves the binding for returning players).
+	evt := buildEvent(sess, "phase2_load", nil)
+	sess.EventBuffer.Push(evt)
+	go h.relay.BroadcastEvent(evt)
 }
 
 // Phase2BindNode handles POST /phase2/bind-node — binds a network node to the session.

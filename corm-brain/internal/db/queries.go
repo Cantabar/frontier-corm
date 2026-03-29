@@ -59,6 +59,32 @@ func (d *DB) LinkNetworkNode(ctx context.Context, environment, networkNodeID, co
 	return err
 }
 
+// ResolveNetworkNodeByCorm returns the primary network node ID for a corm.
+// Falls back to the oldest node by linked_at if no is_primary row exists.
+func (d *DB) ResolveNetworkNodeByCorm(ctx context.Context, environment, cormID string) (string, error) {
+	var nodeID string
+	err := d.Pool.QueryRow(ctx,
+		`SELECT network_node_id FROM corm_network_nodes
+		 WHERE environment = $1 AND corm_id = $2 AND is_primary = true
+		 LIMIT 1`,
+		environment, cormID,
+	).Scan(&nodeID)
+	if err == pgx.ErrNoRows {
+		// Fallback: oldest node by linked_at (pre-migration data)
+		err = d.Pool.QueryRow(ctx,
+			`SELECT network_node_id FROM corm_network_nodes
+			 WHERE environment = $1 AND corm_id = $2
+			 ORDER BY linked_at ASC
+			 LIMIT 1`,
+			environment, cormID,
+		).Scan(&nodeID)
+		if err == pgx.ErrNoRows {
+			return "", nil
+		}
+	}
+	return nodeID, err
+}
+
 // --- Events ---
 
 // InsertEvent appends a raw event and returns the assigned ID.
