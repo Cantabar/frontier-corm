@@ -12,6 +12,8 @@ import { LoadingSpinner } from "../components/shared/LoadingSpinner";
 import { useNotifications } from "../hooks/useNotifications";
 import { useQuickActions } from "../hooks/useQuickActions";
 import { useInitializeTribe } from "../hooks/useInitializeTribe";
+import { useInstallCorm } from "../hooks/useInstallCorm";
+import { truncateAddress } from "../lib/format";
 import type { ArchivedEvent } from "../lib/types";
 
 const Page = styled.div``;
@@ -237,6 +239,22 @@ const InitButton = styled.button`
   }
 `;
 
+const NodeSelect = styled.select`
+  background: ${({ theme }) => theme.colors.surface.bg};
+  border: 1px solid ${({ theme }) => theme.colors.surface.border};
+  border-radius: ${({ theme }) => theme.radii.sm};
+  padding: ${({ theme }) => theme.spacing.xs} ${({ theme }) => theme.spacing.sm};
+  color: ${({ theme }) => theme.colors.text.primary};
+  font-size: 13px;
+  width: 100%;
+  margin-top: ${({ theme }) => theme.spacing.sm};
+
+  &:focus {
+    outline: none;
+    border-color: ${({ theme }) => theme.colors.primary.main};
+  }
+`;
+
 export function Dashboard() {
   const account = useCurrentAccount();
   const { tribeCaps, characterId, isLoading: identityLoading } = useIdentity();
@@ -245,8 +263,10 @@ export function Dashboard() {
   const { tribe } = useTribe(tribeId);
   const { enabled: quickActions, toggle: toggleAction, reset: resetActions, allVariants, variantLabels, variantDescriptions } = useQuickActions();
   const { needsInit, inGameTribeId, suggestedName, isInitializing, initialize } = useInitializeTribe();
+  const { networkNodes, canInstall, isInstalling, installCorm } = useInstallCorm();
   const [customizing, setCustomizing] = useState(false);
   const [initName, setInitName] = useState("");
+  const [selectedNodeId, setSelectedNodeId] = useState("");
 
   const { data: stats } = useQuery({
     queryKey: ["stats"],
@@ -336,6 +356,37 @@ export function Dashboard() {
           <CardValue>{stats?.total_events?.toLocaleString() ?? "—"}</CardValue>
         </ClickableCard>
       </OverviewGrid>
+
+      {canInstall && (
+        <>
+          <SectionLabel>Install Corm</SectionLabel>
+          <OverviewGrid>
+            <OverviewCard>
+              <CardLabel>Network Node</CardLabel>
+              <NodeSelect
+                value={selectedNodeId}
+                onChange={(e) => setSelectedNodeId(e.target.value)}
+                disabled={isInstalling}
+              >
+                <option value="">Select a Network Node…</option>
+                {networkNodes.map((node) => (
+                  <option key={node.id} value={node.id}>
+                    {node.name || "Unnamed Node"} ({truncateAddress(node.id)})
+                  </option>
+                ))}
+              </NodeSelect>
+              <InitButton
+                onClick={() => {
+                  if (selectedNodeId) installCorm(selectedNodeId);
+                }}
+                disabled={isInstalling || !selectedNodeId}
+              >
+                {isInstalling ? "Installing…" : "Install Corm"}
+              </InitButton>
+            </OverviewCard>
+          </OverviewGrid>
+        </>
+      )}
 
       <SectionHeader>
         <SectionLabel style={{ marginBottom: 0 }}>Quick Contract</SectionLabel>

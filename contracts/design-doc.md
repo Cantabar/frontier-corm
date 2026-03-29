@@ -48,7 +48,8 @@ corm_state::corm_coin    witness_utils (shared)
 
 **Purpose:** On-chain shared object representing a corm's canonical state and its fungible token.
 
-- `CormState` — shared object per corm (one per network node). Fields: `network_node_id`, `phase` (0–6, one-way progression), `stability` (0–100), `corruption` (0–100), `admin` (corm-brain keypair). Functions: `create` (requires `CormAdminCap`, returns `MintCap`), `update_state` (admin-only), `transfer_admin`. In Phase 4+ linking, absorbed corms' CormState objects become dormant (no longer updated); the primary corm's CormState is the canonical state for the linked cluster.
+- `CormConfig` — shared config object created once by admin after deploy. Stores the corm-brain service address (`brain_address`). Functions: `create_config` (admin-only), `set_brain_address` (admin-only).
+- `CormState` — shared object per corm (one per network node). Fields: `network_node_id`, `phase` (0–6, one-way progression), `stability` (0–100), `corruption` (0–100), `admin` (corm-brain keypair). Functions: `install` (permissionless — any player creates a CormState; admin and MintCap route to `CormConfig.brain_address`), `create` (admin-only, returns `MintCap`), `update_state` (admin-only), `transfer_admin`.
 - `CormCoin` (via `corm_coin` module) — fungible token (`Coin<CORM_COIN>`) mintable by the corm-brain via `MintCap`. Uses 4 decimal places (1 CORM = 10,000 base units) to maintain a 1:1 value relationship with LUX, enabling fractional item prices to be expressed exactly in CORM. Key functions: `mint` (requires `MintCap`), `burn` (permissionless — any holder may burn their own coins as a token sink), `total_supply` (view — returns current circulating supply from `TreasuryCap`).
 - Events: `CormStateCreatedEvent`, `CormStateUpdatedEvent`, `CormCoinMintedEvent`, `CormCoinBurnedEvent` (includes `burner`, `amount`, `new_total_supply`).
 
@@ -107,7 +108,9 @@ Each contract package has a `Move.toml` with dependency addresses. Package IDs a
 
 - CormAuth typed witness for SSU/Gate/Turret extension authorization
 - Ed25519 witness registry for off-chain attestation verification
+- CormConfig shared object with brain address for permissionless corm installation
 - CormState shared object with phase progression (0–6), stability/corruption meters, and admin-gated updates
+- Permissionless `install` function: any player can create a CormState for a network node; MintCap and admin authority auto-route to the brain
 - CORM fungible token with 4-decimal precision (1:1 LUX parity), per-corm MintCap and shared CoinAuthority
 - Permissionless CORM burn (token sink) with `CormCoinBurnedEvent` and on-chain `total_supply` view
 - Tribe registry with 1:1 in-game tribe mapping, membership roles (Leader/Officer/Member), autonomous self-join, and versioned migration

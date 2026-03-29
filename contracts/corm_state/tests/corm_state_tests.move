@@ -8,6 +8,8 @@ use corm_state::corm_coin;
 
 const ADMIN: address = @0xAD;
 const OTHER: address = @0xBB;
+const BRAIN: address = @0xBE;
+const PLAYER: address = @0xCC;
 
 #[test]
 fun test_create_corm_state() {
@@ -141,6 +143,90 @@ fun test_stability_out_of_range() {
         let mut state = scenario.take_shared<corm_state::CormState>();
         corm_state::update_state(&mut state, 0, 101, 0, scenario.ctx());
         ts::return_shared(state);
+    };
+    scenario.end();
+}
+
+#[test]
+fun test_create_config() {
+    let mut scenario = ts::begin(ADMIN);
+    {
+        let ctx = scenario.ctx();
+        let admin_cap = corm_auth::create_admin_cap_for_testing(ctx);
+        corm_state::create_config(&admin_cap, BRAIN, ctx);
+        corm_auth::destroy_admin_cap_for_testing(admin_cap);
+    };
+
+    // Verify the CormConfig shared object was created with correct brain address
+    scenario.next_tx(ADMIN);
+    {
+        let config = scenario.take_shared<corm_state::CormConfig>();
+        assert!(corm_state::brain_address(&config) == BRAIN);
+        ts::return_shared(config);
+    };
+    scenario.end();
+}
+
+#[test]
+fun test_install_corm() {
+    let mut scenario = ts::begin(ADMIN);
+    {
+        // Create config first
+        let ctx = scenario.ctx();
+        let admin_cap = corm_auth::create_admin_cap_for_testing(ctx);
+        corm_state::create_config(&admin_cap, BRAIN, ctx);
+        corm_auth::destroy_admin_cap_for_testing(admin_cap);
+    };
+
+    // Player installs a corm (permissionless)
+    scenario.next_tx(PLAYER);
+    {
+        let config = scenario.take_shared<corm_state::CormConfig>();
+        let network_node_id = object::id_from_address(@0x5678);
+        corm_state::install(&config, network_node_id, scenario.ctx());
+        ts::return_shared(config);
+    };
+
+    // Verify the CormState was created with brain as admin
+    scenario.next_tx(BRAIN);
+    {
+        let state = scenario.take_shared<corm_state::CormState>();
+        assert!(corm_state::phase(&state) == 0);
+        assert!(corm_state::stability(&state) == 0);
+        assert!(corm_state::corruption(&state) == 0);
+        assert!(corm_state::admin(&state) == BRAIN);
+        ts::return_shared(state);
+    };
+
+    // Verify the MintCap was transferred to the brain
+    scenario.next_tx(BRAIN);
+    {
+        let mint_cap = scenario.take_from_address<corm_coin::MintCap>(BRAIN);
+        assert!(corm_coin::mint_cap_total_minted(&mint_cap) == 0);
+        ts::return_to_address(BRAIN, mint_cap);
+    };
+    scenario.end();
+}
+
+#[test]
+fun test_set_brain_address() {
+    let mut scenario = ts::begin(ADMIN);
+    {
+        let ctx = scenario.ctx();
+        let admin_cap = corm_auth::create_admin_cap_for_testing(ctx);
+        corm_state::create_config(&admin_cap, BRAIN, ctx);
+        corm_auth::destroy_admin_cap_for_testing(admin_cap);
+    };
+
+    // Admin updates the brain address
+    scenario.next_tx(ADMIN);
+    {
+        let mut config = scenario.take_shared<corm_state::CormConfig>();
+        let admin_cap = corm_auth::create_admin_cap_for_testing(scenario.ctx());
+        corm_state::set_brain_address(&mut config, &admin_cap, OTHER);
+        assert!(corm_state::brain_address(&config) == OTHER);
+        corm_auth::destroy_admin_cap_for_testing(admin_cap);
+        ts::return_shared(config);
     };
     scenario.end();
 }

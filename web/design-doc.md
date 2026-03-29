@@ -112,6 +112,7 @@ All via Vite environment variables (`VITE_*`), resolved in `src/config.ts`:
 - `VITE_WORLD_API_URL` — Eve Frontier world API (tribe name backfill)
 - `VITE_PUZZLE_SERVICE_URL` — puzzle service URL (Continuity Engine iframe)
 - `VITE_CORM_STATE_ID` — CormState shared object ID
+- `VITE_CORM_CONFIG_ID` — CormConfig shared object ID (for permissionless corm installation)
 
 Per-environment defaults are defined in `config.ts` and overridden by explicit `VITE_*` vars. Environment files: `.env.localnet`, `.env.utopia`, `.env.stillness`.
 
@@ -140,6 +141,7 @@ Per-environment defaults are defined in `config.ts` and overridden by explicit `
 - Payout and item pickup notification watcher
 - Auto-join tribe detection and one-click self_join
 - Initialize tribe banner for unclaimed in-game tribes
+- Install Corm: dashboard card for installing a corm on a player-owned Network Node (permissionless on-chain `corm_state::install`)
 - Event Explorer with type/tribe/character filtering and pagination
 - Structure browser with aggregated SSU inventory
 

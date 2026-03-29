@@ -1205,6 +1205,30 @@ export function buildCleanupCompletedItemContract(params: {
 }
 
 // ============================================================
+// Corm Installation
+// ============================================================
+
+/**
+ * Install a corm on a network node. Permissionless — any player who owns
+ * the node can call this. The MintCap and CormState admin are routed to
+ * the brain address stored in CormConfig on-chain.
+ */
+export function buildInstallCorm(params: {
+  configId: string;
+  networkNodeId: string;
+}): Transaction {
+  const tx = new Transaction();
+  tx.moveCall({
+    target: `${packages.cormState}::corm_state::install`,
+    arguments: [
+      tx.object(params.configId),
+      tx.pure.id(params.networkNodeId),
+    ],
+  });
+  return tx;
+}
+
+// ============================================================
 // SSU Extension Authorization
 // ============================================================
 /** Construct the dApp delivery URL for a specific SSU. */

@@ -99,4 +99,7 @@ export const config = {
 
   /** CormState shared object ID (set after first corm creation) */
   cormStateId: import.meta.env.VITE_CORM_STATE_ID ?? "",
+
+  /** CormConfig shared object ID (created by admin via create_config) */
+  cormConfigId: import.meta.env.VITE_CORM_CONFIG_ID ?? "",
 } as const;

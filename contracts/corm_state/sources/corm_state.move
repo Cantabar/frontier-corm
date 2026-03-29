@@ -17,6 +17,15 @@ const EMeterOutOfRange: u64 = 2;
 
 // === Structs ===
 
+/// Shared config created once by admin after deploy. Stores the address of
+/// the corm-brain service keypair so that player-initiated `install` can
+/// route authority (admin + MintCap) to the brain automatically.
+public struct CormConfig has key {
+    id: UID,
+    /// Address of the corm-brain service keypair.
+    brain_address: address,
+}
+
 /// Shared object — one per corm (per network node).
 public struct CormState has key {
     id: UID,
@@ -48,6 +57,63 @@ public struct CormStateUpdatedEvent has copy, drop {
 }
 
 // === Public functions ===
+
+/// Create the shared `CormConfig`. Admin-only, called once after deploy.
+/// `brain_address` is the corm-brain service keypair that will administer
+/// all CormState objects created via `install`.
+public fun create_config(
+    _admin_cap: &CormAdminCap,
+    brain_address: address,
+    ctx: &mut TxContext,
+) {
+    transfer::share_object(CormConfig {
+        id: object::new(ctx),
+        brain_address,
+    });
+}
+
+/// Update the brain address stored in `CormConfig`. Admin-only.
+public fun set_brain_address(
+    config: &mut CormConfig,
+    _admin_cap: &CormAdminCap,
+    new_brain_address: address,
+) {
+    config.brain_address = new_brain_address;
+}
+
+/// Install a corm on a network node. **Permissionless** — any player can
+/// call this to create a CormState for a node they own.
+///
+/// The CormState `admin` is set to the brain address from `CormConfig`,
+/// and the `MintCap` is transferred directly to the brain so the player
+/// never holds minting authority.
+public fun install(
+    config: &CormConfig,
+    network_node_id: ID,
+    ctx: &mut TxContext,
+) {
+    let state = CormState {
+        id: object::new(ctx),
+        network_node_id,
+        phase: 0,
+        stability: 0,
+        corruption: 0,
+        admin: config.brain_address,
+    };
+
+    let state_id = object::id(&state);
+
+    event::emit(CormStateCreatedEvent {
+        corm_state_id: state_id,
+        network_node_id,
+        admin: config.brain_address,
+    });
+
+    let mint_cap = corm_coin::create_mint_cap(state_id, ctx);
+
+    transfer::share_object(state);
+    transfer::public_transfer(mint_cap, config.brain_address);
+}
 
 /// Create a new CormState for a network node. Requires `CormAdminCap` to
 /// prove the caller is the authorized CORM operator.
@@ -128,8 +194,26 @@ public fun phase(state: &CormState): u8 { state.phase }
 public fun stability(state: &CormState): u64 { state.stability }
 public fun corruption(state: &CormState): u64 { state.corruption }
 public fun admin(state: &CormState): address { state.admin }
+public fun brain_address(config: &CormConfig): address { config.brain_address }
 
 // === Test-only helpers ===
+
+#[test_only]
+public fun create_config_for_testing(
+    brain_address: address,
+    ctx: &mut TxContext,
+): CormConfig {
+    CormConfig {
+        id: object::new(ctx),
+        brain_address,
+    }
+}
+
+#[test_only]
+public fun destroy_config_for_testing(config: CormConfig) {
+    let CormConfig { id, .. } = config;
+    id.delete();
+}
 
 #[test_only]
 public fun destroy_for_testing(state: CormState) {
