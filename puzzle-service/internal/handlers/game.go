@@ -193,7 +193,11 @@ func (h *Handlers) PuzzleDecrypt(w http.ResponseWriter, r *http.Request) {
 		sess.DecryptCell(row, col)
 		garbled := puzzle.CellsInRadius(sess.Grid, row, col, 3.0)
 		targetDestroyed := false
-		for _, gc := range garbled {
+		garbleStart := 0
+		if len(puzzle.GarbleChars) > 0 {
+			garbleStart = int(time.Now().UnixNano() % int64(len(puzzle.GarbleChars)))
+		}
+		for i, gc := range garbled {
 			key := puzzle.CellKey(gc.Row, gc.Col)
 			gcell := &sess.Grid.Cells[gc.Row][gc.Col]
 			if gcell.StringID == "target_main" {
@@ -201,6 +205,9 @@ func (h *Handlers) PuzzleDecrypt(w http.ResponseWriter, r *http.Request) {
 			}
 			gcell.IsGarbled = true
 			gcell.Type = puzzle.CellGarbled
+			if len(puzzle.GarbleChars) > 0 {
+				gcell.GarbleChar = puzzle.GarbleChars[(garbleStart+i)%len(puzzle.GarbleChars)]
+			}
 			gcell.Decrypted = true
 			sess.DecryptedCells[key] = true
 			sess.GarbledCells[key] = true
@@ -539,7 +546,13 @@ func buildCellData(sess *puzzle.Session, r, c int) CellData {
 	cssClass := "cell--encrypted"
 	if garbled {
 		cssClass = "cell--garbled"
-		ch = "" // garbled cells render via CSS animation
+		if cell.GarbleChar != 0 {
+			ch = string(cell.GarbleChar)
+		} else if len(puzzle.GarbleChars) > 0 {
+			ch = string(puzzle.GarbleChars[(r*sess.Grid.Cols+c)%len(puzzle.GarbleChars)])
+		} else {
+			ch = "?"
+		}
 	} else if decrypted {
 		if sess.Hints.Decode {
 			ch = string(cell.Plaintext)

@@ -15,17 +15,18 @@ const (
 
 // Cell represents a single cell in the cipher grid.
 type Cell struct {
-	Row       int      `json:"row"`
-	Col       int      `json:"col"`
-	Plaintext rune     `json:"-"` // never sent to client
-	Encrypted rune     `json:"encrypted"`
-	Decrypted bool     `json:"decrypted"`
-	IsWord    bool     `json:"-"` // true if this cell is part of the target address
-	Type      CellType `json:"-"` // classification of this cell's content
-	Distance  int      `json:"-"` // Manhattan distance to nearest target word cell
-	StringID  string   `json:"-"` // groups cells belonging to the same address (e.g. "target_main", "decoy_0")
-	HintType  string   `json:"-"` // sensor subtype: "sonar", "thermal", "vector"; empty for non-sensors
-	IsGarbled bool     `json:"-"` // permanently corrupted by trap explosion
+	Row        int      `json:"row"`
+	Col        int      `json:"col"`
+	Plaintext  rune     `json:"-"` // never sent to client
+	Encrypted  rune     `json:"encrypted"`
+	Decrypted  bool     `json:"decrypted"`
+	IsWord     bool     `json:"-"` // true if this cell is part of the target address
+	Type       CellType `json:"-"` // classification of this cell's content
+	Distance   int      `json:"-"` // Manhattan distance to nearest target word cell
+	StringID   string   `json:"-"` // groups cells belonging to the same address (e.g. "target_main", "decoy_0")
+	HintType   string   `json:"-"` // sensor subtype: "sonar", "thermal", "vector"; empty for non-sensors
+	IsGarbled  bool     `json:"-"` // permanently corrupted by trap explosion
+	GarbleChar rune     `json:"-"` // foreign-script glyph assigned when the cell is garbled
 }
 
 // CellCoord is a lightweight row/col pair.
@@ -65,3 +66,12 @@ var NoiseChars = []rune{'#', '@', '%', '&', '*', '~', '^', '|', '<', '>', '{', '
 // TrapSymbols are printable ASCII characters used for trap nodes.
 // All must be in the cipher range 0x21–0x7E.
 var TrapSymbols = []rune{'$', '+', '`', '\\', '_'}
+
+// GarbleChars are Unicode glyphs from mixed non-Latin scripts used for
+// permanently corrupted cells. They evoke a foreign/alien language and are
+// visually distinct from any cipher or noise character.
+var GarbleChars = []rune{
+	'ᚠ', 'ᚢ', 'ᚦ', 'ᚨ', 'ᚬ', 'ᚱ', 'ᚲ', 'ᛈ', 'ᛇ', 'ᛉ', 'ᛊ', 'ᛏ', 'ᛒ', 'ᛗ', 'ᛚ', 'ᛞ', 'ᛟ',
+	'∴', '∇', '∂', '∞', '≋', '∀', '∃', '⊕', '⊗', '⊛',
+	'⌬', '⏣', '☍', '⚶', '⚷',
+}

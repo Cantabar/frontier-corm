@@ -240,6 +240,26 @@ func TestDecryptTrapCellExplosion(t *testing.T) {
 	}
 }
 
+func TestGarbleCharsAreDistinctAndNonBlockGlyphs(t *testing.T) {
+	if len(puzzle.GarbleChars) < 20 {
+		t.Fatalf("expected a substantial garble glyph set, got %d glyphs", len(puzzle.GarbleChars))
+	}
+
+	seen := make(map[rune]bool, len(puzzle.GarbleChars))
+	for _, ch := range puzzle.GarbleChars {
+		if ch == '█' {
+			t.Fatalf("garble glyph set should not include the block rectangle glyph")
+		}
+		if ch <= 0x7E {
+			t.Fatalf("expected non-ASCII garble glyph, got %q", ch)
+		}
+		if seen[ch] {
+			t.Fatalf("duplicate garble glyph %q", ch)
+		}
+		seen[ch] = true
+	}
+}
+
 func TestHintState(t *testing.T) {
 	sess := puzzle.NewSession("0xtest", "browser")
 

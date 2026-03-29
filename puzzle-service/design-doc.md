@@ -55,12 +55,12 @@ Players can also type the full address into the terminal input (`submit 0x...`) 
 - **Symbol** — non-alphabet printable ASCII (`#@%&*~^|<>{}[]` etc.) filling 60% of empty cells.
 - **Target** — cells of the hidden SUI address. White text on reveal, green border.
 - **Decoy** — cells of decoy addresses. Same reveal behavior as target but no win.
-- **Trap** — anomaly nodes. On reveal, explode with Euclidean radius 3, permanently garbling all cells in the blast zone (setting them to `CellGarbled`). Garbled cells display a purple flickering glyph and cannot be interacted with. The clicked trap cell is returned as the primary swap and the rest of the blast zone is returned as OOB `outerHTML` swaps so the grid dimensions stay stable. If any target address cell is caught in the explosion, the game is over.
+- **Trap** — anomaly nodes. On reveal, explode with Euclidean radius 3, permanently garbling all cells in the blast zone (setting them to `CellGarbled`). Garbled cells display unique foreign-script glyphs with a purple flicker and cannot be interacted with. If any target address cell is caught in the explosion, the game is over.
 - **Sensor** — hint nodes (~0.8% of noise/symbol cells). Three subtypes:
   - **Sonar** `[S]` (cyan) — on reveal, triggers a triple pulse: 3 pulses at 1-second intervals, Euclidean radius 5, revealing the color signature of all cells in range.
   - **Thermal** `[T]` (blue) — on reveal, shows proximity-based coloring (distance to target).
   - **Vector** `[V]` (gold) — on reveal, shows directional indicators pointing toward the target.
-- **Garbled** — permanently corrupted by trap explosion. Purple flicker, no interaction.
+- **Garbled** — permanently corrupted by trap explosion. Foreign-script glyph, purple flicker, no interaction.
 
 ### Pulse System
 
