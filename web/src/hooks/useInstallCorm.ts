@@ -19,8 +19,10 @@ import type { AssemblyData } from "../lib/types";
 export interface InstallCormState {
   /** NetworkNode structures owned by the current player. */
   networkNodes: AssemblyData[];
-  /** Whether the player can install (has nodes and config is set). */
+  /** Whether the UI should show (player has nodes + package deployed). */
   canInstall: boolean;
+  /** Whether VITE_CORM_CONFIG_ID is set (CormConfig exists on-chain). */
+  isConfigured: boolean;
   /** Whether an install transaction is in flight. */
   isInstalling: boolean;
   /** Whether structures are still loading. */
@@ -44,15 +46,23 @@ export function useInstallCorm(): InstallCormState {
   );
 
   const configId = config.cormConfigId;
-  const canInstall =
-    !!address &&
-    networkNodes.length > 0 &&
-    !!configId &&
-    config.packages.cormState !== "0x0";
+  const canInstall = !!address && networkNodes.length > 0;
+  const isConfigured =
+    !!configId && config.packages.cormState !== "0x0";
 
   const installCorm = useCallback(
     async (networkNodeId: string) => {
-      if (!canInstall || !configId) return;
+      if (!canInstall) return;
+      if (!isConfigured) {
+        push({
+          level: "error",
+          title: "Install Failed",
+          message:
+            "Corm contracts are not configured. Set VITE_CORM_STATE_PACKAGE_ID and VITE_CORM_CONFIG_ID.",
+          source: "install-corm",
+        });
+        return;
+      }
 
       setIsInstalling(true);
       try {
@@ -87,12 +97,13 @@ export function useInstallCorm(): InstallCormState {
         setIsInstalling(false);
       }
     },
-    [canInstall, configId, signAndExecute, queryClient, push, client],
+    [canInstall, configId, signAndExecute, queryClient, push, client, isConfigured],
   );
 
   return {
     networkNodes,
     canInstall,
+    isConfigured,
     isInstalling,
     isLoading,
     installCorm,

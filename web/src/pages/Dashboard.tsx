@@ -263,7 +263,7 @@ export function Dashboard() {
   const { tribe } = useTribe(tribeId);
   const { enabled: quickActions, toggle: toggleAction, reset: resetActions, allVariants, variantLabels, variantDescriptions } = useQuickActions();
   const { needsInit, inGameTribeId, suggestedName, isInitializing, initialize } = useInitializeTribe();
-  const { networkNodes, canInstall, isInstalling, installCorm } = useInstallCorm();
+  const { networkNodes, canInstall, isConfigured, isInstalling, installCorm } = useInstallCorm();
   const [customizing, setCustomizing] = useState(false);
   const [initName, setInitName] = useState("");
   const [selectedNodeId, setSelectedNodeId] = useState("");
@@ -383,6 +383,11 @@ export function Dashboard() {
               >
                 {isInstalling ? "Installing…" : "Install Corm"}
               </InitButton>
+              {!isConfigured && (
+                <Meta style={{ marginTop: 6, display: "block" }}>
+                  Corm contracts not yet configured.
+                </Meta>
+              )}
             </OverviewCard>
           </OverviewGrid>
         </>
