@@ -11,4 +11,7 @@ FROM alpine:3.19
 RUN apk --no-cache add ca-certificates
 COPY --from=builder /corm-brain /corm-brain
 
+# Local item valuations for contract pricing (build artifact from scripts/build-item-values.mjs)
+COPY data/item-values.json /data/item-values.json
+
 ENTRYPOINT ["/corm-brain"]

@@ -19,7 +19,7 @@
  * Usage:  node scripts/build-item-values.mjs
  */
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -415,8 +415,17 @@ results.sort((a, b) => a.typeId - b.typeId);
 
 // ── Write output ──────────────────────────────────────────────────
 
+const output = JSON.stringify(results, null, 2) + "\n";
+
 const dest = resolve(ROOT, "web/public/item-values.json");
-writeFileSync(dest, JSON.stringify(results, null, 2) + "\n");
+writeFileSync(dest, output);
+
+// Write a local copy for corm-brain so it can load item valuations at
+// boot without making an HTTP request to the hosted web service.
+const cormBrainDir = resolve(ROOT, "corm-brain/data");
+mkdirSync(cormBrainDir, { recursive: true });
+const cormBrainDest = resolve(cormBrainDir, "item-values.json");
+writeFileSync(cormBrainDest, output);
 
 // ── Summary ───────────────────────────────────────────────────────
 
@@ -427,6 +436,7 @@ const crafted = valued.filter((r) => r.source === "crafted");
 const found = valued.filter((r) => r.source === "found");
 
 console.log(`  ✓ ${dest.replace(ROOT + "/", "")} (${results.length} items)`);
+console.log(`  ✓ ${cormBrainDest.replace(ROOT + "/", "")} (local copy for corm-brain)`);
 console.log(`    ${valued.length} valued, ${unknown.length} unknown`);
 console.log(
   `    ${mining.length} mining, ${crafted.length} crafted, ${found.length} found`

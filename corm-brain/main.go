@@ -72,12 +72,28 @@ func main() {
 
 	tm := transport.NewManager(envSpecs, cfg.WSReconnectMax, cfg.FallbackPollInterval, eventChan)
 
+	// --- Item Registry (shared) ---
+	registry := chain.NewRegistry(cfg.ItemRegistryPath, cfg.ItemValuesPath)
+
 	// --- Memory (shared) ---
 	retriever := memory.NewRetriever(database, embedder)
 	consolidator := memory.NewConsolidator(database, llmClient, embedder, cfg.MemoryCapPerCorm)
 
 	// --- Reasoning ---
-	handler := reasoning.NewHandler(database, llmClient, retriever, tm, cfg.ObservationInterval, cfg.ObservationJitter, cfg.CriticalEventBypass)
+	// Use the first environment's chain client for contract generation.
+	// Multi-env contract generation would need per-env chain client routing.
+	var defaultChainClient *chain.Client
+	for _, c := range chainClients {
+		defaultChainClient = c
+		break
+	}
+
+	handler := reasoning.NewHandler(database, llmClient, retriever, tm, cfg.ObservationInterval, cfg.ObservationJitter, cfg.CriticalEventBypass, reasoning.HandlerConfig{
+		Registry:         registry,
+		ChainClient:      defaultChainClient,
+		Pricing:          reasoning.PricingConfig{CORMPerLUX: cfg.CORMPerLUX, CORMFloorPerUnit: cfg.CORMFloorPerUnit},
+		ContractCooldown: cfg.ContractGenerationCooldown,
+	})
 
 	// --- Start goroutines ---
 	var wg sync.WaitGroup

@@ -3,6 +3,7 @@
 package memory
 
 import (
+	"encoding/json"
 	"math"
 
 	"github.com/frontier-corm/corm-brain/internal/types"
@@ -53,7 +54,46 @@ func reduceContractComplete(traits *types.CormTraits, evt types.CormEvent) {
 		traits.PlayerAffinities[evt.PlayerAddress] = clamp(current+0.1, -1, 1)
 	}
 
-	// TODO: Parse contract type from payload and update agenda_weights + contract_type_affinity
+	// Parse contract type from payload and update agenda weights + affinity
+	var p map[string]interface{}
+	if len(evt.Payload) > 0 {
+		json.Unmarshal(evt.Payload, &p)
+	}
+
+	contractType, _ := p["contract_type"].(string)
+	if contractType != "" {
+		// Update contract type affinity
+		if traits.ContractTypeAffinity == nil {
+			traits.ContractTypeAffinity = make(map[string]float64)
+		}
+		current := traits.ContractTypeAffinity[contractType]
+		traits.ContractTypeAffinity[contractType] = clamp(current+0.1, 0, 1)
+
+		// Decay other affinities slightly (relative preference)
+		for k, v := range traits.ContractTypeAffinity {
+			if k != contractType {
+				traits.ContractTypeAffinity[k] = clamp(v-0.02, 0, 1)
+			}
+		}
+
+		// Update agenda weights based on contract type
+		const delta = 0.03
+		switch contractType {
+		case "coin_for_item", "item_for_coin", "item_for_item":
+			// Trade/manufacturing → industry
+			traits.AgendaWeights.Industry = clamp(traits.AgendaWeights.Industry+delta, 0, 1)
+			traits.AgendaWeights.Expansion = clamp(traits.AgendaWeights.Expansion-delta/2, 0, 1)
+			traits.AgendaWeights.Defense = clamp(traits.AgendaWeights.Defense-delta/2, 0, 1)
+		case "transport":
+			// Transport/delivery → expansion
+			traits.AgendaWeights.Expansion = clamp(traits.AgendaWeights.Expansion+delta, 0, 1)
+			traits.AgendaWeights.Industry = clamp(traits.AgendaWeights.Industry-delta/2, 0, 1)
+			traits.AgendaWeights.Defense = clamp(traits.AgendaWeights.Defense-delta/2, 0, 1)
+		}
+
+		// Normalize agenda weights to sum to ~1.0
+		normalizeAgendaWeights(&traits.AgendaWeights)
+	}
 }
 
 func reduceContractFailed(traits *types.CormTraits, evt types.CormEvent) {
@@ -115,6 +155,20 @@ func reduceInteraction(traits *types.CormTraits, evt types.CormEvent) {
 
 func clamp(v, min, max float64) float64 {
 	return math.Max(min, math.Min(max, v))
+}
+
+// normalizeAgendaWeights rescales weights so they sum to approximately 1.0.
+func normalizeAgendaWeights(w *types.AgendaWeights) {
+	total := w.Industry + w.Expansion + w.Defense
+	if total <= 0 {
+		w.Industry = 0.33
+		w.Expansion = 0.33
+		w.Defense = 0.33
+		return
+	}
+	w.Industry /= total
+	w.Expansion /= total
+	w.Defense /= total
 }
 
 func contains(s, substr string) bool {

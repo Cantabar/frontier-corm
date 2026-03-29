@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/frontier-corm/corm-brain/internal/chain"
 	"github.com/frontier-corm/corm-brain/internal/db"
 	"github.com/frontier-corm/corm-brain/internal/llm"
 	"github.com/frontier-corm/corm-brain/internal/memory"
@@ -25,6 +26,12 @@ type Handler struct {
 	llm       *llm.Client
 	retriever *memory.Retriever
 	tm        *transport.Manager
+
+	// Phase 2: contract generation
+	registry         *chain.Registry
+	chainClient      *chain.Client
+	pricing          PricingConfig
+	contractCooldown time.Duration
 
 	// Observation rate limiting
 	observationInterval time.Duration
@@ -41,9 +48,17 @@ type observationGate struct {
 	nextJitter          time.Duration // pre-rolled jitter for next interval
 }
 
+// HandlerConfig holds optional configuration for the reasoning handler.
+type HandlerConfig struct {
+	Registry         *chain.Registry
+	ChainClient      *chain.Client
+	Pricing          PricingConfig
+	ContractCooldown time.Duration
+}
+
 // NewHandler creates a new reasoning handler.
-func NewHandler(database *db.DB, llmClient *llm.Client, retriever *memory.Retriever, tm *transport.Manager, observationInterval, observationJitter time.Duration, criticalBypass bool) *Handler {
-	return &Handler{
+func NewHandler(database *db.DB, llmClient *llm.Client, retriever *memory.Retriever, tm *transport.Manager, observationInterval, observationJitter time.Duration, criticalBypass bool, opts ...HandlerConfig) *Handler {
+	h := &Handler{
 		db:                  database,
 		llm:                 llmClient,
 		retriever:           retriever,
@@ -52,7 +67,18 @@ func NewHandler(database *db.DB, llmClient *llm.Client, retriever *memory.Retrie
 		observationJitter:   observationJitter,
 		criticalBypass:      criticalBypass,
 		sessions:            make(map[string]*observationGate),
+		contractCooldown:    30 * time.Second, // default
 	}
+	if len(opts) > 0 {
+		cfg := opts[0]
+		h.registry = cfg.Registry
+		h.chainClient = cfg.ChainClient
+		h.pricing = cfg.Pricing
+		if cfg.ContractCooldown > 0 {
+			h.contractCooldown = cfg.ContractCooldown
+		}
+	}
+	return h
 }
 
 // ProcessEvent handles a single event for a resolved corm.

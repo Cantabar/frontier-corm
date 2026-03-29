@@ -67,6 +67,17 @@ type Config struct {
 	// Max episodic memories per corm
 	MemoryCapPerCorm int
 
+	// Item registry paths
+	ItemRegistryPath string
+	ItemValuesPath   string
+
+	// Contract generation pricing
+	CORMPerLUX       float64
+	CORMFloorPerUnit uint64
+
+	// Contract generation cooldown (min time between generation attempts per corm)
+	ContractGenerationCooldown time.Duration
+
 	// Database (shared)
 	DatabaseURL string
 
@@ -94,9 +105,14 @@ func Load() Config {
 		ObservationInterval:   envDurationMs("OBSERVATION_INTERVAL_MS", 4000),
 		ObservationJitter:     envDurationMs("OBSERVATION_JITTER_MS", 2000),
 		CriticalEventBypass:   envBool("CRITICAL_EVENT_BYPASS", true),
-		ConsolidationInterval: envDurationMs("CONSOLIDATION_INTERVAL_MS", 60000),
-		MemoryCapPerCorm:      envInt("MEMORY_CAP_PER_CORM", 500),
-		DatabaseURL:           envOrDefault("DATABASE_URL", "postgresql://corm:corm@localhost:5432/frontier_corm"),
+		ConsolidationInterval:      envDurationMs("CONSOLIDATION_INTERVAL_MS", 60000),
+		MemoryCapPerCorm:           envInt("MEMORY_CAP_PER_CORM", 500),
+		ItemRegistryPath:           envOrDefault("ITEM_REGISTRY_PATH", "./static-data/data/phobos/fsd_built"),
+		ItemValuesPath:             envOrDefault("ITEM_VALUES_PATH", "./corm-brain/data/item-values.json"),
+		CORMPerLUX:                 envFloat("CORM_PER_LUX", 1.0),
+		CORMFloorPerUnit:           uint64(envInt("CORM_FLOOR_PER_UNIT", 10)),
+		ContractGenerationCooldown: envDurationMs("CONTRACT_GENERATION_COOLDOWN_MS", 30000),
+		DatabaseURL:                envOrDefault("DATABASE_URL", "postgresql://corm:corm@localhost:5432/frontier_corm"),
 	}
 
 	if path := os.Getenv("ENVIRONMENTS_CONFIG"); path != "" {
@@ -194,6 +210,18 @@ func envBool(key string, defaultVal bool) bool {
 		return defaultVal
 	}
 	v, err := strconv.ParseBool(s)
+	if err != nil {
+		return defaultVal
+	}
+	return v
+}
+
+func envFloat(key string, defaultVal float64) float64 {
+	s := os.Getenv(key)
+	if s == "" {
+		return defaultVal
+	}
+	v, err := strconv.ParseFloat(s, 64)
 	if err != nil {
 		return defaultVal
 	}

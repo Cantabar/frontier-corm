@@ -137,6 +137,36 @@ Per-environment config (in JSON file): `name`, `puzzle_service_url`, `sui_rpc_ur
 - Chain stubs for contract creation, inventory reading, and CORM minting
 - Interactive test harness for local development
 
+## Phase 2 Contract Generation
+
+The corm generates trustless contracts for players to execute in the game world. Contract generation uses a two-stage architecture to separate creative decisions from parameter precision.
+
+### Two-Stage Architecture
+1. **Super generates intent** — given corm traits, episodic memories, and a world state snapshot, the Super model produces a structured `ContractIntent` (JSON) specifying contract type, item names, qualitative amounts, urgency, and narrative flavor text.
+2. **Go resolves to exact params** — the intent resolver (`reasoning/resolver.go`) maps item names to type IDs via fuzzy registry lookup, converts qualitative scale hints to exact quantities, computes CORM amounts from LUX-based item valuations, and applies divisibility constraints.
+3. **Validation gate** — `ValidateParams` checks hard constraints (balance, divisibility, deadline, contract cap) and silently fixes correctable issues before the chain write.
+
+### Item Type Registry (`chain/registry.go`)
+Startup-loaded from `static-data/data/phobos/fsd_built/types.json` + `groups.json`. Published items only (628). Joined with LUX valuations from `corm-brain/data/item-values.json` (build artifact from `scripts/build-item-values.mjs`).
+
+### LUX → CORM Pricing
+CORM amounts are derived from time-to-produce valuations (~100K LUX/hour mining rate). Formula: `quantity × luxValue × CORM_PER_LUX × scaleMultiplier × alignmentBonus × corruptionPenalty`. Configurable via `CORM_PER_LUX` (default: 1.0) and `CORM_FLOOR_PER_UNIT` (default: 10) env vars.
+
+### World State Snapshot (`chain/snapshot.go`)
+Before each contract generation, chain state is fetched in parallel: corm CORM balance, corm SSU inventory, player SSU inventory, network node SSUs. Best-effort — missing data means fewer contract options, not failure.
+
+### Contract Types (Phase 2)
+- **CoinForItem** — corm pays CORM, wants items from player
+- **ItemForCoin** — corm offers items, wants CORM from player
+- **ItemForItem** — corm offers items, wants different items
+- **CORMGiveaway** — corm distributes CORM for free (CoinForCoin with wanted_amount=0)
+- **Transport** — deferred (single-node isolation makes source=destination)
+
+All coin types are `Coin<CORM>`. The LLM never selects a coin type.
+
+### Reducer Updates
+`reduceContractComplete` now parses `contract_type` from the event payload and updates `contract_type_affinity` and `agenda_weights` (trade → industry, transport → expansion). Agenda weights are normalized after each update.
+
 ## Open Questions / Future Work
 
 - Production Dockerfile and ECS task definition
@@ -145,4 +175,5 @@ Per-environment config (in JSON file): `name`, `puzzle_service_url`, `sui_rpc_ur
 - On-chain MintCap usage for CORM token rewards
 - Full implementation of chain stubs (contract creation, inventory reading, CORM minting)
 - Boost system implementation (cell targeting based on decrypt patterns)
-- Phase 2 contract generation (LLM-driven type selection, on-chain creation)
+- Location reporting witnessed contract (prerequisite for cross-node transport)
+- Phase 3 agenda-driven multi-step contract sequences
