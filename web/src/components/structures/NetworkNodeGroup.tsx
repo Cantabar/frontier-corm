@@ -80,6 +80,21 @@ const NodeMeta = styled.div`
   margin-top: 2px;
 `;
 
+const TagsLeft = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.md};
+  flex-shrink: 0;
+`;
+
+const TagsRight = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.sm};
+  flex-shrink: 0;
+  margin-left: auto;
+`;
+
 const TypeBadge = styled.span`
   display: inline-block;
   padding: 2px 8px;
@@ -89,6 +104,8 @@ const TypeBadge = styled.span`
   background: ${({ theme }) => theme.colors.secondary.accentMuted};
   color: ${({ theme }) => theme.colors.secondary.accent};
   white-space: nowrap;
+  min-width: 120px;
+  text-align: center;
 `;
 
 const StatusDot = styled.span<{ $status: AssemblyStatus }>`
@@ -118,6 +135,7 @@ const StatusLabel = styled.span`
   display: inline-flex;
   align-items: center;
   white-space: nowrap;
+  min-width: 90px;
 `;
 
 const BarGroup = styled.span`
@@ -392,65 +410,64 @@ export function NetworkNodeGroup({
           </NodeMeta>
         </NodeInfo>
 
-        <TypeBadge>Network Node</TypeBadge>
+        <TagsLeft>
+          <TypeBadge>Network Node</TypeBadge>
+          <StatusLabel>
+            <StatusDot $status={node.status} />
+            {node.status}
+          </StatusLabel>
+          <BarGroup>
+            <BarLabel>⛽</BarLabel>
+            <BarOuter>
+              <BarInner $pct={fuelPct} />
+            </BarOuter>
+          </BarGroup>
+          <BarGroup>
+            <BarLabel>⚡</BarLabel>
+            <BarOuter $width={56}>
+              <BarInner $pct={energyPct} $invert />
+            </BarOuter>
+            <BarLabel>
+              {node.totalReservedEnergy} / {node.maxEnergyProduction} GJ
+            </BarLabel>
+          </BarGroup>
+          <ConnectedMeta>
+            {node.connectedAssemblyCount} connected · {structureCount} shown
+          </ConnectedMeta>
+        </TagsLeft>
 
-        <StatusLabel>
-          <StatusDot $status={node.status} />
-          {node.status}
-        </StatusLabel>
-
-        <BarGroup>
-          <BarLabel>⛽</BarLabel>
-          <BarOuter>
-            <BarInner $pct={fuelPct} />
-          </BarOuter>
-        </BarGroup>
-        <BarGroup>
-          <BarLabel>⚡</BarLabel>
-          <BarOuter $width={56}>
-            <BarInner $pct={energyPct} $invert />
-          </BarOuter>
-          <BarLabel>
-            {node.totalReservedEnergy} / {node.maxEnergyProduction} GJ
-          </BarLabel>
-        </BarGroup>
-
-        {hasLocation && (
-          <LocationBadge title="Location POD registered">📍 Location</LocationBadge>
-        )}
-
-        <ConnectedMeta>
-          {node.connectedAssemblyCount} connected · {structureCount} shown
-        </ConnectedMeta>
-
-        {canOnline && (
-          <ActionButton
-            $variant="online"
-            disabled={pending}
-            title="Bring this network node online"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleToggle("online");
-            }}
-          >
-            {pending ? "…" : "Online"}
-          </ActionButton>
-        )}
-        {canOffline && (
-          <ActionButton
-            $variant="offline"
-            disabled={pending}
-            title="Take this network node offline"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleToggle("offline");
-            }}
-          >
-            {pending ? "…" : "Offline"}
-          </ActionButton>
-        )}
-
-        <Chevron $open={open}>▶</Chevron>
+        <TagsRight>
+          {hasLocation && (
+            <LocationBadge title="Location POD registered">📍 Location</LocationBadge>
+          )}
+          {canOnline && (
+            <ActionButton
+              $variant="online"
+              disabled={pending}
+              title="Bring this network node online"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleToggle("online");
+              }}
+            >
+              {pending ? "…" : "Online"}
+            </ActionButton>
+          )}
+          {canOffline && (
+            <ActionButton
+              $variant="offline"
+              disabled={pending}
+              title="Take this network node offline"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleToggle("offline");
+              }}
+            >
+              {pending ? "…" : "Offline"}
+            </ActionButton>
+          )}
+          <Chevron $open={open}>▶</Chevron>
+        </TagsRight>
       </CardHeader>
       <GroupBody $open={open}>{children}</GroupBody>
     </GroupContainer>

@@ -145,8 +145,7 @@ const Grid = styled.div`
 `;
 
 const StructureCard = styled.div<{ $clickable?: boolean; $expanded?: boolean }>`
-  display: grid;
-  grid-template-columns: 40px 1fr 130px 100px 120px 110px 90px auto;
+  display: flex;
   align-items: center;
   gap: ${({ theme }) => theme.spacing.md};
   padding: ${({ theme }) => theme.spacing.md};
@@ -204,6 +203,21 @@ const StructureMeta = styled.div`
   margin-top: 2px;
 `;
 
+const TagsLeft = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.md};
+  flex-shrink: 0;
+`;
+
+const TagsRight = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.sm};
+  flex-shrink: 0;
+  margin-left: auto;
+`;
+
 const TypeBadge = styled.span`
   display: inline-block;
   padding: 2px 8px;
@@ -213,6 +227,8 @@ const TypeBadge = styled.span`
   background: ${({ theme }) => theme.colors.secondary.accentMuted};
   color: ${({ theme }) => theme.colors.secondary.accent};
   white-space: nowrap;
+  min-width: 120px;
+  text-align: center;
 `;
 
 const StatusDot = styled.span<{ $status: AssemblyStatus }>`
@@ -242,12 +258,14 @@ const StatusLabel = styled.span`
   display: inline-flex;
   align-items: center;
   white-space: nowrap;
+  min-width: 90px;
 `;
 
 const EnergyIndicator = styled.span<{ $connected: boolean }>`
   font-size: 11px;
   color: ${({ $connected, theme }) =>
     $connected ? theme.colors.success : theme.colors.text.muted};
+  min-width: 100px;
 `;
 
 const LocationBadge = styled.span`
@@ -322,12 +340,6 @@ const ExtensionBadge = styled.span<{ $enabled: boolean }>`
   white-space: nowrap;
 `;
 
-const ActionsCell = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  justify-content: flex-end;
-`;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -776,26 +788,18 @@ function StructureRow({
         </StructureMeta>
       </StructureInfo>
 
-      <TypeBadge>{getTypeLabel(structure.typeId)}</TypeBadge>
+      <TagsLeft>
+        <TypeBadge>{getTypeLabel(structure.typeId)}</TypeBadge>
+        <StatusLabel>
+          <StatusDot $status={structure.status} />
+          {structure.status}
+        </StatusLabel>
+        <EnergyIndicator $connected={!!structure.energySourceId}>
+          {structure.energySourceId ? "⚡ Connected" : "— No energy"}
+        </EnergyIndicator>
+      </TagsLeft>
 
-      <StatusLabel>
-        <StatusDot $status={structure.status} />
-        {structure.status}
-      </StatusLabel>
-
-      <EnergyIndicator $connected={!!structure.energySourceId}>
-        {structure.energySourceId ? "⚡ Connected" : "— No energy"}
-      </EnergyIndicator>
-
-      <div>
-        {isSsu && (
-          <ExtensionBadge $enabled={hasCorm}>
-            {hasCorm ? "CORM ✓" : "No Extension"}
-          </ExtensionBadge>
-        )}
-      </div>
-
-      <div>
+      <TagsRight>
         {hasLocation ? (
           <LocationBadge title="Location POD registered">📍 Location</LocationBadge>
         ) : isOwner && hasTribeId ? (
@@ -810,9 +814,13 @@ function StructureRow({
             + Location
           </AddLocationButton>
         ) : null}
-      </div>
 
-      <ActionsCell>
+        {isSsu && (
+          <ExtensionBadge $enabled={hasCorm}>
+            {hasCorm ? "CORM ✓" : "No Extension"}
+          </ExtensionBadge>
+        )}
+
         {isOwner && isSsu && !hasCorm && characterId && structure.status !== "Unanchoring" && (
           <ActionButton
             $variant="online"
@@ -852,7 +860,7 @@ function StructureRow({
             {pending ? "…" : "Offline"}
           </ActionButton>
         )}
-      </ActionsCell>
+      </TagsRight>
     </StructureCard>
     {isExpanded && <SsuInventoryPanel ssu={structure} />}
     </div>
