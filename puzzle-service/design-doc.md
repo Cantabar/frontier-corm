@@ -43,9 +43,11 @@ Browser (HTMX)                   puzzle-service                    corm-brain
 
 The puzzle target is a shortened SUI address (12 characters: `0x` + 10 hex chars) hidden in the cipher grid. The grid also contains 4+ decoy addresses of the same format. All addresses are placed horizontally.
 
-Cells belonging to the same address share a `StringID` (e.g. `"target_main"`, `"decoy_0"`). **Clicking any cell of an address reveals the entire address** — all cells with the same StringID are decrypted simultaneously and returned as OOB HTMX swaps. If the target address is revealed, it is an automatic win.
+Cells belonging to the same address share a `StringID` (e.g. `"target_main"`, `"decoy_0"`). **Clicking any cell of an address reveals the entire address** — all cells with the same StringID are decrypted simultaneously and returned as OOB HTMX swaps.
 
-Players can also type the full address into the terminal input (`submit 0x...`) to win without clicking the address cells directly.
+**Auto-complete on target discovery:** When the target address is revealed (via clicking any of its cells), the puzzle auto-completes: stability is gained, the solve count increments, a `submit` event (with `auto_discovered: true`) is emitted to corm-brain, and a **"PATTERN ANCHOR ISOLATED" overlay** replaces the grid. The overlay displays the confirmed address, stability gain, and solve count, with a `[ RESOLVE NEXT ANCHOR ]` button the player must click to proceed to the next puzzle. The overlay elements use staggered fade-in animations. Target address cells briefly receive a `cell--target-locked` glow animation before the overlay appears.
+
+Players can also type the full address into the terminal input (`submit 0x...`) to win without clicking the address cells directly — this remains as a secondary win path.
 
 ### Cell Types
 
@@ -199,7 +201,8 @@ puzzle-service/
 │       ├── log-entry.html       # Corm log message partial
 │       ├── contract-card.html   # Contract entry partial
 │       ├── contracts.html       # Contracts list panel
-│       └── transition-rewrite.html # Phase 0→1 transition animation
+│       ├── transition-rewrite.html # Phase 0→1 transition animation
+│       └── target-found.html    # Target address discovery overlay (auto-complete)
 ├── static/
 │   └── style.css               # Grid, sensors, pulses, garbled, legend, animations
 └── tests/
@@ -220,6 +223,7 @@ puzzle-service/
 - Phase 0 awakening with random frustration trigger threshold (3–5 clicks) and animated transition sequence
 - Phase 1 cipher grid puzzles with 20×20 grid, configurable difficulty, and three cipher tiers (Caesar, variable shift, position-based)
 - SUI address discovery mechanic with group-reveal (clicking any cell reveals the entire address)
+- Auto-complete on target address discovery with "PATTERN ANCHOR ISOLATED" overlay and staggered entrance animation
 - Seven cell types: noise, symbol, target, decoy, trap, sensor (sonar/thermal/vector), garbled
 - Trap explosion system with Euclidean radius 3 blast zone and permanent garbling
 - Localized sonar pulse system on every decrypt (radius 2) with color-coded type signatures

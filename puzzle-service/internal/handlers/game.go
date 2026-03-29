@@ -32,6 +32,14 @@ type CellData struct {
 	PulseColor     string // color class for pulse JS system
 }
 
+// TargetFoundData is the template data for the target-found overlay.
+type TargetFoundData struct {
+	Address       string
+	StabilityGain int
+	Stability     int
+	SolveCount    int
+}
+
 // PulseEntry is one cell in a pulse response.
 type PulseEntry struct {
 	Row   int    `json:"row"`
@@ -232,7 +240,11 @@ func (h *Handlers) PuzzleDecrypt(w http.ResponseWriter, r *http.Request) {
 		for rr := range sess.Grid.Cells {
 			for cc := range sess.Grid.Cells[rr] {
 				if sess.Grid.Cells[rr][cc].StringID == cell.StringID {
-					h.templates.ExecuteTemplate(w, "cell.html", buildCellData(sess, rr, cc))
+					cd := buildCellData(sess, rr, cc)
+					if isTargetAddress {
+						cd.CSSClass += " cell--target-locked"
+					}
+					h.templates.ExecuteTemplate(w, "cell.html", cd)
 				}
 			}
 		}
@@ -245,11 +257,48 @@ func (h *Handlers) PuzzleDecrypt(w http.ResponseWriter, r *http.Request) {
 
 		emitDecryptEvent(h, sess, row, col, cell, false, prevDecrypt, guidedCellWasActive, false)
 
-		// Auto-win if target address
+		// Auto-complete if target address
 		if isTargetAddress {
-			fmt.Fprintf(w, `<div id="auto-win" hx-swap-oob="afterbegin:#corm-log">`+
-				`<div class="boot-line boot-line--correct">✓ TARGET ADDRESS ISOLATED: %s</div>`+
+			// Apply solve logic (same as PuzzleSubmit correct path)
+			gain := max(5, 20-sess.SolveCount*2)
+			sess.Stability = min(100, sess.Stability+gain)
+			sess.SolveCount++
+			sess.LastSolveCorrect = true
+
+			// Log line in terminal
+			fmt.Fprintf(w, `<div id="auto-win" hx-swap-oob="beforeend:#corm-log">`+
+				`<div class="boot-line boot-line--correct">✓ PATTERN ANCHOR ISOLATED: %s</div>`+
 				`</div>`, sess.TargetWord)
+
+			// Render the target-found overlay (replaces grid via OOB)
+			h.templates.ExecuteTemplate(w, "target-found.html", TargetFoundData{
+				Address:       sess.TargetWord,
+				StabilityGain: gain,
+				Stability:     sess.Stability,
+				SolveCount:    sess.SolveCount,
+			})
+
+			// Emit submit event to corm-brain
+			submitPayload, _ := json.Marshal(map[string]any{
+				"word":              sess.TargetWord,
+				"correct":           true,
+				"auto_discovered":   true,
+				"stability":         sess.Stability,
+				"corruption":        sess.Corruption,
+				"solve_count":       sess.SolveCount,
+				"incorrect_attempts": sess.IncorrectAttempts,
+			})
+			submitEvt := corm.CormEvent{
+				Type:          "event",
+				SessionID:     sess.ID,
+				PlayerAddress: sess.PlayerAddress,
+				Context:       sess.Context,
+				EventType:     "submit",
+				Payload:       submitPayload,
+				Timestamp:     time.Now(),
+			}
+			sess.EventBuffer.Push(submitEvt)
+			go h.relay.BroadcastEvent(submitEvt)
 		}
 		return
 	}
