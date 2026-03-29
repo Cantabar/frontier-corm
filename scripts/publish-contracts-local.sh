@@ -10,9 +10,9 @@ ENV_FILE="$PROJECT_ROOT/.env.localnet"
 PUB_FILE="$PROJECT_ROOT/Pub.localnet.toml"
 GAS_BUDGET=2000000000  # 2 SUI — publishing with deps needs more than 0.5
 
-PACKAGES=("tribe" "corm_auth" "trustless_contracts" "corm_state")
-ENV_VARS=("PACKAGE_TRIBE" "PACKAGE_CORM_AUTH" "PACKAGE_TRUSTLESS_CONTRACTS" "PACKAGE_CORM_STATE")
-VITE_VARS=("VITE_TRIBE_PACKAGE_ID" "VITE_CORM_AUTH_PACKAGE_ID" "VITE_TRUSTLESS_CONTRACTS_PACKAGE_ID" "VITE_CORM_STATE_PACKAGE_ID")
+PACKAGES=("tribe" "corm_auth" "trustless_contracts" "corm_state" "assembly_metadata")
+ENV_VARS=("PACKAGE_TRIBE" "PACKAGE_CORM_AUTH" "PACKAGE_TRUSTLESS_CONTRACTS" "PACKAGE_CORM_STATE" "PACKAGE_ASSEMBLY_METADATA")
+VITE_VARS=("VITE_TRIBE_PACKAGE_ID" "VITE_CORM_AUTH_PACKAGE_ID" "VITE_TRUSTLESS_CONTRACTS_PACKAGE_ID" "VITE_CORM_STATE_PACKAGE_ID" "VITE_ASSEMBLY_METADATA_PACKAGE_ID")
 
 write_env_var() {
   local var="$1" val="$2" file="$3"
@@ -28,7 +28,7 @@ write_env_var() {
 # ── Clear stale package IDs from previous runs ────────────────────
 if [ -f "$ENV_FILE" ]; then
   echo "Clearing stale contract IDs from $ENV_FILE..."
-  for var in "${ENV_VARS[@]}" "${VITE_VARS[@]}" VITE_TRIBE_REGISTRY_ID CORM_STATE_PACKAGE_ID; do
+  for var in "${ENV_VARS[@]}" "${VITE_VARS[@]}" VITE_TRIBE_REGISTRY_ID CORM_STATE_PACKAGE_ID VITE_METADATA_REGISTRY_ID; do
     [ -z "$var" ] && continue
     sed -i "s|^${var}=.*|${var}=|" "$ENV_FILE"
   done
@@ -176,6 +176,22 @@ for i in "${!PACKAGES[@]}"; do
       write_env_var "VITE_TRIBE_REGISTRY_ID" "$TRIBE_REGISTRY_ID" "$ENV_FILE"
     else
       echo "  WARNING: Could not extract TribeRegistry ID from publish events" >&2
+    fi
+  fi
+
+  if [ "$pkg" = "assembly_metadata" ]; then
+    echo "  Querying MetadataRegistry shared object ID..."
+    METADATA_REGISTRY_ID=$(
+      curl -s http://127.0.0.1:9000 -X POST \
+        -H 'Content-Type: application/json' \
+        -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"suix_queryEvents\",\"params\":[{\"MoveEventType\":\"${PACKAGE_ID}::assembly_metadata::MetadataRegistryCreatedEvent\"},null,1,false]}" \
+      | jq -r '.result.data[0].parsedJson.registry_id'
+    )
+    if [ -n "$METADATA_REGISTRY_ID" ] && [ "$METADATA_REGISTRY_ID" != "null" ]; then
+      echo "  VITE_METADATA_REGISTRY_ID=$METADATA_REGISTRY_ID"
+      write_env_var "VITE_METADATA_REGISTRY_ID" "$METADATA_REGISTRY_ID" "$ENV_FILE"
+    else
+      echo "  WARNING: Could not extract MetadataRegistry ID from publish events" >&2
     fi
   fi
 done

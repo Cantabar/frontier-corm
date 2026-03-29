@@ -1,0 +1,10 @@
+[package]
+name = "assembly_metadata"
+edition = "2024.beta"
+
+[environments]
+localnet = "a1b2c3d4"
+
+[dependencies]
+world = { local = "../../../world-contracts/contracts/world" }
+corm_auth = { local = "../corm_auth" }

@@ -362,6 +362,17 @@ export const ASSEMBLY_TYPES: Record<number, AssemblyTypeInfo> = {
 export type AssemblyTypeFilter = "all" | "Storage" | "Gate" | "Defense" | "Industry" | "Core" | "Hangar" | "Misc";
 
 // ============================================================
+// Assembly Metadata
+// ============================================================
+
+export interface AssemblyMetadataData {
+  assemblyId: string;
+  name: string;
+  description: string;
+  owner: string;
+}
+
+// ============================================================
 // Indexer event types (Phase 4)
 // ============================================================
 
