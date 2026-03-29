@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"sort"
 	"strconv"
@@ -24,6 +25,7 @@ type CellData struct {
 	CSSClass       string
 	HeatmapClass   string // distance-based coloring
 	DirectionClass string // directional indicator toward target
+	ThermalStyle   string // inline CSS for thermal sensor blue-to-red gradient
 	IsTrap         bool
 	IsSensor       bool
 	SensorType     string // "sonar", "thermal", "vector"
@@ -567,11 +569,17 @@ func buildCellData(sess *puzzle.Session, r, c int) CellData {
 	isSensorThermal := isSensor && cell.HintType == "thermal"
 	isSensorVector := isSensor && cell.HintType == "vector"
 
-	if decrypted && !garbled && (isSensorThermal || sess.CellHasHint(r, c, "heatmap")) {
+	if decrypted && !garbled && !isSensorThermal && sess.CellHasHint(r, c, "heatmap") {
 		heatmapClass = heatmapClassForCell(cell)
 	}
 	if decrypted && !garbled && (isSensorVector || sess.CellHasHint(r, c, "vectors")) && cell.Type != puzzle.CellTarget {
 		directionClass = directionClassForCell(r, c, sess.TargetPlacement)
+	}
+
+	// Compute thermal gradient for revealed thermal sensors
+	var thermalStyle string
+	if decrypted && !garbled && isSensorThermal {
+		thermalStyle = thermalGradientStyle(cell.Distance, sess.Grid.Rows, sess.Grid.Cols)
 	}
 
 	return CellData{
@@ -582,6 +590,7 @@ func buildCellData(sess *puzzle.Session, r, c int) CellData {
 		CSSClass:       cssClass,
 		HeatmapClass:   heatmapClass,
 		DirectionClass: directionClass,
+		ThermalStyle:   thermalStyle,
 		IsTrap:         isTrap,
 		IsSensor:       isSensor,
 		SensorType:     cell.HintType,
@@ -732,6 +741,59 @@ func buildCipherAnalysis(sess *puzzle.Session) CipherAnalysisData {
 		ShowFreq:       decryptedCount >= 5,
 	}
 }
+// thermalGradientStyle returns an inline CSS style string that colors a thermal
+// sensor on a blue-to-red gradient based on Manhattan distance to the target.
+// Close to target = red (hue 0°), far away = blue (hue 240°).
+func thermalGradientStyle(distance, gridRows, gridCols int) string {
+	maxDist := float64(gridRows + gridCols - 2)
+	if maxDist <= 0 {
+		maxDist = 1
+	}
+	// heat: 1.0 = on target, 0.0 = maximum distance
+	heat := 1.0 - float64(distance)/maxDist
+	if heat < 0 {
+		heat = 0
+	}
+	if heat > 1 {
+		heat = 1
+	}
+
+	// Interpolate hue: 240° (blue/cold) → 0° (red/hot)
+	hue := (1.0 - heat) * 240.0
+	r, g, b := hslToRGB(hue, 1.0, 0.55)
+
+	return fmt.Sprintf(
+		"color: rgb(%d,%d,%d); background: rgba(%d,%d,%d,0.12); box-shadow: inset 0 0 8px rgba(%d,%d,%d,0.3)",
+		r, g, b, r, g, b, r, g, b,
+	)
+}
+
+// hslToRGB converts HSL (hue 0–360, saturation 0–1, lightness 0–1) to RGB (0–255).
+func hslToRGB(h, s, l float64) (int, int, int) {
+	c := (1 - math.Abs(2*l-1)) * s
+	hPrime := h / 60.0
+	x := c * (1 - math.Abs(math.Mod(hPrime, 2)-1))
+
+	var r1, g1, b1 float64
+	switch {
+	case hPrime < 1:
+		r1, g1, b1 = c, x, 0
+	case hPrime < 2:
+		r1, g1, b1 = x, c, 0
+	case hPrime < 3:
+		r1, g1, b1 = 0, c, x
+	case hPrime < 4:
+		r1, g1, b1 = 0, x, c
+	case hPrime < 5:
+		r1, g1, b1 = x, 0, c
+	default:
+		r1, g1, b1 = c, 0, x
+	}
+
+	m := l - c/2
+	return int((r1 + m) * 255), int((g1 + m) * 255), int((b1 + m) * 255)
+}
+
 // computeSignal returns signal intensity feedback for a cell.
 func computeSignal(cell *puzzle.Cell) SignalData {
 	if cell.Type == puzzle.CellTrap {

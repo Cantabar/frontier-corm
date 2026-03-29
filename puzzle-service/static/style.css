@@ -809,8 +809,8 @@ body {
     background: rgba(0, 255, 255, 0.08);
 }
 .cell--sensor-thermal.cell--revealed {
-    color: var(--accent-blue);
-    background: rgba(0, 170, 255, 0.08);
+    /* color and background driven by inline thermal gradient style */
+    transition: color 0.3s, background 0.3s, box-shadow 0.3s;
 }
 .cell--sensor-vector.cell--revealed {
     color: var(--accent-gold);
