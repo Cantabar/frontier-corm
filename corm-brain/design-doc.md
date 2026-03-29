@@ -62,7 +62,7 @@ puzzle-service (per env)           corm-brain
   - **Guided Cell** — probabilistic (~25% per decrypt, reduced by corruption) system that sends a `guide_cell` action pointing the player toward the target, with distance-aware offset and alternating heatmap/vectors hint types. Immediately streams a directional narration via a dedicated LLM call.
   - **Boost Evaluation** — placeholder for boost targeting based on stability/corruption thresholds.
   - **Phase Transition** — transitions to Phase 2 when stability reaches 100.
-- **Phase 2 Handler** (`internal/reasoning/phase2.go`) — handles contract completion/failure with state syncing. Contract generation logic (inventory reading, LLM-driven type selection, on-chain creation) is outlined but deferred.
+- **Phase 2 Handler** (`internal/reasoning/phase2.go`) — handles contract completion/failure with state syncing. Contract generation triggered by any Phase 2 event (rate-limited per corm). Requires a bound `network_node_id` on events to initialize the on-chain `CormState` and populate the world snapshot.
 
 ### Test Harness
 
@@ -98,6 +98,7 @@ All via environment variables (see `internal/config/config.go`):
 - `WS_RECONNECT_MAX_MS` — max WS reconnect backoff (default: 30000ms)
 - `FALLBACK_POLL_INTERVAL_MS` — HTTP poll interval (default: 2000ms)
 - `ENVIRONMENTS_CONFIG` — path to JSON file for multi-environment setup (optional; falls back to single "default" env from legacy vars)
+- `SEED_CHAIN_DATA` — when `true`, stub chain methods return hardcoded mock data (CORM balance, inventories, SSUs) instead of zeros, enabling contract generation before real SUI integration (default: true)
 
 Per-environment config (in JSON file): `name`, `puzzle_service_url`, `sui_rpc_url`, `sui_private_key_env`, `corm_state_package_id`.
 
@@ -135,6 +136,8 @@ Per-environment config (in JSON file): `name`, `puzzle_service_url`, `sui_rpc_ur
 - Guided cell system with directional narration streaming
 - On-chain state writes (phase transitions, stability/corruption updates)
 - Chain stubs for contract creation, inventory reading, and CORM minting
+- Seed chain data mode (`SEED_CHAIN_DATA`) for development without live SUI
+- Network node binding via `node_bind` event (triggered by puzzle-service Phase 2 UI)
 - Interactive test harness for local development
 
 ## Phase 2 Contract Generation
@@ -154,6 +157,11 @@ CORM amounts are derived from time-to-produce valuations (~100K LUX/hour mining 
 
 ### World State Snapshot (`chain/snapshot.go`)
 Before each contract generation, chain state is fetched in parallel: corm CORM balance, corm SSU inventory, player SSU inventory, network node SSUs. Best-effort — missing data means fewer contract options, not failure.
+
+**Seed mode:** When `SEED_CHAIN_DATA=true` (default in dev), stub methods return hardcoded mock data: 10,000 CORM balance, a small inventory of common items (Crude Mineral, Ferric Ore, Coolant), player items (Refined Crystal, Crude Mineral, Fuel Cell), and one synthetic SSU per node. This unblocks contract generation before real SUI integration.
+
+### Network Node Binding
+Contract generation requires a `network_node_id` on events so the corm can be linked to a CormState on-chain. The puzzle-service Phase 2 UI includes a binding form (`POST /phase2/bind-node`) that stores the node ID on the session and emits a `node_bind` event. For SSU sessions, the node ID is auto-extracted from the session context (`ssu:<entity_id>`). Once bound, all subsequent events carry the `network_node_id`, enabling the corm-brain event processor to resolve/create the CormState and populate the world snapshot.
 
 ### Contract Types (Phase 2)
 - **CoinForItem** — corm pays CORM, wants items from player

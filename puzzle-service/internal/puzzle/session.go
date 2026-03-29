@@ -129,6 +129,9 @@ type Session struct {
 	ElementClickMap     map[string][]time.Time // element_id -> timestamps
 	TransitionThreshold int                    // total clicks to trigger Phase 0 -> 1 (random [3,5])
 
+	// Network node binding (Phase 2+)
+	NetworkNodeID string
+
 	// Corm integration
 	EventBuffer        *corm.RingBuffer
 	ActionChan         chan corm.CormAction
@@ -161,11 +164,11 @@ func seedTestContracts() []Contract {
 }
 
 // NewSession creates a fresh session with the given identity.
-func NewSession(playerAddress, context string) *Session {
-	return &Session{
+func NewSession(playerAddress, sessionContext string) *Session {
+	s := &Session{
 		ID:              generateSessionID(),
 		PlayerAddress:   playerAddress,
-		Context:         context,
+		Context:         sessionContext,
 		Phase:           PhaseAwakening,
 		CreatedAt:       time.Now(),
 		Contracts:       seedTestContracts(),
@@ -179,6 +182,27 @@ func NewSession(playerAddress, context string) *Session {
 		EventBuffer:         corm.NewRingBuffer(256),
 		ActionChan:      make(chan corm.CormAction, 64),
 	}
+
+	// Auto-extract network node from SSU context ("ssu:<entity_id>").
+	if strings.HasPrefix(sessionContext, "ssu:") {
+		s.NetworkNodeID = strings.TrimPrefix(sessionContext, "ssu:")
+	}
+
+	return s
+}
+
+// SetNetworkNodeID binds a network node to this session.
+func (s *Session) SetNetworkNodeID(nodeID string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.NetworkNodeID = nodeID
+}
+
+// GetNetworkNodeID returns the bound network node ID (empty if unbound).
+func (s *Session) GetNetworkNodeID() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.NetworkNodeID
 }
 
 // CellKey returns the map key for a cell coordinate.

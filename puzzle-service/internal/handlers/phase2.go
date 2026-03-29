@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/frontier-corm/puzzle-service/internal/puzzle"
 )
@@ -16,7 +18,8 @@ type Phase2Data struct {
 	ActiveCount       int
 	CompletedPatterns int
 	MetersHidden      bool
-	ShowEntrance      bool // true when loaded via phase transition auto-load
+	ShowEntrance      bool   // true when loaded via phase transition auto-load
+	NetworkNodeID     string // bound network node (empty = show bind form)
 }
 
 // Phase2Transition serves GET /phase2/transition — renders the Phase 2 transition animation.
@@ -64,6 +67,7 @@ func (h *Handlers) Phase2Page(w http.ResponseWriter, r *http.Request) {
 		ActiveCount:       len(active),
 		CompletedPatterns: sess.CompletedPatterns,
 		MetersHidden:      sess.Stability == 0 && sess.Corruption == 0,
+		NetworkNodeID:     sess.GetNetworkNodeID(),
 	}
 
 	if r.URL.Query().Get("transition") == "1" {
@@ -77,4 +81,36 @@ func (h *Handlers) Phase2Page(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.renderTemplate(w, "layout.html", data)
+}
+
+// Phase2BindNode handles POST /phase2/bind-node — binds a network node to the session.
+func (h *Handlers) Phase2BindNode(w http.ResponseWriter, r *http.Request) {
+	sess := getSession(r)
+	if sess == nil {
+		http.Error(w, "no session", http.StatusUnauthorized)
+		return
+	}
+
+	nodeID := strings.TrimSpace(r.FormValue("network_node_id"))
+	if nodeID == "" {
+		http.Error(w, "missing network_node_id", http.StatusBadRequest)
+		return
+	}
+
+	// Store on session
+	sess.SetNetworkNodeID(nodeID)
+
+	// Emit node_bind event to corm-brain
+	payload, _ := json.Marshal(map[string]any{
+		"network_node_id": nodeID,
+	})
+	evt := buildEvent(sess, "node_bind", payload)
+	sess.EventBuffer.Push(evt)
+	go h.relay.BroadcastEvent(evt)
+
+	// Return the bound-node indicator partial (replaces the bind form via HTMX)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	h.templates.ExecuteTemplate(w, "node-bound.html", map[string]string{
+		"NetworkNodeID": nodeID,
+	})
 }

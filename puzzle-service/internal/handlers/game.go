@@ -11,7 +11,6 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/frontier-corm/puzzle-service/internal/corm"
 	"github.com/frontier-corm/puzzle-service/internal/puzzle"
 )
 
@@ -416,15 +415,7 @@ func (h *Handlers) PuzzleDecrypt(w http.ResponseWriter, r *http.Request) {
 				"solve_count":        sess.SolveCount,
 				"incorrect_attempts": sess.IncorrectAttempts,
 			})
-			submitEvt := corm.CormEvent{
-				Type:          "event",
-				SessionID:     sess.ID,
-				PlayerAddress: sess.PlayerAddress,
-				Context:       sess.Context,
-				EventType:     "submit",
-				Payload:       submitPayload,
-				Timestamp:     time.Now(),
-			}
+			submitEvt := buildEvent(sess, "submit", submitPayload)
 			sess.EventBuffer.Push(submitEvt)
 			go h.relay.BroadcastEvent(submitEvt)
 
@@ -434,15 +425,7 @@ func (h *Handlers) PuzzleDecrypt(w http.ResponseWriter, r *http.Request) {
 					"from": 1,
 					"to":   2,
 				})
-				transEvt := corm.CormEvent{
-					Type:          "event",
-					SessionID:     sess.ID,
-					PlayerAddress: sess.PlayerAddress,
-					Context:       sess.Context,
-					EventType:     "phase_transition",
-					Payload:       transPayload,
-					Timestamp:     time.Now(),
-				}
+			transEvt := buildEvent(sess, "phase_transition", transPayload)
 				sess.EventBuffer.Push(transEvt)
 				go h.relay.BroadcastEvent(transEvt)
 			}
@@ -575,15 +558,7 @@ func emitDecryptEvent(h *Handlers, sess *puzzle.Session, row, col int, cell *puz
 		evtPayload["trap_moves"] = trapMoves
 	}
 	payload, _ := json.Marshal(evtPayload)
-	evt := corm.CormEvent{
-		Type:          "event",
-		SessionID:     sess.ID,
-		PlayerAddress: sess.PlayerAddress,
-		Context:       sess.Context,
-		EventType:     "decrypt",
-		Payload:       payload,
-		Timestamp:     time.Now(),
-	}
+	evt := buildEvent(sess, "decrypt", payload)
 	sess.EventBuffer.Push(evt)
 	go h.relay.BroadcastEvent(evt)
 }
@@ -680,15 +655,7 @@ func (h *Handlers) PuzzleSubmit(w http.ResponseWriter, r *http.Request) {
 		"solve_count":        sess.SolveCount,
 		"incorrect_attempts": sess.IncorrectAttempts,
 	})
-	evt := corm.CormEvent{
-		Type:          "event",
-		SessionID:     sess.ID,
-		PlayerAddress: sess.PlayerAddress,
-		Context:       sess.Context,
-		EventType:     "submit",
-		Payload:       payload,
-		Timestamp:     time.Now(),
-	}
+	evt := buildEvent(sess, "submit", payload)
 	sess.EventBuffer.Push(evt)
 	go h.relay.BroadcastEvent(evt)
 

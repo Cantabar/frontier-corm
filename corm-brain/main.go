@@ -54,7 +54,11 @@ func main() {
 	// --- Per-environment chain clients ---
 	chainClients := make(map[string]*chain.Client, len(cfg.Environments))
 	for _, env := range cfg.Environments {
-		chainClients[env.Name] = chain.NewClient(env.SUIRpcURL, env.CormStatePackageID, env.SUIPrivateKey)
+		c := chain.NewClient(env.SUIRpcURL, env.CormStatePackageID, env.SUIPrivateKey)
+		if cfg.SeedChainData {
+			c.SetSeedMode(true)
+		}
+		chainClients[env.Name] = c
 		log.Printf("chain client initialized for environment %q", env.Name)
 	}
 

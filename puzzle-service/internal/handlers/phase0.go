@@ -5,9 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"time"
 
-	"github.com/frontier-corm/puzzle-service/internal/corm"
 	"github.com/frontier-corm/puzzle-service/internal/puzzle"
 )
 
@@ -58,30 +56,14 @@ func (h *Handlers) Phase0Interact(w http.ResponseWriter, r *http.Request) {
 		"transition":  transition,
 	})
 
-	evt := corm.CormEvent{
-		Type:          "event",
-		SessionID:     sess.ID,
-		PlayerAddress: sess.PlayerAddress,
-		Context:       sess.Context,
-		EventType:     "click",
-		Payload:       payload,
-		Timestamp:     time.Now(),
-	}
+	evt := buildEvent(sess, "click", payload)
 	sess.EventBuffer.Push(evt)
 	go h.relay.BroadcastEvent(evt)
 
 	if transition {
 		// Emit phase transition event
 		transPayload, _ := json.Marshal(map[string]string{"from": "0", "to": "1"})
-		transEvt := corm.CormEvent{
-			Type:          "event",
-			SessionID:     sess.ID,
-			PlayerAddress: sess.PlayerAddress,
-			Context:       sess.Context,
-			EventType:     "phase_transition",
-			Payload:       transPayload,
-			Timestamp:     time.Now(),
-		}
+		transEvt := buildEvent(sess, "phase_transition", transPayload)
 		sess.EventBuffer.Push(transEvt)
 		go h.relay.BroadcastEvent(transEvt)
 

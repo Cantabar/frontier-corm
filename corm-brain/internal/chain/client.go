@@ -14,6 +14,7 @@ type Client struct {
 	rpcURL    string
 	packageID string
 	signer    *Signer
+	seedMode  bool // when true, stub methods return mock data
 }
 
 // NewClient creates a SUI chain client.
@@ -30,6 +31,14 @@ func NewClient(rpcURL, packageID, privateKey string) *Client {
 		rpcURL:    rpcURL,
 		packageID: packageID,
 		signer:    signer,
+	}
+}
+
+// SetSeedMode enables or disables seed data for stub chain methods.
+func (c *Client) SetSeedMode(enabled bool) {
+	c.seedMode = enabled
+	if enabled {
+		log.Println("chain: seed mode ENABLED — stub methods return mock data")
 	}
 }
 

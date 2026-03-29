@@ -1934,6 +1934,95 @@ body {
     box-shadow: 0 0 10px rgba(0, 255, 136, 0.2);
 }
 
+/* Network node binding */
+.phase2-node-bind {
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--border);
+}
+
+.phase2-bind-form {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.phase2-bind-label {
+    font-size: 0.7rem;
+    color: var(--accent-orange);
+    letter-spacing: 0.12em;
+}
+
+.phase2-bind-row {
+    display: flex;
+    gap: 8px;
+}
+
+.phase2-bind-input {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text-bright);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    padding: 6px 10px;
+    letter-spacing: 0.05em;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.phase2-bind-input:focus {
+    border-color: var(--accent-cyan);
+}
+
+.phase2-bind-input::placeholder {
+    color: var(--text-dim);
+}
+
+.phase2-bind-btn {
+    background: transparent;
+    border: 1px solid var(--accent-cyan);
+    color: var(--accent-cyan);
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    padding: 6px 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.phase2-bind-btn:hover {
+    background: rgba(0, 212, 255, 0.1);
+    box-shadow: 0 0 8px rgba(0, 212, 255, 0.2);
+}
+
+.phase2-bind-hint {
+    font-size: 0.6rem;
+    color: var(--text-dim);
+    letter-spacing: 0.08em;
+}
+
+.phase2-node-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+}
+
+.phase2-node-label {
+    color: var(--text-dim);
+}
+
+.phase2-node-id {
+    color: var(--accent-cyan);
+    font-size: 0.72rem;
+}
+
+.phase2-node-linked {
+    color: var(--accent-green);
+    font-size: 0.6rem;
+}
+
 /* Empty state */
 .phase2-empty {
     display: flex;

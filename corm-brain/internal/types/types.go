@@ -31,6 +31,7 @@ const (
 	EventContractFailed   = "contract_failed"
 	EventPurge            = "purge"
 	EventPhaseTransition  = "phase_transition"
+	EventNodeBind         = "node_bind"
 )
 
 // Significance returns a priority score for the event type.

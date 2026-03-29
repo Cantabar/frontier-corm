@@ -11,6 +11,28 @@
         </div>
     </div>
 
+    <!-- Network node binding -->
+    <div id="phase2-node-bind" class="phase2-node-bind">
+        {{if .NetworkNodeID}}
+            {{template "node-bound.html" .}}
+        {{else}}
+            <form class="phase2-bind-form"
+                  hx-post="/phase2/bind-node"
+                  hx-target="#phase2-node-bind"
+                  hx-swap="innerHTML">
+                <label class="phase2-bind-label">&gt; NETWORK NODE REQUIRED</label>
+                <div class="phase2-bind-row">
+                    <input type="text" name="network_node_id"
+                           class="phase2-bind-input"
+                           placeholder="enter network node ID"
+                           required />
+                    <button type="submit" class="phase2-bind-btn">BIND</button>
+                </div>
+                <div class="phase2-bind-hint">link to a network node to enable directive generation</div>
+            </form>
+        {{end}}
+    </div>
+
     <!-- Contract cards (SSE appends here) -->
     <div id="phase2-contracts" class="phase2-contracts">
         {{range .Contracts}}

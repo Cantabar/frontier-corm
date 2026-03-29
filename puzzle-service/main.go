@@ -43,6 +43,7 @@ func main() {
 		PuzzleGrid:       h.PuzzleGrid,
 		Phase2Transition: h.Phase2Transition,
 		Phase2Page:       h.Phase2Page,
+		Phase2BindNode:   h.Phase2BindNode,
 		Stream:           h.Stream,
 		Status:           h.Status,
 		ContractsPage:    h.ContractsPage,

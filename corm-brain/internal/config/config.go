@@ -78,6 +78,10 @@ type Config struct {
 	// Contract generation cooldown (min time between generation attempts per corm)
 	ContractGenerationCooldown time.Duration
 
+	// Seed chain data: when true, stub chain methods return hardcoded mock data
+	// instead of zeros. Enables contract generation before real SUI integration.
+	SeedChainData bool
+
 	// Database (shared)
 	DatabaseURL string
 
@@ -112,6 +116,7 @@ func Load() Config {
 		CORMPerLUX:                 envFloat("CORM_PER_LUX", 1.0),
 		CORMFloorPerUnit:           uint64(envInt("CORM_FLOOR_PER_UNIT", 10)),
 		ContractGenerationCooldown: envDurationMs("CONTRACT_GENERATION_COOLDOWN_MS", 30000),
+		SeedChainData:              envBool("SEED_CHAIN_DATA", true),
 		DatabaseURL:                envOrDefault("DATABASE_URL", "postgresql://corm:corm@localhost:5432/frontier_corm"),
 	}
 

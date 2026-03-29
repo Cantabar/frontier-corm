@@ -97,6 +97,9 @@ func BuildSnapshot(ctx context.Context, client *Client, cormID, playerAddr, netw
 // GetCORMBalance reads the corm's CORM token balance.
 // TODO: Implement via suiclient.GetBalance for Coin<CORM>.
 func (c *Client) GetCORMBalance(ctx context.Context, cormID string) (uint64, error) {
+	if c.seedMode {
+		return 10000, nil
+	}
 	log.Printf("chain: stub GetCORMBalance for corm %s", cormID)
 	return 0, nil
 }
@@ -104,6 +107,13 @@ func (c *Client) GetCORMBalance(ctx context.Context, cormID string) (uint64, err
 // GetCormInventory reads items held in the corm's SSU inventory.
 // TODO: Implement via suiclient.GetOwnedObjects + GetDynamicFields.
 func (c *Client) GetCormInventory(ctx context.Context, cormID string) ([]InventoryItem, error) {
+	if c.seedMode {
+		return []InventoryItem{
+			{TypeID: "77518", TypeName: "Crude Mineral", Amount: 500},
+			{TypeID: "77523", TypeName: "Ferric Ore", Amount: 300},
+			{TypeID: "77531", TypeName: "Coolant", Amount: 200},
+		}, nil
+	}
 	log.Printf("chain: stub GetCormInventory for corm %s", cormID)
 	return nil, nil
 }
@@ -111,6 +121,11 @@ func (c *Client) GetCormInventory(ctx context.Context, cormID string) ([]Invento
 // GetNodeSSUs returns SSUs belonging to a network node.
 // TODO: Implement via suiclient.GetOwnedObjects filtered by network node.
 func (c *Client) GetNodeSSUs(ctx context.Context, networkNodeID string) ([]SSUInfo, error) {
+	if c.seedMode {
+		return []SSUInfo{
+			{ObjectID: "seed_ssu_" + networkNodeID, OwnerAddr: "0xseed"},
+		}, nil
+	}
 	log.Printf("chain: stub GetNodeSSUs for node %s", networkNodeID)
 	return nil, nil
 }

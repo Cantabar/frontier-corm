@@ -15,6 +15,13 @@ type InventoryItem struct {
 // GetPlayerInventory reads a player's SSU inventory items and balances.
 // TODO: Implement via suiclient.GetOwnedObjects + GetDynamicFields.
 func (c *Client) GetPlayerInventory(ctx context.Context, playerAddress string) ([]InventoryItem, error) {
+	if c.seedMode {
+		return []InventoryItem{
+			{TypeID: "77525", TypeName: "Refined Crystal", Amount: 150},
+			{TypeID: "77518", TypeName: "Crude Mineral", Amount: 800},
+			{TypeID: "77540", TypeName: "Fuel Cell", Amount: 50},
+		}, nil
+	}
 	log.Printf("chain: stub GetPlayerInventory for %s", playerAddress)
 	return nil, nil
 }

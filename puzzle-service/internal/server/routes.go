@@ -20,6 +20,7 @@ type GameHandlers struct {
 	PuzzleGrid       http.HandlerFunc
 	Phase2Transition http.HandlerFunc
 	Phase2Page       http.HandlerFunc
+	Phase2BindNode   http.HandlerFunc
 	Stream           http.HandlerFunc
 	Status           http.HandlerFunc
 	ContractsPage    http.HandlerFunc
@@ -64,6 +65,7 @@ func registerGameRoutes(mux *http.ServeMux, gh GameHandlers, prefix string) {
 	// Phase 2 (contracts)
 	mux.HandleFunc("GET "+prefix+"/phase2/transition", gh.Phase2Transition)
 	mux.HandleFunc("GET "+prefix+"/phase2", gh.Phase2Page)
+	mux.HandleFunc("POST "+prefix+"/phase2/bind-node", gh.Phase2BindNode)
 
 	// SSE stream
 	mux.HandleFunc("GET "+prefix+"/stream", gh.Stream)
