@@ -11,18 +11,12 @@ import (
 	"github.com/frontier-corm/puzzle-service/internal/corm"
 	"github.com/frontier-corm/puzzle-service/internal/handlers"
 	"github.com/frontier-corm/puzzle-service/internal/puzzle"
-	"github.com/frontier-corm/puzzle-service/internal/words"
 )
 
 // testFS embeds templates for testing (must match main.go pattern)
 // We use the actual template files via a test helper.
 func setupHandlers(t *testing.T) (*handlers.Handlers, *puzzle.SessionStore) {
 	t.Helper()
-
-	archive, err := words.LoadArchive()
-	if err != nil {
-		t.Fatalf("failed to load archive: %v", err)
-	}
 
 	store := puzzle.NewSessionStore()
 	adapter := &puzzle.SessionStoreAdapter{Store: store}
@@ -32,13 +26,11 @@ func setupHandlers(t *testing.T) (*handlers.Handlers, *puzzle.SessionStore) {
 	// by calling methods directly rather than through HTTP with templates.
 	// For integration tests that need templates, use the full server.
 	_ = relay
-	_ = archive
 
 	return nil, store // Templates can't be loaded in test package easily
 }
 
 func TestHealthEndpoint(t *testing.T) {
-	archive, _ := words.LoadArchive()
 	store := puzzle.NewSessionStore()
 	adapter := &puzzle.SessionStoreAdapter{Store: store}
 	relay := corm.NewRelay(adapter)
@@ -57,7 +49,6 @@ func TestHealthEndpoint(t *testing.T) {
 	if !strings.Contains(body, `"status":"ok"`) {
 		t.Errorf("expected ok status in body: %s", body)
 	}
-	_ = archive
 }
 
 // healthOnly is a minimal handler that only needs relay for health check.
@@ -127,7 +118,6 @@ func TestSessionCheckWord(t *testing.T) {
 }
 
 func TestStatusEndpoint(t *testing.T) {
-	archive, _ := words.LoadArchive()
 	store := puzzle.NewSessionStore()
 	adapter := &puzzle.SessionStoreAdapter{Store: store}
 	relay := corm.NewRelay(adapter)
@@ -143,7 +133,6 @@ func TestStatusEndpoint(t *testing.T) {
 	req = req.WithContext(ctx)
 
 	_ = relay
-	_ = archive
 
 	if sess.Stability != 42 {
 		t.Error("stability not set correctly")
@@ -165,28 +154,23 @@ func TestPhase0InteractEventBuffer(t *testing.T) {
 }
 
 func TestPuzzleSubmitFlow(t *testing.T) {
-	archive, err := words.LoadArchive()
-	if err != nil {
-		t.Fatalf("failed to load archive: %v", err)
-	}
-
 	sess := puzzle.NewSession("0xtest", "browser")
 
 	// Generate a puzzle
-	pz, err := puzzle.Generate(archive, 0, nil)
+	pz, err := puzzle.Generate(0, nil)
 	if err != nil {
 		t.Fatalf("puzzle generation failed: %v", err)
 	}
 	sess.LoadPuzzle(pz)
 
-	// Test correct word
+	// Test correct word (SUI address)
 	if !sess.CheckWord(pz.TargetWord) {
-		t.Error("expected correct word to match")
+		t.Error("expected correct address to match")
 	}
 
 	// Test wrong word
-	if sess.CheckWord("XYZNOTAWORD") {
-		t.Error("expected wrong word to not match")
+	if sess.CheckWord("0xwrongaddr1") {
+		t.Error("expected wrong address to not match")
 	}
 }
 
@@ -207,14 +191,9 @@ func TestDecryptFormValues(t *testing.T) {
 	}
 }
 
-func TestDecryptTrapCell(t *testing.T) {
-	archive, err := words.LoadArchive()
-	if err != nil {
-		t.Fatalf("failed to load archive: %v", err)
-	}
-
+func TestDecryptTrapCellExplosion(t *testing.T) {
 	sess := puzzle.NewSession("0xtest", "browser")
-	pz, err := puzzle.Generate(archive, 0, nil)
+	pz, err := puzzle.Generate(0, nil)
 	if err != nil {
 		t.Fatalf("puzzle generation failed: %v", err)
 	}
@@ -240,17 +219,24 @@ func TestDecryptTrapCell(t *testing.T) {
 		t.Skip("no trap cell found in generated puzzle")
 	}
 
-	initialCorruption := sess.Corruption
-	sess.DecryptCell(trapRow, trapCol)
-
-	// Simulate what PuzzleDecrypt does for traps
-	cell := &pz.Grid.Cells[trapRow][trapCol]
-	if cell.Type == puzzle.CellTrap {
-		sess.Corruption = min(100, sess.Corruption+25)
+	// Simulate trap explosion — garble cells in radius 3
+	garbled := puzzle.CellsInRadius(pz.Grid, trapRow, trapCol, 3.0)
+	for _, gc := range garbled {
+		key := puzzle.CellKey(gc.Row, gc.Col)
+		gcell := &pz.Grid.Cells[gc.Row][gc.Col]
+		gcell.IsGarbled = true
+		gcell.Type = puzzle.CellGarbled
+		sess.GarbledCells[key] = true
 	}
 
-	if sess.Corruption != initialCorruption+25 {
-		t.Errorf("expected corruption to increase by 25, got %d (was %d)", sess.Corruption, initialCorruption)
+	// Verify garbled cells exist
+	if len(sess.GarbledCells) == 0 {
+		t.Error("expected garbled cells after trap explosion")
+	}
+
+	// Verify corruption was NOT increased (new behavior)
+	if sess.Corruption != 0 {
+		t.Errorf("expected corruption to remain 0 after trap explosion, got %d", sess.Corruption)
 	}
 }
 
@@ -310,11 +296,7 @@ func TestVectorsThreshold(t *testing.T) {
 	}
 
 	// LoadPuzzle should reset
-	archive, err := words.LoadArchive()
-	if err != nil {
-		t.Fatalf("failed to load archive: %v", err)
-	}
-	pz, err := puzzle.Generate(archive, 0, nil)
+	pz, err := puzzle.Generate(0, nil)
 	if err != nil {
 		t.Fatalf("puzzle generation failed: %v", err)
 	}

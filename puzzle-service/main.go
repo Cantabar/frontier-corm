@@ -10,7 +10,6 @@ import (
 	"github.com/frontier-corm/puzzle-service/internal/handlers"
 	"github.com/frontier-corm/puzzle-service/internal/puzzle"
 	"github.com/frontier-corm/puzzle-service/internal/server"
-	"github.com/frontier-corm/puzzle-service/internal/words"
 )
 
 //go:embed internal/templates/*.html
@@ -25,20 +24,13 @@ func main() {
 		port = "3300"
 	}
 
-	// Load word list
-	archive, err := words.LoadArchive()
-	if err != nil {
-		log.Fatalf("failed to load word archive: %v", err)
-	}
-	log.Printf("loaded %d archive words", archive.Len())
-
 	// Initialize stores
 	sessionStore := puzzle.NewSessionStore()
 	adapter := &puzzle.SessionStoreAdapter{Store: sessionStore}
 	relay := corm.NewRelay(adapter)
 
 	// Initialize handlers
-	h := handlers.New(templateFS, archive, sessionStore, relay)
+	h := handlers.New(templateFS, sessionStore, relay)
 
 	// Build router
 	gh := server.GameHandlers{

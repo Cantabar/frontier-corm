@@ -21,6 +21,15 @@
                     <div class="signal-label">OFFLINE</div>
                     <div class="signal-bar"><div class="signal-fill" style="width:0%"></div></div>
                 </div>
+                <div class="stat-block legend">
+                    <div style="font-size: 0.55em; color: #6a6a7a;">&gt; NODE KEY:</div>
+                    <div style="font-size: 0.5em; margin-top: 4px; line-height: 1.8;">
+                        <span style="color: #00ffff;">[S]</span> <span style="color: #6a6a7a;">SONAR</span><br>
+                        <span style="color: #00aaff;">[T]</span> <span style="color: #6a6a7a;">THERMAL</span><br>
+                        <span style="color: #ffb400;">[V]</span> <span style="color: #6a6a7a;">VECTOR</span><br>
+                        <span style="color: #ff4444;">&#9632;</span> <span style="color: #6a6a7a;">ANOMALY</span>
+                    </div>
+                </div>
             </aside>
 
             <!-- Main content: swappable between phases -->
@@ -312,6 +321,58 @@
                 }
             }).observe(container, { childList: true, subtree: true });
         }
+    })();
+
+    // === Pulse animation system ===
+    // Reads JSON from #pulse-data (OOB-swapped by server) and applies
+    // temporary CSS pulse classes to cells.
+    (function() {
+        var pulseEl = document.getElementById('pulse-data');
+        if (!pulseEl) return;
+
+        function firePulse(cells) {
+            cells.forEach(function(entry) {
+                var cell = document.getElementById('cell-' + entry.row + '-' + entry.col);
+                if (!cell) return;
+                var cls = 'cell--pulse-' + entry.color;
+                cell.classList.remove(cls); // reset if already pulsing
+                void cell.offsetWidth; // force reflow
+                cell.classList.add(cls);
+                setTimeout(function() { cell.classList.remove(cls); }, 1000);
+            });
+        }
+
+        new MutationObserver(function() {
+            var raw = pulseEl.textContent.trim();
+            if (!raw) return;
+
+            // Check for game-over signal
+            if (pulseEl.hasAttribute('data-game-over')) {
+                var log = document.getElementById('corm-log');
+                if (log) {
+                    var el = document.createElement('div');
+                    el.className = 'boot-line boot-line--fail';
+                    el.textContent = '[FATAL] Target vector lost in anomaly breach.';
+                    log.appendChild(el);
+                }
+                pulseEl.textContent = '';
+                pulseEl.removeAttribute('data-game-over');
+                return;
+            }
+
+            try {
+                var data = JSON.parse(raw);
+                var count = data.pulseCount || 1;
+                var interval = data.pulseInterval || 0;
+                firePulse(data.cells);
+                for (var i = 1; i < count; i++) {
+                    (function(cells, delay) {
+                        setTimeout(function() { firePulse(cells); }, delay);
+                    })(data.cells, interval * i);
+                }
+            } catch(e) { /* ignore parse errors */ }
+            pulseEl.textContent = '';
+        }).observe(pulseEl, { childList: true, characterData: true, subtree: true });
     })();
 
     // Listen for on-chain state updates from the parent React app.

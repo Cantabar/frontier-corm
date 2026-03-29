@@ -25,6 +25,25 @@ type CellData struct {
 	HeatmapClass   string // distance-based coloring
 	DirectionClass string // directional indicator toward target
 	IsTrap         bool
+	IsSensor       bool
+	SensorType     string // "sonar", "thermal", "vector"
+	IsGarbled      bool
+	IsAddress      bool   // part of target or decoy address
+	PulseColor     string // color class for pulse JS system
+}
+
+// PulseEntry is one cell in a pulse response.
+type PulseEntry struct {
+	Row   int    `json:"row"`
+	Col   int    `json:"col"`
+	Color string `json:"color"`
+}
+
+// PulseData is the JSON payload for client-side pulse animation.
+type PulseData struct {
+	Cells         []PulseEntry `json:"cells"`
+	PulseCount    int          `json:"pulseCount"`
+	PulseInterval int          `json:"pulseInterval"` // ms between pulses
 }
 
 // SignalData holds signal intensity feedback for a single decrypt.
@@ -86,7 +105,7 @@ func (h *Handlers) PuzzlePage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Generate puzzle
-	gen, err := puzzle.Generate(h.archive, sess.SolveCount, sess.PendingDifficulty)
+	gen, err := puzzle.Generate(sess.SolveCount, sess.PendingDifficulty)
 	if err != nil {
 		http.Error(w, "puzzle generation failed", http.StatusInternalServerError)
 		return
@@ -136,6 +155,12 @@ func (h *Handlers) PuzzleDecrypt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Reject clicks on garbled cells
+	if sess.GarbledCells[puzzle.CellKey(row, col)] {
+		http.Error(w, "cell garbled", http.StatusBadRequest)
+		return
+	}
+
 	// Snapshot the previous decrypt position BEFORE DecryptCell updates it.
 	var prevDecrypt *puzzle.CellCoord
 	if sess.LastDecrypt != nil {
@@ -146,15 +171,91 @@ func (h *Handlers) PuzzleDecrypt(w http.ResponseWriter, r *http.Request) {
 	// Snapshot whether a guided cell is active BEFORE CheckGuidedCell clears it.
 	guidedCellWasActive := sess.GuidedCell != nil
 
-	isNew := sess.DecryptCell(row, col)
-
 	cell := &sess.Grid.Cells[row][col]
-
-	// Trap corruption spike
 	isTrap := cell.Type == puzzle.CellTrap
-	if isNew && isTrap {
-		sess.Corruption = min(100, sess.Corruption+25)
+	isSonarSensor := cell.Type == puzzle.CellSensor && cell.HintType == "sonar"
+	isAddress := cell.StringID != ""
+	isTargetAddress := cell.StringID == "target_main"
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+
+	// --- Trap explosion: garble all cells in radius 3 ---
+	if isTrap {
+		sess.DecryptCell(row, col)
+		garbled := puzzle.CellsInRadius(sess.Grid, row, col, 3.0)
+		targetDestroyed := false
+		for _, gc := range garbled {
+			key := puzzle.CellKey(gc.Row, gc.Col)
+			gcell := &sess.Grid.Cells[gc.Row][gc.Col]
+			if gcell.StringID == "target_main" {
+				targetDestroyed = true
+			}
+			gcell.IsGarbled = true
+			gcell.Type = puzzle.CellGarbled
+			gcell.Decrypted = true
+			sess.DecryptedCells[key] = true
+			sess.GarbledCells[key] = true
+		}
+		sess.TargetDestroyed = targetDestroyed
+
+		// Return OOB swaps for all garbled cells
+		for _, gc := range garbled {
+			h.templates.ExecuteTemplate(w, "cell.html", buildCellData(sess, gc.Row, gc.Col))
+		}
+		analysis := buildCipherAnalysis(sess)
+		analysis.SwapOOB = true
+		h.templates.ExecuteTemplate(w, "cipher-analysis.html", analysis)
+
+		if targetDestroyed {
+			fmt.Fprintf(w, `<div id="pulse-data" hx-swap-oob="innerHTML" data-game-over="true"></div>`)
+		} else {
+			// Emit pulse data for the explosion radius (visual feedback)
+			writePulseData(w, sess, row, col, 3.0, 1, 0)
+		}
+
+		emitDecryptEvent(h, sess, row, col, cell, isTrap, prevDecrypt, guidedCellWasActive, false)
+		return
 	}
+
+	// --- Address reveal: clicking any cell reveals the entire address ---
+	if isAddress {
+		// Reveal all cells with the same StringID
+		for rr := range sess.Grid.Cells {
+			for cc := range sess.Grid.Cells[rr] {
+				if sess.Grid.Cells[rr][cc].StringID == cell.StringID {
+					sess.DecryptCell(rr, cc)
+				}
+			}
+		}
+
+		// Return OOB swaps for all cells in the address
+		for rr := range sess.Grid.Cells {
+			for cc := range sess.Grid.Cells[rr] {
+				if sess.Grid.Cells[rr][cc].StringID == cell.StringID {
+					h.templates.ExecuteTemplate(w, "cell.html", buildCellData(sess, rr, cc))
+				}
+			}
+		}
+		analysis := buildCipherAnalysis(sess)
+		analysis.SwapOOB = true
+		h.templates.ExecuteTemplate(w, "cipher-analysis.html", analysis)
+
+		// Localized pulse (radius 2) from the clicked cell
+		writePulseData(w, sess, row, col, 2.0, 1, 0)
+
+		emitDecryptEvent(h, sess, row, col, cell, false, prevDecrypt, guidedCellWasActive, false)
+
+		// Auto-win if target address
+		if isTargetAddress {
+			fmt.Fprintf(w, `<div id="auto-win" hx-swap-oob="afterbegin:#corm-log">`+
+				`<div class="boot-line boot-line--correct">✓ TARGET ADDRESS ISOLATED: %s</div>`+
+				`</div>`, sess.TargetWord)
+		}
+		return
+	}
+
+	// --- Normal cell decrypt ---
+	isNew := sess.DecryptCell(row, col)
 
 	// Check if player hit the AI-guided cell
 	guidedHit := false
@@ -169,56 +270,90 @@ func (h *Handlers) PuzzleDecrypt(w http.ResponseWriter, r *http.Request) {
 	analysis := buildCipherAnalysis(sess)
 	analysis.SwapOOB = true
 
-	// Emit decrypt event to corm-brain
-	if isNew {
-		evtPayload := map[string]any{
-			"row":                row,
-			"col":                col,
-			"is_word":            cell.IsWord,
-			"is_trap":            isTrap,
-			"distance":           cell.Distance,
-			"plaintext":          string(cell.Plaintext),
-			"guided_cell_active": guidedCellWasActive,
-			"guided_cell_reached": guidedHit,
-		}
-		if prevDecrypt != nil {
-			evtPayload["last_decrypt"] = map[string]int{
-				"row": prevDecrypt.Row,
-				"col": prevDecrypt.Col,
-			}
-		}
-		payload, _ := json.Marshal(evtPayload)
-		evt := corm.CormEvent{
-			Type:          "event",
-			SessionID:     sess.ID,
-			PlayerAddress: sess.PlayerAddress,
-			Context:       sess.Context,
-			EventType:     "decrypt",
-			Payload:       payload,
-			Timestamp:     time.Now(),
-		}
-		sess.EventBuffer.Push(evt)
-		go h.relay.BroadcastEvent(evt)
+	h.templates.ExecuteTemplate(w, "cell.html", cellData)
+	h.templates.ExecuteTemplate(w, "cipher-analysis.html", analysis)
+
+	// Sonar sensor: triple pulse (radius 5, 3 iterations at 1s intervals)
+	if isSonarSensor {
+		writePulseData(w, sess, row, col, 5.0, 3, 1000)
+	} else {
+		// Localized pulse (radius 2) on every decrypt
+		writePulseData(w, sess, row, col, 2.0, 1, 0)
 	}
 
-	// If signal hint is active, return composite response with OOB signal meter update
+	// If signal hint is active, return OOB signal meter update
 	if sess.CellHasHint(row, col, "signal") {
 		sig := computeSignal(cell)
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		h.templates.ExecuteTemplate(w, "cell.html", cellData)
-		h.templates.ExecuteTemplate(w, "cipher-analysis.html", analysis)
 		fmt.Fprintf(w, `<div id="signal-meter" hx-swap-oob="innerHTML">`+
 			`<div class="signal-label">%s</div>`+
 			`<div class="signal-bar"><div class="signal-fill signal-fill--%s" style="width:%d%%"></div></div>`+
 			`</div>`, sig.Label, sig.CSS, sig.Percent)
-		return
 	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	h.templates.ExecuteTemplate(w, "cell.html", cellData)
-	h.templates.ExecuteTemplate(w, "cipher-analysis.html", analysis)
+
+	emitDecryptEvent(h, sess, row, col, cell, false, prevDecrypt, guidedCellWasActive, guidedHit)
 }
 
-// PuzzleGrid handles GET /puzzle/grid — re-renders just the grid partial.
+// writePulseData writes the OOB pulse-data div with JSON for client-side pulse animation.
+func writePulseData(w http.ResponseWriter, sess *puzzle.Session, centerRow, centerCol int, radius float64, pulseCount, pulseInterval int) {
+	cells := puzzle.CellsInRadius(sess.Grid, centerRow, centerCol, radius)
+	var entries []PulseEntry
+	for _, coord := range cells {
+		key := puzzle.CellKey(coord.Row, coord.Col)
+		// Only pulse unrevealed, non-garbled cells
+		if sess.DecryptedCells[key] || sess.GarbledCells[key] {
+			continue
+		}
+		cell := &sess.Grid.Cells[coord.Row][coord.Col]
+		entries = append(entries, PulseEntry{
+			Row:   coord.Row,
+			Col:   coord.Col,
+			Color: puzzle.PulseColorForCell(cell),
+		})
+	}
+	if len(entries) == 0 {
+		return
+	}
+	pd := PulseData{Cells: entries, PulseCount: pulseCount, PulseInterval: pulseInterval}
+	pulseJSON, _ := json.Marshal(pd)
+	fmt.Fprintf(w, `<div id="pulse-data" hx-swap-oob="innerHTML">%s</div>`, string(pulseJSON))
+}
+
+// emitDecryptEvent sends a decrypt event to corm-brain.
+func emitDecryptEvent(h *Handlers, sess *puzzle.Session, row, col int, cell *puzzle.Cell, isTrap bool, prevDecrypt *puzzle.CellCoord, guidedCellWasActive, guidedHit bool) {
+	evtPayload := map[string]any{
+		"row":                 row,
+		"col":                 col,
+		"is_word":             cell.IsWord,
+		"is_trap":             isTrap,
+		"is_sensor":           cell.Type == puzzle.CellSensor,
+		"sensor_type":         cell.HintType,
+		"string_id":           cell.StringID,
+		"distance":            cell.Distance,
+		"plaintext":           string(cell.Plaintext),
+		"guided_cell_active":  guidedCellWasActive,
+		"guided_cell_reached": guidedHit,
+	}
+	if prevDecrypt != nil {
+		evtPayload["last_decrypt"] = map[string]int{
+			"row": prevDecrypt.Row,
+			"col": prevDecrypt.Col,
+		}
+	}
+	payload, _ := json.Marshal(evtPayload)
+	evt := corm.CormEvent{
+		Type:          "event",
+		SessionID:     sess.ID,
+		PlayerAddress: sess.PlayerAddress,
+		Context:       sess.Context,
+		EventType:     "decrypt",
+		Payload:       payload,
+		Timestamp:     time.Now(),
+	}
+	sess.EventBuffer.Push(evt)
+	go h.relay.BroadcastEvent(evt)
+}
+
+// PuzzleGrid handles GET /puzzle/grid
 func (h *Handlers) PuzzleGrid(w http.ResponseWriter, r *http.Request) {
 	sess := getSession(r)
 	if sess == nil {
@@ -339,11 +474,16 @@ func buildPuzzleData(sess *puzzle.Session) PuzzleData {
 // buildCellData produces template data for a single cell, including hint classes.
 func buildCellData(sess *puzzle.Session, r, c int) CellData {
 	cell := &sess.Grid.Cells[r][c]
-	decrypted := sess.DecryptedCells[puzzle.CellKey(r, c)]
+	key := puzzle.CellKey(r, c)
+	decrypted := sess.DecryptedCells[key]
+	garbled := sess.GarbledCells[key]
 
 	ch := string(cell.Encrypted)
 	cssClass := "cell--encrypted"
-	if decrypted {
+	if garbled {
+		cssClass = "cell--garbled"
+		ch = "" // garbled cells render via CSS animation
+	} else if decrypted {
 		if sess.Hints.Decode {
 			ch = string(cell.Plaintext)
 		}
@@ -351,12 +491,14 @@ func buildCellData(sess *puzzle.Session, r, c int) CellData {
 	}
 
 	var heatmapClass, directionClass string
-	isTrap := cell.Type == puzzle.CellTrap
+	isTrap := cell.Type == puzzle.CellTrap || cell.Type == puzzle.CellGarbled
+	isSensor := cell.Type == puzzle.CellSensor
+	isAddress := cell.StringID != ""
 
-	if decrypted && sess.CellHasHint(r, c, "heatmap") {
+	if decrypted && !garbled && sess.CellHasHint(r, c, "heatmap") {
 		heatmapClass = heatmapClassForCell(cell)
 	}
-	if decrypted && sess.CellHasHint(r, c, "vectors") && cell.Type != puzzle.CellTarget {
+	if decrypted && !garbled && sess.CellHasHint(r, c, "vectors") && cell.Type != puzzle.CellTarget {
 		directionClass = directionClassForCell(r, c, sess.TargetPlacement)
 	}
 
@@ -369,6 +511,11 @@ func buildCellData(sess *puzzle.Session, r, c int) CellData {
 		HeatmapClass:   heatmapClass,
 		DirectionClass: directionClass,
 		IsTrap:         isTrap,
+		IsSensor:       isSensor,
+		SensorType:     cell.HintType,
+		IsGarbled:      garbled,
+		IsAddress:      isAddress,
+		PulseColor:     puzzle.PulseColorForCell(cell),
 	}
 }
 

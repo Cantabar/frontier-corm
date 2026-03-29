@@ -4,11 +4,13 @@ package puzzle
 type CellType int
 
 const (
-	CellNoise  CellType = iota // random noise character
-	CellTarget                 // part of the hidden target word
-	CellDecoy                  // part of a decoy word
-	CellTrap                   // trap node — corruption spike on reveal
-	CellSymbol                 // explicit symbol fill (non-alphabet noise)
+	CellNoise   CellType = iota // random noise character
+	CellTarget                  // part of the hidden target address
+	CellDecoy                   // part of a decoy address
+	CellTrap                    // trap node — explodes on reveal, garbles nearby cells
+	CellSymbol                  // explicit symbol fill (non-alphabet noise)
+	CellSensor                  // sensor node (sonar, thermal, or vector)
+	CellGarbled                 // permanently corrupted by trap explosion
 )
 
 // Cell represents a single cell in the cipher grid.
@@ -18,9 +20,12 @@ type Cell struct {
 	Plaintext rune     `json:"-"` // never sent to client
 	Encrypted rune     `json:"encrypted"`
 	Decrypted bool     `json:"decrypted"`
-	IsWord    bool     `json:"-"` // true if this cell is part of the target word
+	IsWord    bool     `json:"-"` // true if this cell is part of the target address
 	Type      CellType `json:"-"` // classification of this cell's content
 	Distance  int      `json:"-"` // Manhattan distance to nearest target word cell
+	StringID  string   `json:"-"` // groups cells belonging to the same address (e.g. "target_main", "decoy_0")
+	HintType  string   `json:"-"` // sensor subtype: "sonar", "thermal", "vector"; empty for non-sensors
+	IsGarbled bool     `json:"-"` // permanently corrupted by trap explosion
 }
 
 // CellCoord is a lightweight row/col pair.

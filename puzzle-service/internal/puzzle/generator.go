@@ -3,9 +3,8 @@ package puzzle
 import (
 	"crypto/rand"
 	"fmt"
+	"math"
 	"strings"
-
-	"github.com/frontier-corm/puzzle-service/internal/words"
 )
 
 // DifficultyConfig controls puzzle generation parameters.
@@ -17,14 +16,17 @@ type DifficultyConfig struct {
 	Tier       CipherTier
 }
 
+// AddressLength is the total length of a shortened SUI address ("0x" + 10 hex chars).
+const AddressLength = 12
+
 // DefaultDifficulty returns the base difficulty for a given solve count,
 // optionally modified by a pending corm-brain adjustment.
 func DefaultDifficulty(solveCount int, mod *DifficultyMod) DifficultyConfig {
 	tier := TierForSolveCount(solveCount)
 	cfg := DifficultyConfig{
-		GridRows:   8,
-		GridCols:   12,
-		DecoyCount: 0,
+		GridRows:   20,
+		GridCols:   20,
+		DecoyCount: 4,
 		TrapCount:  4,
 		Tier:       tier,
 	}
@@ -32,12 +34,10 @@ func DefaultDifficulty(solveCount int, mod *DifficultyMod) DifficultyConfig {
 	// Scale difficulty with solve count
 	switch tier {
 	case TierVariable:
-		cfg.DecoyCount = 1 + (solveCount - 3)
+		cfg.DecoyCount = 4 + (solveCount - 3)
 		cfg.TrapCount = 7
 	case TierPosition:
-		cfg.DecoyCount = 3 + (solveCount - 6)
-		cfg.GridRows = 10
-		cfg.GridCols = 14
+		cfg.DecoyCount = 5 + (solveCount - 6)
 		cfg.TrapCount = 10
 	}
 
@@ -45,8 +45,8 @@ func DefaultDifficulty(solveCount int, mod *DifficultyMod) DifficultyConfig {
 	if mod != nil {
 		cfg.Tier = CipherTier(clamp(int(cfg.Tier)+mod.TierDelta, 1, 3))
 		cfg.DecoyCount = max(0, cfg.DecoyCount+mod.DecoyDelta)
-		cfg.GridRows = clamp(cfg.GridRows+mod.GridSizeDelta, 6, 20)
-		cfg.GridCols = clamp(cfg.GridCols+mod.GridSizeDelta, 8, 24)
+		cfg.GridRows = clamp(cfg.GridRows+mod.GridSizeDelta, 6, 30)
+		cfg.GridCols = clamp(cfg.GridCols+mod.GridSizeDelta, 14, 30)
 		cfg.TrapCount = max(0, cfg.TrapCount+mod.TrapDelta)
 	}
 
@@ -79,38 +79,23 @@ type GeneratedPuzzle struct {
 	Difficulty      DifficultyConfig
 }
 
-// Generate creates a new puzzle. The target word is chosen from the archive.
-func Generate(archive *words.Archive, solveCount int, mod *DifficultyMod) (*GeneratedPuzzle, error) {
+// Generate creates a new puzzle. The target is a shortened SUI address.
+func Generate(solveCount int, mod *DifficultyMod) (*GeneratedPuzzle, error) {
 	cfg := DefaultDifficulty(solveCount, mod)
 
-	// Try up to 10 words — some may not fit the grid dimensions
-	var word string
-	var grid *Grid
-	var placement WordPlacement
-	var err error
-	for attempt := 0; attempt < 10; attempt++ {
-		word = strings.ToUpper(archive.Random())
-		if word == "" {
-			return nil, fmt.Errorf("empty word archive")
-		}
-		// Skip words that can't fit either direction
-		if len([]rune(word)) > cfg.GridCols && len([]rune(word)) > cfg.GridRows {
-			continue
-		}
-		grid = NewGrid(cfg.GridRows, cfg.GridCols)
-		placement, err = placeWordTracked(grid, word, CellTarget)
-		if err == nil {
-			break
-		}
-	}
+	addr := GenerateAddress()
+	grid := NewGrid(cfg.GridRows, cfg.GridCols)
+
+	placement, err := placeAddressTracked(grid, addr, CellTarget, "target_main")
 	if err != nil {
-		return nil, fmt.Errorf("placing target word after retries: %w", err)
+		return nil, fmt.Errorf("placing target address: %w", err)
 	}
 
-	// Place decoy words
+	// Place decoy addresses
 	for i := 0; i < cfg.DecoyCount; i++ {
-		decoy := generateDecoy(randRange(3, 8))
-		_, _ = placeWordTracked(grid, decoy, CellDecoy) // best-effort; skip if no room
+		decoy := GenerateAddress()
+		stringID := fmt.Sprintf("decoy_%d", i)
+		_, _ = placeAddressTracked(grid, decoy, CellDecoy, stringID) // best-effort
 	}
 
 	// Fill remaining cells with noise characters
@@ -119,7 +104,10 @@ func Generate(archive *words.Archive, solveCount int, mod *DifficultyMod) (*Gene
 	// Place trap nodes (after fill so they replace noise cells)
 	placeTrapNodes(grid, cfg.TrapCount)
 
-	// Compute Manhattan distances from every cell to the nearest target word cell
+	// Place sensor nodes (~0.8% of remaining noise/symbol cells)
+	placeSensorNodes(grid)
+
+	// Compute Manhattan distances from every cell to the nearest target cell
 	computeDistances(grid, placement)
 
 	// Apply cipher to all cells
@@ -132,69 +120,58 @@ func Generate(archive *words.Archive, solveCount int, mod *DifficultyMod) (*Gene
 		PuzzleID:        id,
 		Grid:            grid,
 		Cipher:          cipher,
-		TargetWord:      word,
+		TargetWord:      addr,
 		TargetPlacement: placement,
 		Difficulty:      cfg,
 	}, nil
 }
 
-// placeWordTracked places a word in the grid and returns its placement coordinates.
-func placeWordTracked(grid *Grid, word string, cellType CellType) (WordPlacement, error) {
-	runes := []rune(word)
+// GenerateAddress produces a shortened SUI address: "0x" + 10 random hex chars.
+func GenerateAddress() string {
+	const hexChars = "0123456789abcdef"
+	var b strings.Builder
+	b.WriteString("0x")
+	for i := 0; i < 10; i++ {
+		b.WriteByte(hexChars[randRange(0, 15)])
+	}
+	return b.String()
+}
+
+// placeAddressTracked places an address string in the grid and returns its placement.
+// All cells are assigned the given stringID for group reveal.
+func placeAddressTracked(grid *Grid, addr string, cellType CellType, stringID string) (WordPlacement, error) {
+	runes := []rune(addr)
 	if len(runes) == 0 {
-		return WordPlacement{}, fmt.Errorf("empty word")
+		return WordPlacement{}, fmt.Errorf("empty address")
 	}
 
-	// Try random placements (horizontal then vertical)
+	// Try random placements (horizontal only — addresses read left-to-right)
 	for attempts := 0; attempts < 200; attempts++ {
-		horizontal := randRange(0, 1) == 0
-		var startRow, startCol int
-
-		if horizontal {
-			if len(runes) > grid.Cols {
-				continue
-			}
-			startRow = randRange(0, grid.Rows-1)
-			startCol = randRange(0, grid.Cols-len(runes))
-		} else {
-			if len(runes) > grid.Rows {
-				continue
-			}
-			startRow = randRange(0, grid.Rows-len(runes))
-			startCol = randRange(0, grid.Cols-1)
+		if len(runes) > grid.Cols {
+			return WordPlacement{}, fmt.Errorf("address %q too long for %d-col grid", addr, grid.Cols)
 		}
+		startRow := randRange(0, grid.Rows-1)
+		startCol := randRange(0, grid.Cols-len(runes))
 
 		// Check if all target cells are empty (Plaintext == 0)
 		fits := true
-		for i, r := range runes {
-			row, col := startRow, startCol
-			if horizontal {
-				col += i
-			} else {
-				row += i
-			}
-			cell := &grid.Cells[row][col]
-			if cell.Plaintext != 0 && cell.Plaintext != r {
+		for i := range runes {
+			cell := &grid.Cells[startRow][startCol+i]
+			if cell.Plaintext != 0 {
 				fits = false
 				break
 			}
 		}
-
 		if !fits {
 			continue
 		}
 
-		// Place the word
+		// Place the address
 		for i, r := range runes {
-			row, col := startRow, startCol
-			if horizontal {
-				col += i
-			} else {
-				row += i
-			}
-			cell := &grid.Cells[row][col]
+			cell := &grid.Cells[startRow][startCol+i]
 			cell.Plaintext = r
 			cell.Type = cellType
+			cell.StringID = stringID
 			if cellType == CellTarget {
 				cell.IsWord = true
 			}
@@ -203,40 +180,27 @@ func placeWordTracked(grid *Grid, word string, cellType CellType) (WordPlacement
 		return WordPlacement{
 			StartRow:   startRow,
 			StartCol:   startCol,
-			Horizontal: horizontal,
+			Horizontal: true,
 			Length:     len(runes),
 		}, nil
 	}
 
-	return WordPlacement{}, fmt.Errorf("could not place word %q after 200 attempts", word)
-}
-
-// generateDecoy creates a pronounceable but nonsensical word.
-func generateDecoy(length int) string {
-	vowels := []rune("AEIOU")
-	consonants := []rune("BCDFGHJKLMNPQRSTVWXYZ")
-	var b []rune
-	for i := 0; i < length; i++ {
-		if i%2 == 0 {
-			b = append(b, consonants[randRange(0, len(consonants)-1)])
-		} else {
-			b = append(b, vowels[randRange(0, len(vowels)-1)])
-		}
-	}
-	return string(b)
+	return WordPlacement{}, fmt.Errorf("could not place address %q after 200 attempts", addr)
 }
 
 // fillNoise fills all empty cells with random noise characters.
+// Uses a mix of symbols and hex-range characters so noise blends with addresses.
 func fillNoise(grid *Grid) {
+	const hexChars = "0123456789abcdef"
 	for r := range grid.Cells {
 		for c := range grid.Cells[r] {
 			cell := &grid.Cells[r][c]
 			if cell.Plaintext == 0 {
-				if randRange(0, 99) < 65 {
+				if randRange(0, 99) < 60 {
 					cell.Plaintext = NoiseChars[randRange(0, len(NoiseChars)-1)]
 					cell.Type = CellSymbol
 				} else {
-					cell.Plaintext = rune('A' + randRange(0, 25))
+					cell.Plaintext = rune(hexChars[randRange(0, 15)])
 					cell.Type = CellNoise
 				}
 			}
@@ -257,6 +221,65 @@ func placeTrapNodes(grid *Grid, count int) {
 				break
 			}
 		}
+	}
+}
+
+// placeSensorNodes randomly converts ~0.8% of noise/symbol cells into sensor nodes.
+// Sensor types are evenly distributed: sonar, thermal, vector.
+func placeSensorNodes(grid *Grid) {
+	const hexChars = "0123456789abcdef"
+	sensorTypes := []string{"sonar", "thermal", "vector"}
+	for r := range grid.Cells {
+		for c := range grid.Cells[r] {
+			cell := &grid.Cells[r][c]
+			if cell.Type != CellNoise && cell.Type != CellSymbol {
+				continue
+			}
+			// ~0.8% chance
+			if randRange(0, 999) >= 8 {
+				continue
+			}
+			cell.Type = CellSensor
+			cell.HintType = sensorTypes[randRange(0, 2)]
+			cell.Plaintext = rune(hexChars[randRange(0, 15)])
+		}
+	}
+}
+
+// CellsInRadius returns all cells within the given Euclidean radius of (centerRow, centerCol).
+func CellsInRadius(grid *Grid, centerRow, centerCol int, radius float64) []CellCoord {
+	var result []CellCoord
+	for r := range grid.Cells {
+		for c := range grid.Cells[r] {
+			dx := float64(c - centerCol)
+			dy := float64(r - centerRow)
+			if math.Sqrt(dx*dx+dy*dy) <= radius {
+				result = append(result, CellCoord{Row: r, Col: c})
+			}
+		}
+	}
+	return result
+}
+
+// PulseColorForCell returns the pulse color class for a cell type.
+func PulseColorForCell(cell *Cell) string {
+	switch cell.Type {
+	case CellTarget, CellDecoy:
+		return "green"
+	case CellTrap:
+		return "red"
+	case CellSensor:
+		switch cell.HintType {
+		case "sonar":
+			return "cyan"
+		case "thermal":
+			return "blue"
+		case "vector":
+			return "gold"
+		}
+		return "cyan"
+	default:
+		return "dim"
 	}
 }
 

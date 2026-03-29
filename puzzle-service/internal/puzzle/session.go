@@ -49,6 +49,8 @@ type Session struct {
 	TargetWord        string
 	TargetPlacement   WordPlacement
 	DecryptedCells    map[string]bool
+	GarbledCells      map[string]bool // permanently corrupted by trap explosion
+	TargetDestroyed   bool            // true when a trap explosion garbles any target address cell
 	Difficulty        DifficultyConfig
 	SolveCount        int
 	IncorrectAttempts int
@@ -105,6 +107,7 @@ func NewSession(playerAddress, context string) *Session {
 		Phase:           PhaseAwakening,
 		CreatedAt:       time.Now(),
 		DecryptedCells:  make(map[string]bool),
+		GarbledCells:    make(map[string]bool),
 	Hints:            HintState{Decode: true, Heatmap: false},
 	VectorsThreshold: randVectorsThreshold(),
 		HintedCells:     make(map[string][]string),
@@ -182,6 +185,8 @@ func (s *Session) LoadPuzzle(p *GeneratedPuzzle) {
 	s.TargetPlacement = p.TargetPlacement
 	s.Difficulty = p.Difficulty
 	s.DecryptedCells = make(map[string]bool)
+	s.GarbledCells = make(map[string]bool)
+	s.TargetDestroyed = false
 	s.HintedCells = make(map[string][]string)
 	s.RecentDecrypts = nil
 	s.PendingDifficulty = nil

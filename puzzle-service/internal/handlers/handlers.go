@@ -9,24 +9,21 @@ import (
 
 	"github.com/frontier-corm/puzzle-service/internal/corm"
 	"github.com/frontier-corm/puzzle-service/internal/puzzle"
-	"github.com/frontier-corm/puzzle-service/internal/words"
 )
 
 // Handlers holds shared dependencies for all HTTP handlers.
 type Handlers struct {
 	templates    *template.Template
-	archive      *words.Archive
 	sessions     *puzzle.SessionStore
 	relay        *corm.Relay
 	rateLimiter  *RateLimiter
 }
 
 // New creates a new Handlers instance, parsing templates from the embedded FS.
-func New(templateFS embed.FS, archive *words.Archive, sessions *puzzle.SessionStore, relay *corm.Relay) *Handlers {
+func New(templateFS embed.FS, sessions *puzzle.SessionStore, relay *corm.Relay) *Handlers {
 	tmpl := template.Must(template.ParseFS(templateFS, "internal/templates/*.html"))
 	return &Handlers{
 		templates:   tmpl,
-		archive:     archive,
 		sessions:    sessions,
 		relay:       relay,
 		rateLimiter: NewRateLimiter(2, 4), // 2 req/s, burst 4

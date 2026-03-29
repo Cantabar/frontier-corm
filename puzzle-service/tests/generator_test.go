@@ -5,22 +5,10 @@ import (
 	"testing"
 
 	"github.com/frontier-corm/puzzle-service/internal/puzzle"
-	"github.com/frontier-corm/puzzle-service/internal/words"
 )
 
-func loadTestArchive(t *testing.T) *words.Archive {
-	t.Helper()
-	a, err := words.LoadArchive()
-	if err != nil {
-		t.Fatalf("failed to load archive: %v", err)
-	}
-	return a
-}
-
 func TestGeneratePuzzle(t *testing.T) {
-	archive := loadTestArchive(t)
-
-	pz, err := puzzle.Generate(archive, 0, nil)
+	pz, err := puzzle.Generate(0, nil)
 	if err != nil {
 		t.Fatalf("Generate failed: %v", err)
 	}
@@ -34,60 +22,99 @@ func TestGeneratePuzzle(t *testing.T) {
 	if pz.Grid == nil {
 		t.Fatal("expected non-nil grid")
 	}
-	if pz.Grid.Rows != 8 || pz.Grid.Cols != 12 {
-		t.Errorf("expected 8x12 grid, got %dx%d", pz.Grid.Rows, pz.Grid.Cols)
+	if pz.Grid.Rows != 20 || pz.Grid.Cols != 20 {
+		t.Errorf("expected 20x20 grid, got %dx%d", pz.Grid.Rows, pz.Grid.Cols)
 	}
 }
 
-func TestTargetWordInGrid(t *testing.T) {
-	archive := loadTestArchive(t)
+func TestTargetAddressFormat(t *testing.T) {
+	for i := 0; i < 20; i++ {
+		addr := puzzle.GenerateAddress()
+		if len(addr) != puzzle.AddressLength {
+			t.Errorf("expected address length %d, got %d: %q", puzzle.AddressLength, len(addr), addr)
+		}
+		if !strings.HasPrefix(addr, "0x") {
+			t.Errorf("expected address to start with 0x, got %q", addr)
+		}
+		for _, c := range addr[2:] {
+			if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')) {
+				t.Errorf("non-hex character %q in address %q", c, addr)
+			}
+		}
+	}
+}
 
+func TestTargetAddressInGrid(t *testing.T) {
 	for i := 0; i < 10; i++ {
-		pz, err := puzzle.Generate(archive, 0, nil)
+		pz, err := puzzle.Generate(0, nil)
 		if err != nil {
 			t.Fatalf("Generate failed: %v", err)
 		}
 
-		// Verify the target word appears in the plaintext grid
 		found := false
-		word := strings.ToUpper(pz.TargetWord)
-
-		// Check horizontal
 		for r := 0; r < pz.Grid.Rows; r++ {
 			var row []rune
 			for c := 0; c < pz.Grid.Cols; c++ {
 				row = append(row, pz.Grid.Cells[r][c].Plaintext)
 			}
-			if strings.Contains(string(row), word) {
+			if strings.Contains(string(row), pz.TargetWord) {
 				found = true
 				break
 			}
 		}
 
-		// Check vertical
 		if !found {
-			for c := 0; c < pz.Grid.Cols; c++ {
-				var col []rune
-				for r := 0; r < pz.Grid.Rows; r++ {
-					col = append(col, pz.Grid.Cells[r][c].Plaintext)
-				}
-				if strings.Contains(string(col), word) {
-					found = true
-					break
-				}
-			}
-		}
-
-		if !found {
-			t.Errorf("target word %q not found in grid (iteration %d)", word, i)
+			t.Errorf("target address %q not found in grid (iteration %d)", pz.TargetWord, i)
 		}
 	}
 }
 
-func TestNoCellEmpty(t *testing.T) {
-	archive := loadTestArchive(t)
+func TestTargetCellsHaveStringID(t *testing.T) {
+	pz, err := puzzle.Generate(0, nil)
+	if err != nil {
+		t.Fatalf("Generate failed: %v", err)
+	}
 
-	pz, err := puzzle.Generate(archive, 0, nil)
+	targetCount := 0
+	for r := 0; r < pz.Grid.Rows; r++ {
+		for c := 0; c < pz.Grid.Cols; c++ {
+			cell := &pz.Grid.Cells[r][c]
+			if cell.Type == puzzle.CellTarget {
+				targetCount++
+				if cell.StringID != "target_main" {
+					t.Errorf("target cell (%d,%d) has StringID %q, want \"target_main\"", r, c, cell.StringID)
+				}
+			}
+		}
+	}
+	if targetCount != puzzle.AddressLength {
+		t.Errorf("expected %d target cells, got %d", puzzle.AddressLength, targetCount)
+	}
+}
+
+func TestDecoyAddressesPlaced(t *testing.T) {
+	pz, err := puzzle.Generate(0, nil)
+	if err != nil {
+		t.Fatalf("Generate failed: %v", err)
+	}
+
+	decoyIDs := make(map[string]bool)
+	for r := 0; r < pz.Grid.Rows; r++ {
+		for c := 0; c < pz.Grid.Cols; c++ {
+			cell := &pz.Grid.Cells[r][c]
+			if cell.Type == puzzle.CellDecoy && cell.StringID != "" {
+				decoyIDs[cell.StringID] = true
+			}
+		}
+	}
+
+	if len(decoyIDs) == 0 {
+		t.Error("expected at least one decoy address")
+	}
+}
+
+func TestNoCellEmpty(t *testing.T) {
+	pz, err := puzzle.Generate(0, nil)
 	if err != nil {
 		t.Fatalf("Generate failed: %v", err)
 	}
@@ -105,24 +132,8 @@ func TestNoCellEmpty(t *testing.T) {
 	}
 }
 
-func TestDifficultyModAffectsGrid(t *testing.T) {
-	archive := loadTestArchive(t)
-
-	mod := &puzzle.DifficultyMod{GridSizeDelta: 2}
-	pz, err := puzzle.Generate(archive, 0, mod)
-	if err != nil {
-		t.Fatalf("Generate with mod failed: %v", err)
-	}
-
-	if pz.Grid.Rows != 10 || pz.Grid.Cols != 14 {
-		t.Errorf("expected 10x14 grid with +2 delta, got %dx%d", pz.Grid.Rows, pz.Grid.Cols)
-	}
-}
-
 func TestTrapNodesPlaced(t *testing.T) {
-	archive := loadTestArchive(t)
-
-	pz, err := puzzle.Generate(archive, 0, nil)
+	pz, err := puzzle.Generate(0, nil)
 	if err != nil {
 		t.Fatalf("Generate failed: %v", err)
 	}
@@ -133,7 +144,6 @@ func TestTrapNodesPlaced(t *testing.T) {
 			cell := &pz.Grid.Cells[r][c]
 			if cell.Type == puzzle.CellTrap {
 				trapCount++
-				// Trap should not overlap with target word
 				if cell.IsWord {
 					t.Errorf("trap at (%d,%d) overlaps with target word", r, c)
 				}
@@ -146,10 +156,93 @@ func TestTrapNodesPlaced(t *testing.T) {
 	}
 }
 
-func TestCellDistancesComputed(t *testing.T) {
-	archive := loadTestArchive(t)
+func TestSensorNodesPlaced(t *testing.T) {
+	totalSensors := 0
+	validTypes := map[string]bool{"sonar": true, "thermal": true, "vector": true}
 
-	pz, err := puzzle.Generate(archive, 0, nil)
+	for i := 0; i < 10; i++ {
+		pz, err := puzzle.Generate(0, nil)
+		if err != nil {
+			t.Fatalf("Generate failed: %v", err)
+		}
+		for r := 0; r < pz.Grid.Rows; r++ {
+			for c := 0; c < pz.Grid.Cols; c++ {
+				cell := &pz.Grid.Cells[r][c]
+				if cell.Type == puzzle.CellSensor {
+					totalSensors++
+					if !validTypes[cell.HintType] {
+						t.Errorf("sensor at (%d,%d) has invalid HintType %q", r, c, cell.HintType)
+					}
+				}
+			}
+		}
+	}
+
+	if totalSensors == 0 {
+		t.Error("expected at least one sensor node across 10 puzzles")
+	}
+}
+
+func TestCellsInRadius(t *testing.T) {
+	grid := puzzle.NewGrid(10, 10)
+
+	cells := puzzle.CellsInRadius(grid, 5, 5, 0)
+	if len(cells) != 1 {
+		t.Errorf("radius 0: expected 1 cell, got %d", len(cells))
+	}
+
+	cells = puzzle.CellsInRadius(grid, 5, 5, 1.0)
+	if len(cells) < 4 || len(cells) > 5 {
+		t.Errorf("radius 1: expected 4-5 cells, got %d", len(cells))
+	}
+
+	cells = puzzle.CellsInRadius(grid, 0, 0, 3.0)
+	for _, c := range cells {
+		if c.Row < 0 || c.Col < 0 || c.Row >= 10 || c.Col >= 10 {
+			t.Errorf("cell (%d,%d) is out of bounds", c.Row, c.Col)
+		}
+	}
+}
+
+func TestPulseColorForCell(t *testing.T) {
+	tests := []struct {
+		cellType puzzle.CellType
+		hintType string
+		expected string
+	}{
+		{puzzle.CellTarget, "", "green"},
+		{puzzle.CellDecoy, "", "green"},
+		{puzzle.CellTrap, "", "red"},
+		{puzzle.CellSensor, "sonar", "cyan"},
+		{puzzle.CellSensor, "thermal", "blue"},
+		{puzzle.CellSensor, "vector", "gold"},
+		{puzzle.CellNoise, "", "dim"},
+		{puzzle.CellSymbol, "", "dim"},
+	}
+
+	for _, tc := range tests {
+		cell := &puzzle.Cell{Type: tc.cellType, HintType: tc.hintType}
+		got := puzzle.PulseColorForCell(cell)
+		if got != tc.expected {
+			t.Errorf("PulseColorForCell(type=%d, hint=%q) = %q, want %q", tc.cellType, tc.hintType, got, tc.expected)
+		}
+	}
+}
+
+func TestDifficultyModAffectsGrid(t *testing.T) {
+	mod := &puzzle.DifficultyMod{GridSizeDelta: 2}
+	pz, err := puzzle.Generate(0, mod)
+	if err != nil {
+		t.Fatalf("Generate with mod failed: %v", err)
+	}
+
+	if pz.Grid.Rows != 22 || pz.Grid.Cols != 22 {
+		t.Errorf("expected 22x22 grid with +2 delta, got %dx%d", pz.Grid.Rows, pz.Grid.Cols)
+	}
+}
+
+func TestCellDistancesComputed(t *testing.T) {
+	pz, err := puzzle.Generate(0, nil)
 	if err != nil {
 		t.Fatalf("Generate failed: %v", err)
 	}
@@ -169,93 +262,5 @@ func TestCellDistancesComputed(t *testing.T) {
 
 	if !hasZero {
 		t.Error("expected at least one target cell with distance 0")
-	}
-}
-
-func TestDecoysAtTier1WithMod(t *testing.T) {
-	archive := loadTestArchive(t)
-
-	mod := &puzzle.DifficultyMod{DecoyDelta: 3}
-	pz, err := puzzle.Generate(archive, 0, mod)
-	if err != nil {
-		t.Fatalf("Generate with decoy mod failed: %v", err)
-	}
-
-	// Count decoy cells
-	decoyCount := 0
-	for r := 0; r < pz.Grid.Rows; r++ {
-		for c := 0; c < pz.Grid.Cols; c++ {
-			if pz.Grid.Cells[r][c].Type == puzzle.CellDecoy {
-				decoyCount++
-			}
-		}
-	}
-
-	if decoyCount == 0 {
-		t.Error("expected decoy cells at Tier 1 when DecoyDelta > 0")
-	}
-}
-
-func TestAllCellsEncryptDifferently(t *testing.T) {
-	archive := loadTestArchive(t)
-
-	for i := 0; i < 5; i++ {
-		pz, err := puzzle.Generate(archive, 0, nil)
-		if err != nil {
-			t.Fatalf("Generate failed: %v", err)
-		}
-
-		for r := 0; r < pz.Grid.Rows; r++ {
-			for c := 0; c < pz.Grid.Cols; c++ {
-				cell := &pz.Grid.Cells[r][c]
-				if cell.Encrypted == cell.Plaintext {
-					t.Errorf("cell (%d,%d) encrypted==plaintext %q (type=%d, iteration=%d)",
-						r, c, cell.Plaintext, cell.Type, i)
-				}
-			}
-		}
-	}
-}
-
-func TestLargeGridGeneration(t *testing.T) {
-	archive := loadTestArchive(t)
-
-	mod := &puzzle.DifficultyMod{GridSizeDelta: 12} // 8+12=20 rows, 12+12=24 cols
-	pz, err := puzzle.Generate(archive, 0, mod)
-	if err != nil {
-		t.Fatalf("Generate large grid failed: %v", err)
-	}
-
-	if pz.Grid.Rows != 20 || pz.Grid.Cols != 24 {
-		t.Errorf("expected 20x24 grid, got %dx%d", pz.Grid.Rows, pz.Grid.Cols)
-	}
-
-	// Verify target word is still in the grid
-	word := strings.ToUpper(pz.TargetWord)
-	found := false
-	for r := 0; r < pz.Grid.Rows; r++ {
-		var row []rune
-		for c := 0; c < pz.Grid.Cols; c++ {
-			row = append(row, pz.Grid.Cells[r][c].Plaintext)
-		}
-		if strings.Contains(string(row), word) {
-			found = true
-			break
-		}
-	}
-	if !found {
-		for c := 0; c < pz.Grid.Cols; c++ {
-			var col []rune
-			for r := 0; r < pz.Grid.Rows; r++ {
-				col = append(col, pz.Grid.Cells[r][c].Plaintext)
-			}
-			if strings.Contains(string(col), word) {
-				found = true
-				break
-			}
-		}
-	}
-	if !found {
-		t.Errorf("target word %q not found in 20x24 grid", word)
 	}
 }
