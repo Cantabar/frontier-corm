@@ -10,23 +10,33 @@ The infra directory contains the AWS CDK stack that provisions all cloud infrast
 Internet
     │
     ▼
-CloudFront ──► S3 (static frontend)
+Route 53 (ef-corm.com)
+    ├─ {env}.ef-corm.com ──► CloudFront ──► S3 (static frontend)
+    │   (stillness = apex ef-corm.com)
     │
-    ▼
-ALB (HTTP :80)
-    │
-    ▼
-ECS Fargate Cluster
-    ├─ Indexer Service (port 3100)
-    └─ (future: corm-brain, puzzle-service)
-    │
-    ▼
-RDS Postgres 16 (private subnet)
-    │
-Secrets Manager
-    ├─ fc-{env}/db-credentials
-    └─ fc-{env}/sui-rpc
+    └─ api.{env}.ef-corm.com ──► ALB (HTTPS :443)
+                                    │
+                                    ▼
+                              ECS Fargate Cluster
+                                ├─ Indexer Service (port 3100)
+                                └─ (future: corm-brain, puzzle-service)
+                                    │
+                                    ▼
+                              RDS Postgres 16 (private subnet)
+                                    │
+                              Secrets Manager
+                                ├─ fc-{env}/db-credentials
+                                └─ fc-{env}/sui-rpc
+
+ACM Certificate: ef-corm.com + *.ef-corm.com (DNS-validated via Route 53)
 ```
+
+### Domain Strategy
+
+- **Root domain:** `ef-corm.com` (purchased in AWS Route 53)
+- **Stillness (production):** apex `ef-corm.com` + `api.ef-corm.com`
+- **Other environments:** `{env}.ef-corm.com` + `api.{env}.ef-corm.com` (e.g. `utopia.ef-corm.com`)
+- **ACM certificate:** covers `ef-corm.com` + `*.ef-corm.com`, DNS-validated via Route 53
 
 ### Resource Naming
 
@@ -48,7 +58,9 @@ All resources are prefixed with `fc-{env}` (e.g. `fc-utopia`, `fc-stillness`). C
 - **Compute:** ECS Fargate (512 CPU / 1024 MB per indexer task)
 - **Database:** RDS Postgres 16 (t4g.micro, gp3 20GB, single-AZ)
 - **Storage:** S3 (frontend static assets, block public access)
-- **CDN:** CloudFront (SPA routing via 404 → /index.html)
+- **CDN:** CloudFront (SPA routing via 404 → /index.html, custom domain + ACM cert)
+- **DNS:** Route 53 (A alias records for CloudFront + ALB)
+- **TLS:** ACM (ef-corm.com + *.ef-corm.com, DNS validation)
 - **Registry:** ECR (`fc-{env}-indexer`)
 - **Secrets:** Secrets Manager (DB credentials with auto-generated password, Sui RPC config)
 - **Logging:** CloudWatch Logs (`/ecs/fc-{env}`, 2-week retention)
@@ -74,8 +86,8 @@ All resources are prefixed with `fc-{env}` (e.g. `fc-utopia`, `fc-stillness`). C
 - `IndexerEcrUri` — ECR repository URI for the indexer image
 - `UiBucketName` — S3 bucket name for frontend assets
 - `CloudFrontDistributionId` — CloudFront distribution ID (for cache invalidation)
-- `CloudFrontUrl` — public CloudFront URL
-- `AlbDns` — ALB DNS name (API endpoint)
+- `SiteUrl` — public frontend URL (e.g. `https://ef-corm.com` or `https://utopia.ef-corm.com`)
+- `ApiUrl` — public API URL (e.g. `https://api.ef-corm.com` or `https://api.utopia.ef-corm.com`)
 
 ## Data Model
 
@@ -95,6 +107,8 @@ No application data — this service provisions infrastructure only. Database sc
 - ECS Fargate with 512 CPU / 1024 MB per indexer task
 - RDS Postgres 16 (t4g.micro, gp3 20GB, single-AZ)
 - S3 static frontend with CloudFront CDN and SPA routing
+- Custom domain (ef-corm.com) with Route 53 DNS + ACM TLS certificate
+- HTTPS on both CloudFront and ALB; HTTP redirects to HTTPS
 - ECR container registry per service per environment
 - Secrets Manager for DB credentials and Sui RPC config
 - CloudWatch Logs with 2-week retention
@@ -103,7 +117,6 @@ No application data — this service provisions infrastructure only. Database sc
 
 ## Open Questions / Future Work
 
-- HTTPS (ACM certificate + HTTPS listener on ALB) — currently HTTP-only for hackathon
 - ECS tasks for corm-brain and puzzle-service (currently local-only)
 - Auto-scaling policies for ECS services
 - Multi-AZ RDS for production reliability

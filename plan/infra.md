@@ -16,25 +16,23 @@ First-time setup: `./scripts/bootstrap.sh` then `make infra-init`
 ## Architecture
 
 ```
-                     ┌─────────────┐
-                     │  CloudFront │
-                     │  (HTTPS)    │
-                     └──────┬──────┘
-                            │
-               ┌────────────┴────────────┐
-               │                         │
-        S3: fl-ui-*              ALB (HTTP/80)
-        (React SPA)              ┌───┴───────────────┐
-                                 │                   │
-                          /api/auth/*          /api/indexer/*
-                          /api/optimizer/*
-                          /api/privacy/*
-                                 │                   │
-                          ECS: api-service     ECS: indexer
-                          (port 3000)          (port 3100)
-                                 │                   │
-                          Secrets Manager      SQLite (EFS vol)
-                          S3: fl-encrypted-*   RDS Postgres (future)
+  Route 53 (ef-corm.com)
+    │
+    ├── {env}.ef-corm.com ─────► CloudFront (HTTPS) ──► S3 (React SPA)
+    │   (stillness = apex)        ACM cert: ef-corm.com + *.ef-corm.com
+    │
+    └── api.{env}.ef-corm.com ─► ALB (HTTPS/443, HTTP→HTTPS redirect)
+                                   ┌───┴───────────────┐
+                                   │                   │
+                            /api/auth/*          /api/indexer/*
+                            /api/optimizer/*
+                            /api/privacy/*
+                                   │                   │
+                            ECS: api-service     ECS: indexer
+                            (port 3000)          (port 3100)
+                                   │                   │
+                            Secrets Manager      SQLite (EFS vol)
+                            S3: fl-encrypted-*   RDS Postgres (future)
 ```
 
 ---
@@ -62,6 +60,15 @@ First-time setup: `./scripts/bootstrap.sh` then `make infra-init`
 - The SPA fallback (404 → `/index.html`) is configured in the CloudFront error responses.
 - A multi-stage `web/Dockerfile` is also provided for containerized deployment (nginx + SPA fallback). Build-time `VITE_*` ARGs inject package IDs and network config.
 - The UI connects to the indexer at `/api/v1` (proxied by Vite dev server in local dev, by CloudFront/ALB in production).
+
+### Domain & TLS: Route 53 + ACM
+
+- Domain `ef-corm.com` is registered in AWS Route 53.
+- Stillness (production) uses the apex: `ef-corm.com` / `api.ef-corm.com`.
+- Other environments use subdomains: `{env}.ef-corm.com` / `api.{env}.ef-corm.com`.
+- A single ACM certificate covers `ef-corm.com` + `*.ef-corm.com` with DNS validation.
+- Route 53 A-alias records point site domains to CloudFront and API domains to the ALB.
+- The ALB listener is HTTPS (443) with the ACM cert; port 80 redirects to HTTPS.
 
 ### Encrypted Storage: S3 (not DynamoDB, not a custom service)
 
@@ -119,9 +126,11 @@ Both services run as 0.5 vCPU / 1 GB Fargate tasks with `desiredCount: 1`.
 | ALB | ~$5 |
 | NAT Gateway | ~$10–15 |
 | S3 + CloudFront | <$1 |
-| Secrets Manager (3 secrets) | <$1 |
-| ECR | <$1 |
-| **Total** | **~$30–45** |
+|| Route 53 hosted zone | ~$0.50/mo |
+|| ACM certificate | Free |
+|| Secrets Manager (3 secrets) | <$1 |
+|| ECR | <$1 |
+|| **Total** | **~$31–46** |
 
 To reduce cost: remove NAT Gateway (use public subnets), or skip RDS until the SQLite migration is ready.
 
@@ -205,6 +214,7 @@ For local dev, defaults are used (all `0x0`). Update after `sui client publish`.
 - S3 buckets are emptied then deleted
 - RDS instance is deleted without final snapshot
 - VPC, ALB, security groups, CloudFront distribution are all removed
+- Route 53 records are removed (hosted zone itself persists since it's shared)
 - Secrets Manager secrets are deleted
 
 Nothing persists after teardown.

@@ -10,6 +10,9 @@ import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import * as logs from "aws-cdk-lib/aws-logs";
+import * as acm from "aws-cdk-lib/aws-certificatemanager";
+import * as route53 from "aws-cdk-lib/aws-route53";
+import * as route53Targets from "aws-cdk-lib/aws-route53-targets";
 
 export class FrontierCormStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -27,6 +30,32 @@ export class FrontierCormStack extends cdk.Stack {
       mainnet: "https://fullnode.mainnet.sui.io:443",
     };
     const suiRpcUrl = suiRpcUrls[suiNetwork] ?? suiRpcUrls.testnet;
+
+    // ================================================================
+    // Domain — stillness gets apex, others get {env}.ef-corm.com
+    // ================================================================
+    const rootDomain = "ef-corm.com";
+    const isApex = appEnv === "stillness";
+    const siteDomain = isApex ? rootDomain : `${appEnv}.${rootDomain}`;
+    const apiDomain = isApex
+      ? `api.${rootDomain}`
+      : `api.${appEnv}.${rootDomain}`;
+
+    // ================================================================
+    // Route 53 — look up existing hosted zone
+    // ================================================================
+    const zone = route53.HostedZone.fromLookup(this, "Zone", {
+      domainName: rootDomain,
+    });
+
+    // ================================================================
+    // ACM Certificate — covers apex + wildcard
+    // ================================================================
+    const certificate = new acm.Certificate(this, "Certificate", {
+      domainName: rootDomain,
+      subjectAlternativeNames: [`*.${rootDomain}`],
+      validation: acm.CertificateValidation.fromDns(zone),
+    });
 
     // ================================================================
     // VPC
@@ -140,6 +169,8 @@ export class FrontierCormStack extends cdk.Stack {
     // CloudFront
     // ================================================================
     const distribution = new cloudfront.Distribution(this, "CfDistribution", {
+      domainNames: [siteDomain],
+      certificate,
       defaultBehavior: {
         origin: origins.S3BucketOrigin.withOriginAccessControl(uiBucket),
         viewerProtocolPolicy:
@@ -173,9 +204,19 @@ export class FrontierCormStack extends cdk.Stack {
       securityGroup: albSg,
     });
 
-    const listener = alb.addListener("HttpListener", {
+    const httpsListener = alb.addListener("HttpsListener", {
+      port: 443,
+      certificates: [certificate],
+    });
+
+    // Redirect HTTP → HTTPS
+    alb.addListener("HttpRedirect", {
       port: 80,
-      // For hackathon, use HTTP. Add ACM cert + HTTPS listener for production.
+      defaultAction: elbv2.ListenerAction.redirect({
+        protocol: "HTTPS",
+        port: "443",
+        permanent: true,
+      }),
     });
 
     // ================================================================
@@ -242,7 +283,7 @@ export class FrontierCormStack extends cdk.Stack {
     // ================================================================
     // ALB Target Groups + Routing
     // ================================================================
-    const indexerTg = listener.addTargets("IndexerTarget", {
+    const indexerTg = httpsListener.addTargets("IndexerTarget", {
       port: 3100,
       targets: [indexerService],
       healthCheck: { path: "/health", interval: cdk.Duration.seconds(30) },
@@ -251,10 +292,29 @@ export class FrontierCormStack extends cdk.Stack {
     });
 
     // Default action
-    listener.addAction("Default", {
+    httpsListener.addAction("Default", {
       action: elbv2.ListenerAction.fixedResponse(404, {
         messageBody: "Not Found",
       }),
+    });
+
+    // ================================================================
+    // Route 53 — DNS records
+    // ================================================================
+    new route53.ARecord(this, "SiteAliasRecord", {
+      zone,
+      recordName: siteDomain,
+      target: route53.RecordTarget.fromAlias(
+        new route53Targets.CloudFrontTarget(distribution)
+      ),
+    });
+
+    new route53.ARecord(this, "ApiAliasRecord", {
+      zone,
+      recordName: apiDomain,
+      target: route53.RecordTarget.fromAlias(
+        new route53Targets.LoadBalancerTarget(alb)
+      ),
     });
 
     // ================================================================
@@ -265,9 +325,14 @@ export class FrontierCormStack extends cdk.Stack {
       description: "API load balancer DNS",
     });
 
-    new cdk.CfnOutput(this, "CloudFrontUrl", {
-      value: `https://${distribution.distributionDomainName}`,
+    new cdk.CfnOutput(this, "SiteUrl", {
+      value: `https://${siteDomain}`,
       description: "Frontend URL",
+    });
+
+    new cdk.CfnOutput(this, "ApiUrl", {
+      value: `https://${apiDomain}`,
+      description: "API URL",
     });
 
     new cdk.CfnOutput(this, "UiBucketName", {
