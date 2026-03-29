@@ -13,7 +13,7 @@ Browser
 │    ├─ Header / Sidebar / Footer                    │
 │    ├─ Pages                                        │
 │    │    ├─ Dashboard                               │
-│    │    ├─ Tribe (list, detail)                    │
+│    ├─ Tribe (detail)                          │
 │    │    ├─ Contracts (list, create, detail)        │
 │    │    ├─ Continuity Engine (puzzle iframe)       │
 │    │    ├─ Event Explorer                          │
@@ -70,7 +70,6 @@ Client-side privacy-preserving location sharing with ZK proof generation. The se
 ### Page Routes
 
 - `/` — Dashboard (overview with quick actions for contract creation)
-- `/tribes` — Tribe list
 - `/tribe/:tribeId` — Tribe detail (members, reputation leaderboard)
 - `/contracts` — Trustless contracts list
 - `/contracts/create` — Create new contract

@@ -18,7 +18,6 @@ import { EventExplorer } from "./pages/EventExplorer";
 import { TrustlessContracts } from "./pages/TrustlessContracts";
 import { CreateContractPage } from "./pages/CreateContractPage";
 import { ContractDetailPage } from "./pages/ContractDetailPage";
-import { TribeListPage } from "./pages/TribeListPage";
 import { NotificationsPage } from "./pages/NotificationsPage";
 import { StructuresRedirect, MyStructuresPage } from "./pages/MyStructuresPage";
 import { LocationsPage } from "./pages/LocationsPage";
@@ -96,7 +95,6 @@ export default function App() {
           <Content>
             <Routes>
               <Route path="/" element={<Dashboard />} />
-              <Route path="/tribes" element={<TribeListPage />} />
               <Route path="/tribe/:tribeId" element={<TribePage />} />
               <Route path="/contracts" element={<TrustlessContracts />} />
               <Route path="/contracts/create" element={<CreateContractPage />} />

@@ -2,7 +2,6 @@ import { NavLink } from "react-router-dom";
 import styled, { css } from "styled-components";
 import {
   LayoutDashboard,
-  Users,
   Shield,
   Building2,
   FileText,
@@ -247,7 +246,6 @@ export function Sidebar({ mode, toggle }: SidebarProps) {
 
   const mainEntries: NavEntry[] = [
     { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
-    { to: "/tribes", label: "All Tribes", icon: Users },
     {
       to: userTribeId ? `/tribe/${userTribeId}` : "#",
       label: "My Tribe",
