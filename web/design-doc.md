@@ -153,6 +153,7 @@ Per-environment defaults are defined in `config.ts` and overridden by explicit `
 - Structure rows use a two-zone flex layout: left-aligned info tags (type, status, energy) with fixed min-widths for vertical alignment, and right-aligned action items (location, extension, online/offline buttons) pushed to the trailing edge. Same pattern applied to NetworkNodeGroup headers.
 - Tribe member list includes a "Structures" column linking to each member's structures page (`/structures/:characterId`) for easy cross-member structure browsing
 - Location badge deep-linking: the "📍 Location" badge on structure rows and network node headers links to `/locations?structure=<id>`, scrolling to and briefly highlighting the matching POD row on the Locations page
+- Structures → Locations navigation: structure rows and network node group headers without a registered location show a "+ Location" link to `/locations`, enabling the player to navigate directly to the Locations page to unlock the TLK and register locations
 
 ## Open Questions / Future Work
 

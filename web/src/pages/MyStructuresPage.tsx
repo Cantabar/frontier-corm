@@ -973,16 +973,25 @@ function StructureRow({
             📍 Location
           </LocationBadge>
         ) : isOwner && hasTribeId ? (
-          <AddLocationButton
-            disabled={!tlkUnlocked}
-            title={tlkUnlocked ? "Register a location for this structure" : "Unlock TLK on Locations page first"}
-            onClick={(e) => {
-              e.stopPropagation();
-              onAddLocation(structure.id);
-            }}
-          >
-            + Location
-          </AddLocationButton>
+          tlkUnlocked ? (
+            <AddLocationButton
+              title="Register a location for this structure"
+              onClick={(e) => {
+                e.stopPropagation();
+                onAddLocation(structure.id);
+              }}
+            >
+              + Location
+            </AddLocationButton>
+          ) : (
+            <LocationBadge
+              to="/locations"
+              title="Unlock TLK on Locations page to register locations"
+              onClick={(e) => e.stopPropagation()}
+            >
+              + Location
+            </LocationBadge>
+          )
         ) : null}
 
         {canOnline && (

@@ -439,7 +439,7 @@ export function NetworkNodeGroup({
         </TagsLeft>
 
         <TagsRight>
-          {hasLocation && (
+          {hasLocation ? (
             <LocationBadge
               to={`/locations?structure=${node.id}`}
               title="View location"
@@ -447,7 +447,15 @@ export function NetworkNodeGroup({
             >
               📍 Location
             </LocationBadge>
-          )}
+          ) : isOwner ? (
+            <LocationBadge
+              to="/locations"
+              title="Go to Locations page to register a location"
+              onClick={(e) => e.stopPropagation()}
+            >
+              + Location
+            </LocationBadge>
+          ) : null}
           {canOnline && (
             <ActionButton
               $variant="online"
