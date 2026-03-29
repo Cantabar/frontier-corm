@@ -72,7 +72,7 @@ func main() {
 	consolidator := memory.NewConsolidator(database, llmClient, embedder, cfg.MemoryCapPerCorm)
 
 	// --- Reasoning ---
-	handler := reasoning.NewHandler(database, llmClient, retriever, tm, cfg.ResponseCooldown, cfg.LowSigAccumulation)
+	handler := reasoning.NewHandler(database, llmClient, retriever, tm, cfg.ObservationInterval, cfg.ObservationJitter, cfg.CriticalEventBypass)
 
 	// --- Start goroutines ---
 	var wg sync.WaitGroup

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand"
 	"strings"
 	"sync"
 	"time"
@@ -25,34 +26,32 @@ type Handler struct {
 	retriever *memory.Retriever
 	tm        *transport.Manager
 
-	// Response gating
-	responseCooldown   time.Duration
-	lowSigAccumulation int
+	// Observation rate limiting
+	observationInterval time.Duration
+	observationJitter   time.Duration
+	criticalBypass      bool
 
 	gateMu   sync.Mutex
-	sessions map[string]*sessionGate // keyed by "environment:sessionID"
+	sessions map[string]*observationGate // keyed by "environment:sessionID"
 }
 
-// sessionGate tracks per-session response gating state.
-type sessionGate struct {
-	lastResponseTime time.Time
-	accumulatedCount int // count of low-significance events since last response
+// observationGate tracks per-session observation timing.
+type observationGate struct {
+	lastObservationTime time.Time
+	nextJitter          time.Duration // pre-rolled jitter for next interval
 }
-
-// highSignificanceThreshold is the minimum event significance that always
-// triggers a corm response regardless of cooldown or accumulation.
-const highSignificanceThreshold = 50
 
 // NewHandler creates a new reasoning handler.
-func NewHandler(database *db.DB, llmClient *llm.Client, retriever *memory.Retriever, tm *transport.Manager, responseCooldown time.Duration, lowSigAccumulation int) *Handler {
+func NewHandler(database *db.DB, llmClient *llm.Client, retriever *memory.Retriever, tm *transport.Manager, observationInterval, observationJitter time.Duration, criticalBypass bool) *Handler {
 	return &Handler{
-		db:                 database,
-		llm:                llmClient,
-		retriever:          retriever,
-		tm:                 tm,
-		responseCooldown:   responseCooldown,
-		lowSigAccumulation: lowSigAccumulation,
-		sessions:           make(map[string]*sessionGate),
+		db:                  database,
+		llm:                 llmClient,
+		retriever:           retriever,
+		tm:                  tm,
+		observationInterval: observationInterval,
+		observationJitter:   observationJitter,
+		criticalBypass:      criticalBypass,
+		sessions:            make(map[string]*observationGate),
 	}
 }
 
@@ -103,9 +102,9 @@ func (h *Handler) ProcessEventBatch(ctx context.Context, environment, cormID str
 		}
 	}
 
-	// Response gating: decide whether the corm should respond to this batch.
-	if !h.shouldRespond(environment, sessionID, traits.Phase, events) {
-		// Still run phase effects (phase transitions, boosts) even when silent.
+	// Observation rate limiting: decide whether to invoke the LLM this tick.
+	if !h.shouldObserve(environment, sessionID, events) {
+		// Still run phase effects (phase transitions, boosts) even when not observing.
 		for _, evt := range events {
 			h.runPhaseEffects(ctx, environment, cormID, sender, traits, evt)
 		}
@@ -156,10 +155,18 @@ func (h *Handler) ProcessEventBatch(ctx context.Context, environment, cormID str
 	// Sanitize the full response once (regexes work correctly on complete text).
 	fullResponse := llm.SanitizeResponse(strings.Join(rawTokens, ""))
 
+	// The LLM may choose silence — this is the expected default.
+	if isSilence(fullResponse) {
+		log.Printf("corm %s chose silence for session %s", cormID, sessionID)
+		for _, evt := range events {
+			h.runPhaseEffects(ctx, environment, cormID, sender, traits, evt)
+		}
+		return nil
+	}
+
 	// Suppress responses that are too short to be meaningful (single chars, bare symbols).
 	if !llm.IsValidResponse(fullResponse) {
 		log.Printf("suppressed invalid corm response for %s: %q", cormID, fullResponse)
-		// Still run phase effects even when response is suppressed.
 		for _, evt := range events {
 			h.runPhaseEffects(ctx, environment, cormID, sender, traits, evt)
 		}
@@ -187,7 +194,7 @@ func (h *Handler) ProcessEventBatch(ctx context.Context, environment, cormID str
 		Payload:    responsePayload,
 	})
 
-	// Mark that we responded (update gate state)
+	// Record that the corm spoke (update observation gate)
 	h.recordResponse(environment, sessionID)
 
 	// Run phase-specific side effects for each event in order
@@ -198,27 +205,17 @@ func (h *Handler) ProcessEventBatch(ctx context.Context, environment, cormID str
 	return nil
 }
 
-// shouldRespond decides whether the corm should generate a response for this
-// batch of events. In Phase 1, payload-aware significance is used so only
-// traps, target-word decrypts, correct solves, and struggling thresholds
-// trigger responses. Other phases use the generic significance score.
-func (h *Handler) shouldRespond(environment, sessionID string, phase int, events []types.CormEvent) bool {
-	maxSig := 0
-	for _, e := range events {
-		var s int
-		if phase == 1 {
-			s = e.Phase1Significance()
-		} else {
-			s = e.Significance()
+// shouldObserve decides whether to invoke the LLM for this batch of events.
+// This is rate limiting, not response gating — the LLM decides whether to
+// actually speak via [SILENCE]. Critical events bypass the interval.
+func (h *Handler) shouldObserve(environment, sessionID string, events []types.CormEvent) bool {
+	// Check for critical events that bypass the interval.
+	if h.criticalBypass {
+		for _, e := range events {
+			if e.IsCritical() {
+				return true
+			}
 		}
-		if s > maxSig {
-			maxSig = s
-		}
-	}
-
-	// High-significance events always get a response.
-	if maxSig >= highSignificanceThreshold {
-		return true
 	}
 
 	key := environment + ":" + sessionID
@@ -228,27 +225,25 @@ func (h *Handler) shouldRespond(environment, sessionID string, phase int, events
 
 	gate, ok := h.sessions[key]
 	if !ok {
-		gate = &sessionGate{}
+		gate = &observationGate{
+			nextJitter: h.rollJitter(),
+		}
 		h.sessions[key] = gate
 	}
 
-	gate.accumulatedCount += len(events)
-
-	// Check cooldown
-	if time.Since(gate.lastResponseTime) < h.responseCooldown {
+	required := h.observationInterval + gate.nextJitter
+	if time.Since(gate.lastObservationTime) < required {
 		return false
 	}
 
-	// Check accumulation threshold
-	if gate.accumulatedCount < h.lowSigAccumulation {
-		return false
-	}
-
+	// Mark observation and roll new jitter for next interval.
+	gate.lastObservationTime = time.Now()
+	gate.nextJitter = h.rollJitter()
 	return true
 }
 
-// recordResponse marks that a response was sent for this session,
-// resetting the accumulation counter.
+// recordResponse marks that the corm actually spoke (not just observed).
+// Resets the observation timer so the corm doesn't immediately speak again.
 func (h *Handler) recordResponse(environment, sessionID string) {
 	key := environment + ":" + sessionID
 
@@ -257,12 +252,26 @@ func (h *Handler) recordResponse(environment, sessionID string) {
 
 	gate, ok := h.sessions[key]
 	if !ok {
-		gate = &sessionGate{}
+		gate = &observationGate{}
 		h.sessions[key] = gate
 	}
 
-	gate.lastResponseTime = time.Now()
-	gate.accumulatedCount = 0
+	gate.lastObservationTime = time.Now()
+	gate.nextJitter = h.rollJitter()
+}
+
+// rollJitter returns a random duration in [0, observationJitter).
+func (h *Handler) rollJitter() time.Duration {
+	if h.observationJitter <= 0 {
+		return 0
+	}
+	return time.Duration(rand.Int63n(int64(h.observationJitter)))
+}
+
+// isSilence returns true if the LLM response is a silence token.
+func isSilence(response string) bool {
+	trimmed := strings.TrimSpace(strings.ToUpper(response))
+	return trimmed == "[SILENCE]" || trimmed == "SILENCE"
 }
 
 // safePrefix returns the first n characters of s, or s itself if shorter.

@@ -161,60 +161,46 @@ func TestTruncateResponse(t *testing.T) {
 }
 
 func TestPhase1SignificanceTrap(t *testing.T) {
-	payload, _ := json.Marshal(map[string]any{"is_trap": true, "is_word": false})
+	payload, _ := json.Marshal(map[string]any{"is_trap": true, "is_address": false})
 	evt := types.CormEvent{EventType: types.EventDecrypt, Payload: payload}
 	if sig := evt.Phase1Significance(); sig != 80 {
 		t.Errorf("trap decrypt significance = %d, want 80", sig)
 	}
 }
 
-func TestPhase1SignificanceWordChar(t *testing.T) {
-	payload, _ := json.Marshal(map[string]any{"is_word": true, "is_trap": false})
+func TestPhase1SignificanceAddressChar(t *testing.T) {
+	payload, _ := json.Marshal(map[string]any{"is_address": true, "is_trap": false})
 	evt := types.CormEvent{EventType: types.EventDecrypt, Payload: payload}
 	if sig := evt.Phase1Significance(); sig != 70 {
-		t.Errorf("word char decrypt significance = %d, want 70", sig)
+		t.Errorf("address char decrypt significance = %d, want 70", sig)
 	}
 }
 
 func TestPhase1SignificanceRoutineDecrypt(t *testing.T) {
-	payload, _ := json.Marshal(map[string]any{"is_word": false, "is_trap": false})
+	payload, _ := json.Marshal(map[string]any{"is_address": false, "is_trap": false})
 	evt := types.CormEvent{EventType: types.EventDecrypt, Payload: payload}
-	if sig := evt.Phase1Significance(); sig != 5 {
-		t.Errorf("routine decrypt significance = %d, want 5", sig)
+	if sig := evt.Phase1Significance(); sig != 10 {
+		t.Errorf("routine decrypt significance = %d, want 10", sig)
 	}
 }
 
 func TestPhase1SignificanceCorrectSubmit(t *testing.T) {
-	payload, _ := json.Marshal(map[string]any{"correct": true, "word": "test"})
+	payload, _ := json.Marshal(map[string]any{"correct": true, "address": "0x3a...f1c9"})
 	evt := types.CormEvent{EventType: types.EventWordSubmit, Payload: payload}
 	if sig := evt.Phase1Significance(); sig != 70 {
 		t.Errorf("correct submit significance = %d, want 70", sig)
 	}
 }
 
-func TestPhase1SignificanceStrugglingSubmit(t *testing.T) {
+func TestPhase1SignificanceIncorrectSubmit(t *testing.T) {
 	payload, _ := json.Marshal(map[string]any{"correct": false, "incorrect_attempts": 4})
 	evt := types.CormEvent{EventType: types.EventWordSubmit, Payload: payload}
-	if sig := evt.Phase1Significance(); sig != 70 {
-		t.Errorf("4th incorrect submit significance = %d, want 70", sig)
-	}
-
-	// 3rd attempt should be suppressed
-	payload, _ = json.Marshal(map[string]any{"correct": false, "incorrect_attempts": 3})
-	evt = types.CormEvent{EventType: types.EventWordSubmit, Payload: payload}
-	if sig := evt.Phase1Significance(); sig != 5 {
-		t.Errorf("3rd incorrect submit significance = %d, want 5", sig)
-	}
-
-	// 8th attempt should also trigger
-	payload, _ = json.Marshal(map[string]any{"correct": false, "incorrect_attempts": 8})
-	evt = types.CormEvent{EventType: types.EventWordSubmit, Payload: payload}
-	if sig := evt.Phase1Significance(); sig != 70 {
-		t.Errorf("8th incorrect submit significance = %d, want 70", sig)
+	if sig := evt.Phase1Significance(); sig != 10 {
+		t.Errorf("incorrect submit significance = %d, want 10", sig)
 	}
 }
 
-func TestPhase1PromptContainsTriggers(t *testing.T) {
+func TestPhase1PromptObservationMode(t *testing.T) {
 	traits := &types.CormTraits{
 		Phase:         1,
 		AgendaWeights: types.AgendaWeights{Industry: 0.33, Expansion: 0.33, Defense: 0.33},
@@ -224,33 +210,57 @@ func TestPhase1PromptContainsTriggers(t *testing.T) {
 	msgs := llm.BuildPrompt(traits, nil, nil, nil, evt)
 
 	system := msgs[0].Content
-	for _, want := range []string{"TRAP HIT", "TARGET CHARACTER", "STRUGGLING", "GUIDED CELL REACHED", "GUIDANCE MODE"} {
+	// Should use observation-driven [SILENCE] model
+	for _, want := range []string{"[SILENCE]", "GUIDANCE MODE", "SUI address"} {
 		if !strings.Contains(system, want) {
 			t.Errorf("Phase 1 prompt should contain %q", want)
 		}
 	}
-	if strings.Contains(system, "On decrypt:") {
-		t.Error("Phase 1 prompt should not contain generic 'On decrypt:' instruction")
+	// Should NOT contain the old prescriptive triggers
+	for _, notWant := range []string{"TRAP HIT", "TARGET CHARACTER", "STRUGGLING", "GUIDED CELL REACHED"} {
+		if strings.Contains(system, notWant) {
+			t.Errorf("Phase 1 prompt should NOT contain old trigger %q", notWant)
+		}
 	}
 	// Coordinate prohibition
-	if !strings.Contains(system, "MUST NOT reveal the exact row") {
+	if !strings.Contains(system, "Never reveal coordinates") {
 		t.Error("Phase 1 prompt should prohibit coordinate disclosure")
 	}
 }
 
 func TestPhase1SignificanceGuidedCellReached(t *testing.T) {
-	payload, _ := json.Marshal(map[string]any{"guided_cell_reached": true, "is_trap": false, "is_word": false})
+	payload, _ := json.Marshal(map[string]any{"guided_cell_reached": true, "is_trap": false, "is_address": false})
 	evt := types.CormEvent{EventType: types.EventDecrypt, Payload: payload}
 	if sig := evt.Phase1Significance(); sig != 85 {
 		t.Errorf("guided_cell_reached significance = %d, want 85", sig)
 	}
 }
 
-func TestPhase1SignificanceGuidedCellActive(t *testing.T) {
-	payload, _ := json.Marshal(map[string]any{"guided_cell_active": true, "is_trap": false, "is_word": false})
-	evt := types.CormEvent{EventType: types.EventDecrypt, Payload: payload}
-	if sig := evt.Phase1Significance(); sig != 30 {
-		t.Errorf("guided_cell_active significance = %d, want 30", sig)
+func TestIsCritical(t *testing.T) {
+	// Phase transition is always critical
+	evt := types.CormEvent{EventType: types.EventPhaseTransition}
+	if !evt.IsCritical() {
+		t.Error("phase_transition should be critical")
+	}
+
+	// Correct submit is critical
+	payload, _ := json.Marshal(map[string]any{"correct": true})
+	evt = types.CormEvent{EventType: types.EventWordSubmit, Payload: payload}
+	if !evt.IsCritical() {
+		t.Error("correct submit should be critical")
+	}
+
+	// Incorrect submit is NOT critical
+	payload, _ = json.Marshal(map[string]any{"correct": false})
+	evt = types.CormEvent{EventType: types.EventWordSubmit, Payload: payload}
+	if evt.IsCritical() {
+		t.Error("incorrect submit should not be critical")
+	}
+
+	// Regular decrypt is NOT critical
+	evt = types.CormEvent{EventType: types.EventDecrypt}
+	if evt.IsCritical() {
+		t.Error("decrypt should not be critical")
 	}
 }
 

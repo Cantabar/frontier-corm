@@ -54,9 +54,8 @@ func (e CormEvent) Significance() int {
 	}
 }
 
-// Phase1Significance returns a phase-1-aware priority score by inspecting
-// the event payload. Trap hits, target-word decrypts, correct submissions,
-// and struggling thresholds score high; everything else is suppressed.
+// Phase1Significance returns a phase-1-aware priority score. Now used only
+// for MostSignificant() memory retrieval selection — no longer gates responses.
 func (e CormEvent) Phase1Significance() int {
 	var p map[string]interface{}
 	if len(e.Payload) > 0 {
@@ -66,32 +65,40 @@ func (e CormEvent) Phase1Significance() int {
 	switch e.EventType {
 	case EventDecrypt:
 		if BoolField(p, "guided_cell_reached") {
-			return 85 // player found the AI's guided cell
+			return 85
 		}
 		if BoolField(p, "is_trap") {
 			return 80
 		}
-		if BoolField(p, "is_word") {
+		if BoolField(p, "is_address") {
 			return 70
 		}
-		if BoolField(p, "guided_cell_active") {
-			return 30 // guidance active but not reached — mild interest
-		}
-		return 5 // routine decrypt — suppress
+		return 10
 
 	case EventWordSubmit:
 		if BoolField(p, "correct") {
 			return 70
 		}
-		attempts := IntField(p, "incorrect_attempts")
-		if attempts >= 4 && attempts%4 == 0 {
-			return 70
-		}
-		return 5 // early incorrect — suppress
+		return 10
 
 	default:
 		return e.Significance()
 	}
+}
+
+// IsCritical returns true for events that should bypass observation rate limits.
+func (e CormEvent) IsCritical() bool {
+	if e.EventType == EventPhaseTransition {
+		return true
+	}
+	if e.EventType == EventWordSubmit {
+		var p map[string]interface{}
+		if len(e.Payload) > 0 {
+			json.Unmarshal(e.Payload, &p)
+		}
+		return BoolField(p, "correct")
+	}
+	return false
 }
 
 // BoolField extracts a bool from a generic map, defaulting to false.

@@ -43,14 +43,17 @@ type Config struct {
 	// Maximum events to collect per coalesce window before forcing a flush.
 	EventBatchMax int
 
-	// Minimum time between corm responses for the same session.
-	// Low-significance events arriving within this window are silently recorded.
-	ResponseCooldown time.Duration
+	// Minimum time between LLM observation calls for the same session.
+	// Controls how often the corm evaluates the event stream, not whether it responds.
+	ObservationInterval time.Duration
 
-	// Number of low-significance events (clicks, decrypts) that must accumulate
-	// before the corm responds. High-significance events (word_submit, phase_transition)
-	// always trigger a response regardless of this counter.
-	LowSigAccumulation int
+	// Random jitter added to the observation interval so timing feels organic.
+	// Actual interval = ObservationInterval + rand(0, ObservationJitter).
+	ObservationJitter time.Duration
+
+	// When true, phase transitions and correct submissions bypass the observation
+	// interval and trigger an immediate LLM evaluation.
+	CriticalEventBypass bool
 
 	// Memory consolidation interval
 	ConsolidationInterval time.Duration
@@ -78,8 +81,9 @@ func Load() Config {
 		FallbackPollInterval:  envDurationMs("FALLBACK_POLL_INTERVAL_MS", 2000),
 		EventCoalesceWindow:   envDurationMs("EVENT_COALESCE_MS", 300),
 		EventBatchMax:         envInt("EVENT_BATCH_MAX", 20),
-		ResponseCooldown:      envDurationMs("RESPONSE_COOLDOWN_MS", 3000),
-		LowSigAccumulation:    envInt("LOW_SIG_ACCUMULATION", 4),
+		ObservationInterval:   envDurationMs("OBSERVATION_INTERVAL_MS", 4000),
+		ObservationJitter:     envDurationMs("OBSERVATION_JITTER_MS", 2000),
+		CriticalEventBypass:   envBool("CRITICAL_EVENT_BYPASS", true),
 		ConsolidationInterval: envDurationMs("CONSOLIDATION_INTERVAL_MS", 60000),
 		MemoryCapPerCorm:      envInt("MEMORY_CAP_PER_CORM", 500),
 		DatabaseURL:           envOrDefault("DATABASE_URL", "postgresql://corm:corm@localhost:5432/frontier_corm"),
@@ -168,6 +172,18 @@ func envInt(key string, defaultVal int) int {
 		return defaultVal
 	}
 	v, err := strconv.Atoi(s)
+	if err != nil {
+		return defaultVal
+	}
+	return v
+}
+
+func envBool(key string, defaultVal bool) bool {
+	s := os.Getenv(key)
+	if s == "" {
+		return defaultVal
+	}
+	v, err := strconv.ParseBool(s)
 	if err != nil {
 		return defaultVal
 	}

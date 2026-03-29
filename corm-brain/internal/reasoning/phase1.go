@@ -87,7 +87,7 @@ func dispatchStrugglingHint(ctx context.Context, h *Handler, environment, cormID
 		if len(e.Payload) > 0 {
 			json.Unmarshal(e.Payload, &p)
 		}
-		if types.BoolField(p, "is_word") {
+		if types.BoolField(p, "is_address") {
 			row := types.IntField(p, "row")
 			col := types.IntField(p, "col")
 			wordCells = append(wordCells, types.CellRef{Row: row, Col: col})
@@ -288,6 +288,13 @@ func streamGuidanceMessage(ctx context.Context, h *Handler, environment, cormID 
 	}
 
 	fullResponse := llm.SanitizeResponse(strings.Join(rawTokens, ""))
+
+	// The LLM may choose silence even in guidance mode.
+	if isSilence(fullResponse) {
+		log.Printf("corm %s chose silence for guidance in session %s", cormID, gr.SessionID)
+		return
+	}
+
 	if !llm.IsValidResponse(fullResponse) {
 		log.Printf("suppressed invalid guidance response for %s: %q", cormID, fullResponse)
 		return
