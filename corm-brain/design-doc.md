@@ -18,9 +18,10 @@ puzzle-service (per env)           corm-brain
                                    │    └─ Debounce → GroupBySession│
                                    ├──────────────────────────────┤
                                    │  Reasoning Handler            │
-                                   │    ├─ Response Gating         │
+                                   │    ├─ Observation Rate Limit  │
                                    │    ├─ Memory Retrieval        │
-                                   │    ├─ LLM Prompt → Stream     │
+                                   │    ├─ LLM Observe → [SILENCE] │
+                                   │    │    or Stream Response     │
                                    │    └─ Phase Effects           │
                                    ├──────────────────────────────┤
                                    │  Consolidation Loop           │
@@ -48,7 +49,7 @@ puzzle-service (per env)           corm-brain
 - **Memory Retriever** (`internal/memory`) — pgvector cosine similarity search over episodic memories. Touches recalled memories to update recency scoring.
 - **Memory Consolidator** (`internal/memory`) — LLM-driven event summarization → embedding → storage. Deterministic trait reduction (agenda weights, patience, player affinities). Prunes oldest/least-important memories when over cap.
 - **Chain Client** (`internal/chain`) — per-environment Sui RPC client for on-chain state writes (phase transitions, stability/corruption updates) using the corm-brain keypair.
-- **Reasoning Handler** (`internal/reasoning`) — orchestrates the full event→response pipeline: trait lookup, response gating (cooldown + low-significance accumulation), memory recall, prompt building, LLM streaming, response delivery, and phase effects.
+- **Reasoning Handler** (`internal/reasoning`) — orchestrates the full event→response pipeline: trait lookup, observation rate limiting (interval + jitter, not significance gating), memory recall, prompt building, LLM observation call (model decides via `[SILENCE]` whether to respond), response delivery, and phase effects. The LLM sees all events continuously and decides both *whether* and *what* to say.
 
 ## Tech Stack
 
@@ -68,8 +69,9 @@ All via environment variables (see `internal/config/config.go`):
 - `DATABASE_URL` — Postgres connection string
 - `EVENT_COALESCE_MS` — debounce window (default: 300ms)
 - `EVENT_BATCH_MAX` — max events per batch (default: 20)
-- `RESPONSE_COOLDOWN_MS` — min time between responses per session (default: 3000ms)
-- `LOW_SIG_ACCUMULATION` — low-sig events before responding (default: 4)
+- `OBSERVATION_INTERVAL_MS` — min time between LLM observation calls per session (default: 4000ms)
+- `OBSERVATION_JITTER_MS` — random jitter added to observation interval (default: 2000ms)
+- `CRITICAL_EVENT_BYPASS` — phase transitions and correct submissions bypass interval (default: true)
 - `CONSOLIDATION_INTERVAL_MS` — memory sweep interval (default: 60000ms)
 - `MEMORY_CAP_PER_CORM` — max episodic memories per corm (default: 500)
 - `WS_RECONNECT_MAX_MS` — max WS reconnect backoff (default: 30000ms)
