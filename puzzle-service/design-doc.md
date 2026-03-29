@@ -49,11 +49,11 @@ Cells belonging to the same address share a `StringID` (e.g. `"target_main"`, `"
 
 **Auto-complete on target discovery:** When the target address is revealed (via clicking any of its cells), the puzzle auto-completes: the contract is marked as solved, the solve count increments, a `submit` event (with `auto_discovered: true` and `contract_id`) is emitted to corm-brain, and a **"CONTRACT INTERFACE RECOVERED" overlay** replaces the grid. The overlay displays the confirmed address, contract type and description, and the solve progress counter. The contract list sidebar updates via OOB swap to reflect the newly solved contract. The overlay elements use staggered fade-in animations. Target address cells briefly receive a `cell--target-locked` glow animation before the overlay appears.
 
-**Contract selection after solve:** The target-found overlay includes a contract picker listing all unsolved contracts. Each entry is a button showing contract type, description, and an "ENCRYPTED" status indicator. Clicking one triggers `GET /puzzle?contract_id=<id>&transition=1`, loading a new puzzle for the selected contract. If all contracts have been solved, the picker is replaced with an "ALL INTERFACES RECOVERED" completion message. The same overlay (with contract picker) also appears on correct word submissions via the terminal.
+**Contract selection after solve:** The target-found overlay shows a single "NEXT INTERFACE" button that loads a randomly pre-selected unsolved contract (`GET /puzzle?contract_id=<id>&transition=1`). The random selection happens server-side when building the overlay data. If all contracts have been solved, the button is replaced with an "ALL INTERFACES RECOVERED" completion message. The same overlay appears on correct word submissions via the terminal.
 
-Players can also type the full address into the terminal input (`submit 0x...`) to win without clicking the address cells directly — this remains as a secondary win path. After a correct terminal submission, the target-found overlay with contract picker appears via OOB swap. The `next` terminal command auto-selects the first unsolved contract for convenience.
+Players can also type the full address into the terminal input (`submit 0x...`) to win without clicking the address cells directly — this remains as a secondary win path. After a correct terminal submission, the target-found overlay with random next button appears via OOB swap. The `next` terminal command also randomly selects the next unsolved contract.
 
-**Defensive fallback:** If `GET /puzzle` is loaded without a `contract_id` and the active contract is already solved, the server auto-selects the next unsolved contract to prevent generating aimless puzzles.
+**Defensive fallback:** If `GET /puzzle` is loaded without a `contract_id` and no active contract is set (e.g. after the Phase 0 → Phase 1 transition), the server randomly selects an unsolved contract to prevent generating aimless puzzles with random addresses. If the active contract is already solved, the server also randomly selects a new unsolved contract.
 
 ### Cell Types
 
@@ -258,7 +258,7 @@ puzzle-service/
 - Phase 1 contract-driven cipher grid puzzles: player selects a contract from the left sidebar to start a puzzle for that contract's address
 - Dynamically-sized grid (viewport-fitted, min 32px/cell), configurable difficulty, and three cipher tiers (Caesar, variable shift, position-based)
 - Contract address discovery mechanic with group-reveal (clicking any cell reveals the entire address)
-- Auto-complete on target address discovery with "CONTRACT INTERFACE RECOVERED" overlay showing contract type, description, and a contract picker for selecting the next unsolved interface
+- Auto-complete on target address discovery with "CONTRACT INTERFACE RECOVERED" overlay showing contract type, description, and a randomly pre-selected "NEXT INTERFACE" button
 - Seven cell types: noise, symbol, target, decoy, trap, sensor (sonar/thermal/vector), garbled
 - Trap explosion system with Euclidean radius 3 blast zone and permanent garbling
 - Trap sonar attraction: trap nodes revealed by a sonar pulse move one cell toward the pulse source, with subtle red flicker animation on arrival

@@ -43,7 +43,7 @@ type TargetFoundData struct {
 	Description        string
 	SolveCount         int
 	TotalContracts     int
-	UnsolvedContracts  []puzzle.Contract
+	NextContractID     string
 	AllSolved          bool
 }
 
@@ -161,8 +161,14 @@ func (h *Handlers) PuzzlePage(w http.ResponseWriter, r *http.Request) {
 		// Reuse active contract (e.g. "next puzzle" after game-over retry)
 		if c := sess.GetContract(sess.ActiveContractID); c != nil && !c.Solved {
 			targetAddr = c.ShortAddress
-		} else if next := sess.NextUnsolvedContract(); next != nil {
-			// Active contract is solved — auto-pick the next unsolved one
+		} else if next := sess.RandomUnsolvedContract(); next != nil {
+			// Active contract is solved — auto-pick a random unsolved one
+			sess.ActiveContractID = next.ID
+			targetAddr = next.ShortAddress
+		}
+	} else {
+		// No contract specified and none active (e.g. Phase 0 → Phase 1 transition)
+		if next := sess.RandomUnsolvedContract(); next != nil {
 			sess.ActiveContractID = next.ID
 			targetAddr = next.ShortAddress
 		}
@@ -375,17 +381,20 @@ func (h *Handlers) PuzzleDecrypt(w http.ResponseWriter, r *http.Request) {
 				`<div class="boot-line boot-line--correct">✓ CONTRACT INTERFACE RECOVERED: %s</div>`+
 				`</div>`, sess.TargetWord)
 
-			// Render the target-found overlay (replaces grid via OOB)
-			unsolved := sess.UnsolvedContracts()
-			h.templates.ExecuteTemplate(w, "target-found.html", TargetFoundData{
-				Address:           sess.TargetWord,
-				ContractType:      contractType,
-				Description:       contractDesc,
-				SolveCount:        sess.SolveCount,
-				TotalContracts:    len(sess.Contracts),
-				UnsolvedContracts: unsolved,
-				AllSolved:         len(unsolved) == 0,
-			})
+		// Render the target-found overlay (replaces grid via OOB)
+		var nextContractID string
+		if next := sess.RandomUnsolvedContract(); next != nil {
+			nextContractID = next.ID
+		}
+		h.templates.ExecuteTemplate(w, "target-found.html", TargetFoundData{
+			Address:        sess.TargetWord,
+			ContractType:   contractType,
+			Description:    contractDesc,
+			SolveCount:     sess.SolveCount,
+			TotalContracts: len(sess.Contracts),
+			NextContractID: nextContractID,
+			AllSolved:      nextContractID == "",
+		})
 
 			// OOB update the contract list sidebar
 			clData := buildContractListData(sess, true)
@@ -583,7 +592,7 @@ func (h *Handlers) PuzzleSubmit(w http.ResponseWriter, r *http.Request) {
 	if strings.EqualFold(word, "next") && sess.LastSolveCorrect {
 		sess.LastSolveCorrect = false
 		redirect := "/puzzle?transition=1"
-		if next := sess.NextUnsolvedContract(); next != nil {
+		if next := sess.RandomUnsolvedContract(); next != nil {
 			redirect = "/puzzle?contract_id=" + next.ID + "&transition=1"
 		}
 		w.Header().Set("HX-Redirect", redirect)
@@ -614,16 +623,19 @@ func (h *Handlers) PuzzleSubmit(w http.ResponseWriter, r *http.Request) {
 		}
 		resultData["ContractType"] = contractType
 
-		// Build unsolved list for contract picker overlay
-		unsolved := sess.UnsolvedContracts()
+		// Pre-select a random next contract for the overlay
+		var nextContractID string
+		if next := sess.RandomUnsolvedContract(); next != nil {
+			nextContractID = next.ID
+		}
 		resultData["TargetFound"] = TargetFoundData{
-			Address:           sess.TargetWord,
-			ContractType:      contractType,
-			Description:       contractDesc,
-			SolveCount:        sess.SolveCount,
-			TotalContracts:    len(sess.Contracts),
-			UnsolvedContracts: unsolved,
-			AllSolved:         len(unsolved) == 0,
+			Address:        sess.TargetWord,
+			ContractType:   contractType,
+			Description:    contractDesc,
+			SolveCount:     sess.SolveCount,
+			TotalContracts: len(sess.Contracts),
+			NextContractID: nextContractID,
+			AllSolved:      nextContractID == "",
 		}
 	} else {
 		sess.IncorrectAttempts++

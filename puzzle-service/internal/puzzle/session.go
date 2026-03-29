@@ -278,6 +278,22 @@ func (s *Session) NextUnsolvedContract() *Contract {
 	return nil
 }
 
+// RandomUnsolvedContract returns a randomly selected unsolved contract, or nil if all solved.
+func (s *Session) RandomUnsolvedContract() *Contract {
+	unsolved := s.UnsolvedContracts()
+	if len(unsolved) == 0 {
+		return nil
+	}
+	idx := randRange(0, len(unsolved)-1)
+	// Map back to the original slice to return a stable pointer.
+	for i := range s.Contracts {
+		if s.Contracts[i].ID == unsolved[idx].ID {
+			return &s.Contracts[i]
+		}
+	}
+	return nil
+}
+
 // UnsolvedContracts returns all contracts that have not been solved.
 func (s *Session) UnsolvedContracts() []Contract {
 	var out []Contract
