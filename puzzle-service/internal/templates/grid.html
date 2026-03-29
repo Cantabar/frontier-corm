@@ -1,4 +1,4 @@
 {{define "grid.html"}}<div class="cipher-grid" style="grid-template-columns: repeat({{.Cols}}, 1fr);">
     {{range .Grid}}{{range .}}{{template "cell.html" .}}{{end}}{{end}}
 </div>
-<div id="pulse-data" style="display:none" hx-swap-oob="true"></div>{{end}}
+<div id="pulse-data" style="display:none"></div>{{end}}
