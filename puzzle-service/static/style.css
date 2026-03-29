@@ -289,7 +289,7 @@ body {
 }
 
 /* === Cipher Grid === */
-.grid-container { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+.grid-container { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; position: relative; }
 
 .cipher-grid {
     display: grid;
@@ -1092,8 +1092,10 @@ body {
     justify-content: center;
     padding: 40px 20px;
     background:
-        radial-gradient(ellipse at center, rgba(0, 255, 65, 0.06) 0%, transparent 70%),
-        rgba(10, 10, 18, 0.82);
+        radial-gradient(ellipse at center, rgba(0, 255, 65, 0.08) 0%, transparent 70%),
+        rgba(10, 10, 18, 0.55);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
     border: 1px solid var(--accent-green);
     border-radius: 4px;
     animation: target-found-border-pulse 3s ease-in-out infinite;
