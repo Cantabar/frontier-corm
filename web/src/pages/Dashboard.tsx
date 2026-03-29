@@ -367,12 +367,8 @@ export function Dashboard() {
           <CardLabel>Total Events</CardLabel>
           <CardValue>{stats?.total_events?.toLocaleString() ?? "—"}</CardValue>
         </ClickableCard>
-      </OverviewGrid>
-
-      <SectionLabel>Install Corm</SectionLabel>
-      <OverviewGrid>
         <OverviewCard>
-          <CardLabel>Network Node</CardLabel>
+          <CardLabel>Install Corm</CardLabel>
           <NodeSelect
             value={selectedNodeId}
             onChange={(e) => setSelectedNodeId(e.target.value)}
@@ -391,17 +387,21 @@ export function Dashboard() {
               </>
             )}
           </NodeSelect>
-          <InitButton
+          <span
             ref={installBtnRef}
-            onClick={() => {
-              if (selectedNodeId) installCorm(selectedNodeId);
-            }}
-            disabled={installDisabled}
+            style={{ display: "inline-block", width: "100%" }}
             onMouseEnter={() => setInstallBtnHovered(true)}
             onMouseLeave={() => setInstallBtnHovered(false)}
           >
-            {isInstalling ? "Installing…" : "Install Corm"}
-          </InitButton>
+            <InitButton
+              onClick={() => {
+                if (selectedNodeId) installCorm(selectedNodeId);
+              }}
+              disabled={installDisabled}
+            >
+              {isInstalling ? "Installing…" : "Install Corm"}
+            </InitButton>
+          </span>
           <PortalTooltip
             targetRef={installBtnRef}
             visible={installBtnHovered && !!installDisabledReason}

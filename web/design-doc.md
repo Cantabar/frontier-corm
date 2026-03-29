@@ -147,7 +147,7 @@ Per-environment defaults are defined in `config.ts` and overridden by explicit `
 - Payout and item pickup notification watcher
 - Auto-join tribe detection and one-click self_join
 - Initialize tribe banner for unclaimed in-game tribes
-- Install Corm: dashboard card for installing a corm on a player-owned Network Node (permissionless on-chain `corm_state::install`)
+- Install Corm: inline overview card (alongside Tribe and Events) for installing a corm on a player-owned Network Node (permissionless on-chain `corm_state::install`)
 - Event Explorer with type/tribe/character filtering and pagination
 - Structure browser with aggregated SSU inventory
 - Assembly metadata: user-defined structure names via on-chain MetadataRegistry, inline edit UI, indexer-backed batch reads
