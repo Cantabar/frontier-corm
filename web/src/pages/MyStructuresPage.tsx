@@ -13,7 +13,8 @@ import { EmptyState } from "../components/shared/EmptyState";
 import { SsuInventoryPanel } from "../components/structures/SsuInventoryPanel";
 import { NetworkNodeGroup } from "../components/structures/NetworkNodeGroup";
 import { RegisterLocationModal } from "../components/locations/RegisterLocationModal";
-import { buildOnlineStructure, buildOfflineStructure, buildAuthorizeExtension } from "../lib/sui";
+import { buildOnlineStructure, buildOfflineStructure, buildAuthorizeExtension, buildCreateAssemblyMetadata, buildUpdateAssemblyMetadata } from "../lib/sui";
+import { useAssemblyMetadata } from "../hooks/useAssemblyMetadata";
 import { config } from "../config";
 import { truncateAddress } from "../lib/format";
 import { CopyableId } from "../components/shared/CopyableId";
@@ -350,6 +351,45 @@ const ExtensionBadge = styled.span<{ $enabled: boolean }>`
   white-space: nowrap;
 `;
 
+const MetadataLabel = styled.span`
+  font-size: 13px;
+  font-weight: 600;
+  color: ${({ theme }) => theme.colors.primary.main};
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+`;
+
+const EditNameButton = styled.button`
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: ${({ theme }) => theme.radii.sm};
+  border: 1px solid ${({ theme }) => theme.colors.surface.border};
+  background: transparent;
+  color: ${({ theme }) => theme.colors.text.muted};
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+
+  &:hover {
+    color: ${({ theme }) => theme.colors.text.primary};
+    border-color: ${({ theme }) => theme.colors.primary.main};
+  }
+`;
+
+const InlineNameInput = styled.input`
+  font-size: 13px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: ${({ theme }) => theme.radii.sm};
+  border: 1px solid ${({ theme }) => theme.colors.primary.main};
+  background: ${({ theme }) => theme.colors.surface.bg};
+  color: ${({ theme }) => theme.colors.text.primary};
+  outline: none;
+  width: 180px;
+`;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -409,6 +449,8 @@ export function MyStructuresPage() {
   const isOwner = !!myCharacterId && myCharacterId === targetCharacterId;
   const tribeId = isOwner ? (tribeCaps[0]?.tribeId ?? null) : null;
   const { structures, isLoading, refetch } = useStructures(targetCharacterId);
+  const assemblyIds = useMemo(() => structures.map((s) => s.id), [structures]);
+  const { metadataMap, refetch: refetchMetadata } = useAssemblyMetadata(assemblyIds);
   const { locationIds, refetch: refetchLocations } = useStructureLocationIds();
   const { profile: targetProfile } = useCharacterProfile(isOwner ? null : targetCharacterId);
   const tlk = useTlkStatus();
@@ -627,6 +669,7 @@ export function MyStructuresPage() {
                     characterId={isOwner ? myCharacterId : null}
                     onRefresh={refetch}
                     onRefreshNodes={refetchNodes}
+                    onRefreshMetadata={refetchMetadata}
                     selectedSsuId={selectedSsuId}
                     onToggleSelect={setSelectedSsuId}
                     hasLocation={locationIds.has(s.id)}
@@ -634,6 +677,7 @@ export function MyStructuresPage() {
                     tlkUnlocked={!!tlk.tlkBytes}
                     onAddLocation={(id) => setAddLocationForId(id)}
                     isOwner={isOwner}
+                    userDefinedName={metadataMap.get(s.id)?.name}
                   />
                 ))}
               </Grid>
@@ -649,6 +693,7 @@ export function MyStructuresPage() {
               characterId={isOwner ? myCharacterId : null}
               onRefresh={refetch}
               onRefreshNodes={refetchNodes}
+              onRefreshMetadata={refetchMetadata}
               selectedSsuId={selectedSsuId}
               onToggleSelect={setSelectedSsuId}
               hasLocation={locationIds.has(s.id)}
@@ -656,6 +701,7 @@ export function MyStructuresPage() {
               tlkUnlocked={!!tlk.tlkBytes}
               onAddLocation={(id) => setAddLocationForId(id)}
               isOwner={isOwner}
+              userDefinedName={metadataMap.get(s.id)?.name}
             />
           ))}
         </Grid>
@@ -687,6 +733,7 @@ function StructureRow({
   characterId,
   onRefresh,
   onRefreshNodes,
+  onRefreshMetadata,
   selectedSsuId,
   onToggleSelect,
   hasLocation,
@@ -694,11 +741,13 @@ function StructureRow({
   tlkUnlocked,
   onAddLocation,
   isOwner = true,
+  userDefinedName,
 }: {
   structure: AssemblyData;
   characterId: string | null;
   onRefresh: () => void;
   onRefreshNodes: () => void;
+  onRefreshMetadata: () => void;
   selectedSsuId: string | null;
   onToggleSelect: (id: string | null) => void;
   hasLocation: boolean;
@@ -706,12 +755,16 @@ function StructureRow({
   tlkUnlocked: boolean;
   onAddLocation: (structureId: string) => void;
   isOwner?: boolean;
+  userDefinedName?: string;
 }) {
   const { mutateAsync: signAndExecute } = useSignAndExecuteTransaction();
   const suiClient = useSuiClient();
   const [pending, setPending] = useState(false);
   const [enablingExt, setEnablingExt] = useState(false);
-  const displayName = structure.name || truncateAddress(structure.id, 10, 6);
+  const [editing, setEditing] = useState(false);
+  const [editValue, setEditValue] = useState("");
+  const [savingName, setSavingName] = useState(false);
+  const displayName = userDefinedName || structure.name || truncateAddress(structure.id, 10, 6);
   const [iconError, setIconError] = useState(false);
   const isSsu = getTypeCategory(structure.typeId) === "Storage";
   const isExpanded = isSsu && selectedSsuId === structure.id;
@@ -791,7 +844,88 @@ function StructureRow({
         <StructureIconPlaceholder />
       )}
       <StructureInfo>
-        <StructureName>{displayName}</StructureName>
+        {editing ? (
+          <form
+            style={{ display: "flex", gap: 4, alignItems: "center" }}
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (!characterId || !editValue.trim()) return;
+              setSavingName(true);
+              try {
+                const capObj = await suiClient.getObject({ id: structure.ownerCapId });
+                const registryId = config.metadataRegistryId;
+                let tx;
+                if (userDefinedName) {
+                  tx = buildUpdateAssemblyMetadata({
+                    registryId,
+                    structureId: structure.id,
+                    name: editValue.trim(),
+                    description: "",
+                  });
+                } else {
+                  tx = buildCreateAssemblyMetadata({
+                    registryId,
+                    characterId,
+                    structureId: structure.id,
+                    ownerCapId: structure.ownerCapId,
+                    ownerCapVersion: capObj.data?.version ?? structure.ownerCapVersion,
+                    ownerCapDigest: capObj.data?.digest ?? structure.ownerCapDigest,
+                    moveType: structure.moveType,
+                    name: editValue.trim(),
+                    description: "",
+                  });
+                }
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const result = await signAndExecute({ transaction: tx as any });
+                await suiClient.waitForTransaction({ digest: result.digest });
+                setEditing(false);
+                onRefreshMetadata();
+              } catch (err) {
+                console.error("Failed to save structure name:", err);
+              } finally {
+                setSavingName(false);
+              }
+            }}
+          >
+            <InlineNameInput
+              autoFocus
+              maxLength={64}
+              value={editValue}
+              placeholder="Structure name"
+              onChange={(e) => setEditValue(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+              disabled={savingName}
+            />
+            <EditNameButton type="submit" disabled={savingName} onClick={(e) => e.stopPropagation()}>
+              {savingName ? "…" : "Save"}
+            </EditNameButton>
+            <EditNameButton
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setEditing(false); }}
+              disabled={savingName}
+            >
+              Cancel
+            </EditNameButton>
+          </form>
+        ) : (
+          <StructureName>
+            {userDefinedName && <MetadataLabel>{userDefinedName} · </MetadataLabel>}
+            {structure.name || truncateAddress(structure.id, 10, 6)}
+            {isOwner && characterId && (
+              <EditNameButton
+                style={{ marginLeft: 6 }}
+                title={userDefinedName ? "Rename structure" : "Name this structure"}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEditValue(userDefinedName || "");
+                  setEditing(true);
+                }}
+              >
+                {userDefinedName ? "✏️" : "+ Name"}
+              </EditNameButton>
+            )}
+          </StructureName>
+        )}
         <StructureMeta>
           <CopyableId id={structure.id} asCode />
           {structure.description && ` · ${structure.description}`}

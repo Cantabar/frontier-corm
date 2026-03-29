@@ -105,6 +105,17 @@ const SCHEMA_SQL = `
   CREATE INDEX IF NOT EXISTS idx_cleanup_jobs_status ON cleanup_jobs(status);
   CREATE INDEX IF NOT EXISTS idx_cleanup_jobs_contract_id ON cleanup_jobs(contract_id);
 
+  -- Assembly metadata snapshots (materialized latest state from events)
+  CREATE TABLE IF NOT EXISTS metadata_snapshots (
+    assembly_id     TEXT PRIMARY KEY,
+    name            TEXT NOT NULL,
+    description     TEXT NOT NULL DEFAULT '',
+    owner           TEXT NOT NULL,
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_metadata_owner ON metadata_snapshots(owner);
+
   -- Legacy single-cursor table (kept for backward compat during migration)
   CREATE TABLE IF NOT EXISTS indexer_cursor (
     id              INTEGER PRIMARY KEY CHECK (id = 1),

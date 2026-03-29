@@ -47,6 +47,8 @@ A privacy-preserving location sharing system built into the indexer, providing e
 - **Tribe (8):** TribeCreatedEvent, MemberJoinedEvent, MemberRemovedEvent, ReputationUpdatedEvent, TreasuryDepositEvent, TreasuryProposalCreatedEvent, TreasuryProposalVotedEvent, TreasurySpendEvent
 - **Trustless Contracts (11):** CoinForCoinCreatedEvent, CoinForItemCreatedEvent, ItemForCoinCreatedEvent, ItemForItemCreatedEvent, TransportCreatedEvent, ContractFilledEvent, ContractCompletedEvent, ContractCancelledEvent, ContractExpiredEvent, TransportAcceptedEvent, TransportDeliveredEvent
 - **Multi-Input (5):** MultiInputContractCreatedEvent, SlotFilledEvent, MultiInputContractCompletedEvent, MultiInputContractCancelledEvent, MultiInputContractExpiredEvent
+- **Assembly Metadata (3):** MetadataCreatedEvent, MetadataUpdatedEvent, MetadataDeletedEvent
+- **World (1):** StatusChangedEvent (filtered for UNANCHORED action — triggers metadata cleanup)
 
 ## Tech Stack
 
@@ -132,6 +134,7 @@ Mounted under `/api/v1/locations/proofs`.
 ### Postgres Tables
 
 - `events` — all archived events with checkpoint proof metadata (`tx_digest`, `event_seq`, `checkpoint_seq`, `checkpoint_digest`), denormalized fields, raw JSON payload
+- `metadata_snapshots` — materialized latest assembly metadata per assembly_id (name, description, owner)
 - `reputation_snapshots` — materialized latest reputation per tribe×character
 - `indexer_cursor` — resumable polling cursor
 - `location_pods` — encrypted location PODs per structure×tribe with owner, location_hash, encrypted_blob, nonce, signature, pod/TLK version, optional network_node_id for derived PODs
@@ -162,7 +165,8 @@ Each archived event includes proof metadata for independent verification:
 - Resumable polling cursor for crash recovery
 - Reputation snapshots and leaderboard queries
 - Paginated event queries with filtering by type, tribe, character, and object
-- Optional cleanup worker for expiring stale on-chain contracts
+- Optional cleanup worker for expiring stale on-chain contracts and removing metadata for unanchored structures
+- Assembly metadata materialization: event-sourced snapshots with batch query API (`GET /metadata?assemblyIds=`)
 - Witness service for automated build request fulfillment (polls open contracts, matches anchor/extension events, signs BCS attestations, submits fulfill transactions) with optional mutual proximity proof verification for proximity-gated contracts
 - Shadow Location Network with encrypted PODs, TLK key management (init/wrap/rotate/register), and Network Node POD propagation
 - ZK proof verification and storage for region, proximity, and mutual proximity location filters (Groth16/snarkjs)

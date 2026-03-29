@@ -97,6 +97,32 @@ export function buildCleanupMultiInputContract(
 }
 
 // ============================================================
+// Assembly Metadata cleanup
+// ============================================================
+
+/**
+ * Build a cleanup transaction for a stale assembly metadata entry.
+ * Calls assembly_metadata::admin_cleanup(registry, admin_cap, assembly_id).
+ */
+export function buildCleanupAssemblyMetadata(
+  config: IndexerConfig,
+  assemblyId: string,
+): Transaction {
+  const { metadataRegistryId, cormAdminCapId, assemblyMetadataPackageId } = config.cleanup;
+  const tx = new Transaction();
+  tx.setGasBudget(config.cleanup.gasBudget);
+  tx.moveCall({
+    target: `${assemblyMetadataPackageId}::assembly_metadata::admin_cleanup`,
+    arguments: [
+      tx.object(metadataRegistryId),
+      tx.object(cormAdminCapId),
+      tx.pure.id(assemblyId),
+    ],
+  });
+  return tx;
+}
+
+// ============================================================
 // Contract type classification
 // ============================================================
 

@@ -102,7 +102,7 @@ Each contract package has a `Move.toml` with dependency addresses. Package IDs a
 
 - **Local:** `scripts/publish-contracts-local.sh` (publishes all packages in dependency order after world contracts are deployed)
 - **Testnet:** `make publish-contracts ENV=utopia|stillness` (via `scripts/publish-contracts.sh`)
-- Publishing order: `corm_auth` → `corm_state` → `tribe` → `trustless_contracts` → `witnessed_contracts`
+- Publishing order: `corm_auth` → `corm_state` → `tribe` → `trustless_contracts` → `witnessed_contracts` → `assembly_metadata`
 
 ## Features
 
@@ -119,6 +119,17 @@ Each contract package has a `Move.toml` with dependency addresses. Package IDs a
 - Contract lifecycle: create, fill, cancel, expire, cleanup (garbage collection)
 - Witnessed build request contracts with cryptographic fulfillment via Ed25519 attestations and BCS deserialization
 - Shared contract utilities: deadline validation, fill tracking, divisibility checks, item deposit/release via CormAuth extension
+- Assembly metadata registry: OwnerCap-gated structure naming with admin cleanup for unanchored structures
+
+### assembly_metadata
+
+**Purpose:** On-chain registry for user-defined structure metadata (names, descriptions).
+
+- `MetadataRegistry` — shared singleton mapping assembly IDs to `MetadataEntry` (owner, name, description).
+- `create_metadata<T: key>` — requires `OwnerCap<T>` to prove assembly ownership. Generic over all structure types.
+- `update_metadata` / `delete_metadata` — sender-gated (must match stored owner).
+- `admin_cleanup` — `CormAdminCap`-gated removal for automated cleanup when structures are unanchored.
+- Events: `MetadataRegistryCreatedEvent`, `MetadataCreatedEvent`, `MetadataUpdatedEvent`, `MetadataDeletedEvent`.
 
 ## Open Questions / Future Work
 

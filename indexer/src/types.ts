@@ -282,6 +282,38 @@ export interface BuildRequestExpiredEvent {
 }
 
 // ============================================================
+// Assembly Metadata Events
+// ============================================================
+
+export interface MetadataCreatedEvent {
+  assembly_id: string;
+  name: string;
+  description: string;
+  owner: string;
+}
+
+export interface MetadataUpdatedEvent {
+  assembly_id: string;
+  name: string;
+  description: string;
+}
+
+export interface MetadataDeletedEvent {
+  assembly_id: string;
+}
+
+// ============================================================
+// World Status Events (used for metadata cleanup)
+// ============================================================
+
+export interface StatusChangedEvent {
+  assembly_id: string;
+  assembly_key: unknown;
+  status: unknown;
+  action: unknown;
+}
+
+// ============================================================
 // All known event type names (short names matching Move structs)
 // ============================================================
 
@@ -318,6 +350,12 @@ export const EVENT_TYPES = [
   "BuildRequestFulfilledEvent",
   "BuildRequestCancelledEvent",
   "BuildRequestExpiredEvent",
+  // Assembly Metadata
+  "MetadataCreatedEvent",
+  "MetadataUpdatedEvent",
+  "MetadataDeletedEvent",
+  // World — structure lifecycle (for metadata cleanup)
+  "StatusChangedEvent",
 ] as const;
 
 export type EventTypeName = (typeof EVENT_TYPES)[number];
@@ -385,6 +423,8 @@ export interface IndexerConfig {
     tribe: string;
     trustlessContracts: string;
     witnessedContracts?: string;
+    assemblyMetadata?: string;
+    world?: string;
   };
   /** Postgres connection string */
   databaseUrl: string;
@@ -413,6 +453,12 @@ export interface CleanupConfig {
   coinType: string;
   /** Coin type for CF (fill) type argument — default same as coinType */
   fillCoinType: string;
+  /** MetadataRegistry shared object ID (for metadata cleanup transactions) */
+  metadataRegistryId: string;
+  /** CormAdminCap object ID (for metadata cleanup transactions) */
+  cormAdminCapId: string;
+  /** assembly_metadata package ID (for metadata cleanup transactions) */
+  assemblyMetadataPackageId: string;
 }
 
 export const DEFAULT_CONFIG: IndexerConfig = {
@@ -420,6 +466,8 @@ export const DEFAULT_CONFIG: IndexerConfig = {
   packageIds: {
     tribe: process.env.PACKAGE_TRIBE ?? "",
     trustlessContracts: process.env.PACKAGE_TRUSTLESS_CONTRACTS ?? "",
+    assemblyMetadata: process.env.PACKAGE_ASSEMBLY_METADATA ?? "",
+    world: process.env.PACKAGE_WORLD ?? process.env.VITE_WORLD_PACKAGE_ID ?? "",
   },
   databaseUrl: process.env.DATABASE_URL ?? "postgresql://corm:corm@localhost:5432/frontier_corm",
   apiPort: Number(process.env.API_PORT) || 3100,
@@ -433,5 +481,8 @@ export const DEFAULT_CONFIG: IndexerConfig = {
     gasBudget: Number(process.env.CLEANUP_GAS_BUDGET) || 5_000_000,
     coinType: process.env.CLEANUP_COIN_TYPE ?? "0x2::sui::SUI",
     fillCoinType: process.env.CLEANUP_FILL_COIN_TYPE ?? process.env.CLEANUP_COIN_TYPE ?? "0x2::sui::SUI",
+    metadataRegistryId: process.env.METADATA_REGISTRY_ID ?? "",
+    cormAdminCapId: process.env.CORM_ADMIN_CAP_ID ?? "",
+    assemblyMetadataPackageId: process.env.ASSEMBLY_METADATA_PACKAGE_ID ?? process.env.PACKAGE_ASSEMBLY_METADATA ?? "",
   },
 };
