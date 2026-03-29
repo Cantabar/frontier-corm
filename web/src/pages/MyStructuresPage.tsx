@@ -184,7 +184,7 @@ const StructureIconPlaceholder = styled.div`
 `;
 
 const StructureInfo = styled.div`
-  flex: 1;
+  flex: 0 1 250px;
   min-width: 0;
 `;
 
@@ -226,9 +226,12 @@ const TypeBadge = styled.span`
   border-radius: ${({ theme }) => theme.radii.sm};
   background: ${({ theme }) => theme.colors.secondary.accentMuted};
   color: ${({ theme }) => theme.colors.secondary.accent};
-  white-space: nowrap;
-  min-width: 120px;
+  width: 140px;
   text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 0;
 `;
 
 const StatusDot = styled.span<{ $status: AssemblyStatus }>`
@@ -258,14 +261,16 @@ const StatusLabel = styled.span`
   display: inline-flex;
   align-items: center;
   white-space: nowrap;
-  min-width: 90px;
+  width: 100px;
+  flex-shrink: 0;
 `;
 
 const EnergyIndicator = styled.span<{ $connected: boolean }>`
   font-size: 11px;
   color: ${({ $connected, theme }) =>
     $connected ? theme.colors.success : theme.colors.text.muted};
-  min-width: 100px;
+  width: 110px;
+  flex-shrink: 0;
 `;
 
 const LocationBadge = styled.span`
