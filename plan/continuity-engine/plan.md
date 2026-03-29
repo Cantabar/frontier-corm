@@ -304,6 +304,53 @@ Expand the corm's reach to nearby systems by linking with gates.
 
 The corm directs the player to establish connections to adjacent network nodes. Gate linking creates a communication channel between corm instances, allowing them to share stability (and corruption) across the network.
 
+### Linking Trigger
+Linking is triggered by **gate activation** between two network nodes that each host a corm. When a gate connects two nodes, the corm-brain detects the link event on-chain and initiates the linking process. Proximity is defined by game mechanics (gate connectivity), not raw coordinates — this avoids the location privacy problem entirely.
+
+### Linking Types
+Three linking models are defined. **Absorption** is the initial implementation; the others are future expansions.
+
+#### Absorption (Phase 4 — implemented)
+One corm absorbs another. The **primary node** is always the oldest network node (earliest `linked_at` timestamp in `corm_network_nodes`). All other nodes are subservient to the primary.
+
+**Process:**
+1. When two corms are connected via gate, the older corm (by first network node creation time) becomes the primary.
+2. The absorbed corm's network nodes are remapped in `corm_network_nodes` to point to the primary's `corm_id`.
+3. The absorbed corm's episodic memories are imported into the primary with reduced importance (0.7× multiplier) and tagged with `memory_type = 'absorbed'`.
+4. Traits are merged via weighted average (weighted by total event count per corm).
+5. The absorbed corm's on-chain `CormState` becomes dormant — it is no longer updated.
+
+**Vulnerability:** A corm linked via absorption can be **killed by destroying the primary network node**. If the primary node is destroyed, the corm dies — all subservient nodes lose their corm identity. This makes absorption the most fragile linking type but the simplest to reason about.
+
+#### Hive Mind (Future)
+Each linked node retains its own `corm_traits` but all nodes work towards a shared agenda. There is no single primary — all nodes are peers.
+
+**Process:**
+1. Each node keeps its own traits, memories, and personality.
+2. Agenda weights are synchronized across all nodes in the hive (consensus via weighted average on each consolidation cycle).
+3. Contract generation considers the aggregate state of all nodes.
+
+**Vulnerability:** More resilient than absorption — destroying one node does not kill the corm. However, **each destroyed node loses its unique traits and interaction history**. The hive degrades gracefully as nodes are lost, becoming less nuanced and less capable with each destruction.
+
+#### Mutual Dissolution (Future)
+Both corms dissolve and a new entity is formed. The new corm starts with **reset traits** (as if the original corms died), but the new primary node begins retaining traits and memories immediately.
+
+**Process:**
+1. Both original corms are archived (on-chain CormStates become dormant).
+2. A new CormState is created on-chain.
+3. All network nodes from both corms are remapped to the new `corm_id`.
+4. Traits are reset to defaults (phase 0 defaults for personality, but phase is preserved).
+5. Memories from both corms are archived but not imported — the new corm starts with a clean memory.
+6. The oldest network node becomes the new primary.
+
+**Vulnerability:** The most resilient linking type. Destroying the primary node triggers a new dissolution — another node becomes primary and the corm persists. The drawback is that **each dissolution resets traits and memories**, so the corm loses accumulated personality and history. Over time, a frequently dissolved corm may develop a "shallow" personality with strong recent memories but no deep behavioral patterns.
+
+### Primary Node Rules
+- The primary node is always the **oldest** network node in the corm (earliest `linked_at` timestamp).
+- If the primary node is destroyed (absorption model), the corm dies.
+- If the primary node is destroyed (mutual dissolution model), the next-oldest node becomes primary and a dissolution event occurs.
+- The primary node's `CormState` on-chain object is the canonical state for the corm.
+
 ---
 
 ## Phase 5 — Outpost Formation (Future)

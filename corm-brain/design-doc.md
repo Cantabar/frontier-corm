@@ -167,6 +167,39 @@ All coin types are `Coin<CORM>`. The LLM never selects a coin type.
 ### Reducer Updates
 `reduceContractComplete` now parses `contract_type` from the event payload and updates `contract_type_affinity` and `agenda_weights` (trade → industry, transport → expansion). Agenda weights are normalized after each update.
 
+## Network Linking (Phase 4)
+
+Corms expand by linking with other corms when gates connect their network nodes. Three linking models are defined; **Absorption** is the initial implementation.
+
+### Absorption (Implemented)
+The older corm (by primary node `linked_at` timestamp) absorbs the younger. The primary node is always the **oldest** network node in a corm.
+
+**On link detection (gate activation event):**
+1. Resolve both network nodes to their respective `corm_id` via `corm_network_nodes`.
+2. Determine primary by earliest `linked_at` where `is_primary = true`.
+3. Remap absorbed corm's network nodes: `UPDATE corm_network_nodes SET corm_id = :primary_corm_id, is_primary = false WHERE corm_id = :absorbed_corm_id`.
+4. Import absorbed memories into primary with `importance *= 0.7` and `memory_type = 'absorbed'`.
+5. Merge traits via weighted average (weighted by `COUNT(*)` from `corm_events` per corm).
+6. Insert a record into `corm_link_history` for audit.
+7. The absorbed `CormState` on-chain is no longer updated.
+
+**Vulnerability:** Destroying the primary network node kills the corm — all subservient nodes lose their identity.
+
+### Hive Mind (Future)
+Each node keeps its own `corm_traits` but shares a synchronized agenda. No single primary — all nodes are peers. Destroying a node loses that node's traits and interaction history but the hive persists.
+
+### Mutual Dissolution (Future)
+Both corms dissolve into a new entity with reset traits and clean memory. The oldest node becomes the new primary. Most resilient — destroying the primary triggers a new dissolution (next-oldest node takes over), but each dissolution resets accumulated personality.
+
+### Primary Node Resolution
+The primary node is determined by `SELECT network_node_id FROM corm_network_nodes WHERE corm_id = :id AND is_primary = true`. On corm creation, the first node is automatically marked primary. On absorption, only the absorbing corm's primary retains `is_primary = true`.
+
+### Schema Changes
+See migration `002_network_linking.sql`:
+- `corm_network_nodes.is_primary` — boolean, marks the primary node per corm
+- `corm_network_nodes.link_type` — enum-like text: `'origin'`, `'absorption'`, `'hive'`, `'dissolution'`
+- `corm_link_history` — audit log of all linking events
+
 ## Open Questions / Future Work
 
 - Production Dockerfile and ECS task definition
@@ -177,3 +210,7 @@ All coin types are `Coin<CORM>`. The LLM never selects a coin type.
 - Boost system implementation (cell targeting based on decrypt patterns)
 - Location reporting witnessed contract (prerequisite for cross-node transport)
 - Phase 3 agenda-driven multi-step contract sequences
+- On-chain `CormLinkedEvent` emission and dormant CormState marking for absorbed corms
+- Hive Mind linking: per-node traits with shared agenda synchronization
+- Mutual Dissolution linking: trait reset + memory archival + new CormState provisioning
+- Node destruction detection and corm death/dissolution cascade

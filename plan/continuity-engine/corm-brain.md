@@ -511,9 +511,24 @@ CREATE EXTENSION IF NOT EXISTS vector;
 CREATE TABLE corm_network_nodes (
   network_node_id TEXT PRIMARY KEY,
   corm_id         TEXT NOT NULL,
+  is_primary      BOOLEAN NOT NULL DEFAULT false, -- oldest node per corm is primary
+  link_type       TEXT NOT NULL DEFAULT 'origin', -- origin, absorption, hive, dissolution
   linked_at       TIMESTAMPTZ DEFAULT now()
 );
 CREATE INDEX idx_corm_nn_corm ON corm_network_nodes (corm_id);
+
+-- Audit log for corm linking events (Phase 4+)
+CREATE TABLE corm_link_history (
+  id                BIGSERIAL PRIMARY KEY,
+  link_type         TEXT NOT NULL,            -- absorption, hive, dissolution
+  primary_corm_id   TEXT NOT NULL,            -- surviving / new corm
+  absorbed_corm_id  TEXT,                     -- absorbed corm (NULL for dissolution)
+  primary_node_id   TEXT NOT NULL,            -- primary network node after linking
+  absorbed_node_ids JSONB,                    -- array of remapped network_node_ids
+  metadata          JSONB,                    -- trait merge weights, etc.
+  linked_at         TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX idx_corm_link_history ON corm_link_history (primary_corm_id);
 
 -- Raw event log (append-only, partitioned by corm_id)
 CREATE TABLE corm_events (
