@@ -331,8 +331,8 @@
         function getGridDims() {
             var main = document.getElementById('main-display');
             if (!main) return null;
-            // Subtract padding (8px each side)
-            return { cw: main.clientWidth - 16, ch: main.clientHeight - 16 };
+            // Subtract padding (8px left+right, 8px top + 20px bottom)
+            return { cw: main.clientWidth - 16, ch: main.clientHeight - 28 };
         }
 
         function measureAndLoad() {
