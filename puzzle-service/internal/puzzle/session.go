@@ -80,6 +80,7 @@ type Session struct {
 	DecryptedCells    map[string]bool
 	GarbledCells      map[string]bool // permanently corrupted by trap explosion
 	TargetDestroyed   bool            // true when a trap explosion garbles any target address cell
+	TrapPositions     []CellCoord     // current positions of undecrypted trap nodes
 	Difficulty        DifficultyConfig
 	SolveCount        int
 	IncorrectAttempts int
@@ -237,6 +238,7 @@ func (s *Session) LoadPuzzle(p *GeneratedPuzzle) {
 	s.PendingDifficulty = nil
 	s.LastSolveCorrect = false
 	s.FailedClicks = 0
+	s.TrapPositions = CollectTrapPositions(p.Grid)
 	s.VectorsThreshold = randVectorsThreshold()
 	s.Hints.Vectors = false
 	s.GuidedCell = nil
@@ -360,6 +362,33 @@ func (s *Session) CellHasHint(row, col int, hintType string) bool {
 		}
 	}
 	return false
+}
+
+// MoveTrapsToPulse moves trap nodes toward the given pulse source and
+// updates TrapPositions accordingly. Returns the list of moves made.
+func (s *Session) MoveTrapsToPulse(pulseRow, pulseCol int, strength PulseStrength) []TrapMoveResult {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.Grid == nil {
+		return nil
+	}
+
+	moves := MoveTrapsToPulse(s.Grid, pulseRow, pulseCol, strength, s.DecryptedCells, s.GarbledCells)
+	if len(moves) > 0 {
+		s.TrapPositions = CollectTrapPositions(s.Grid)
+	}
+	return moves
+}
+
+// RemoveTrapPosition removes a trap from TrapPositions (e.g. after garbling).
+func (s *Session) RemoveTrapPosition(row, col int) {
+	for i, pos := range s.TrapPositions {
+		if pos.Row == row && pos.Col == col {
+			s.TrapPositions = append(s.TrapPositions[:i], s.TrapPositions[i+1:]...)
+			return
+		}
+	}
 }
 
 // randVectorsThreshold returns a random int in [4, 8].

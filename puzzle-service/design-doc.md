@@ -57,7 +57,7 @@ Players can also type the full address into the terminal input (`submit 0x...`) 
 - **Symbol** — non-alphabet printable ASCII (`#@%&*~^|<>{}[]` etc.) filling 60% of empty cells.
 - **Target** — cells of the hidden SUI address. White text on reveal, green border.
 - **Decoy** — cells of decoy addresses. Same group-reveal behavior as target but no win. Visually distinct after reveal: dim orange text at reduced opacity, no border, subtle orange-tinted background with a brief fade-in animation — contrasting with the target's bright white text and green border.
-- **Trap** — anomaly nodes. On reveal, explode with Euclidean radius 3, permanently garbling all cells in the blast zone (setting them to `CellGarbled`). Garbled cells display unique foreign-script glyphs with a purple flicker and cannot be interacted with. If any target address cell is caught in the explosion, the game is over.
+- **Trap** — anomaly nodes. On reveal, explode with Euclidean radius 3, permanently garbling all cells in the blast zone (setting them to `CellGarbled`). Garbled cells display unique foreign-script glyphs with a purple flicker and cannot be interacted with. If any target address cell is caught in the explosion, the game is over. Trap nodes are not static — they are attracted toward sonar pulse sources (see Trap Sonar Attraction below).
 - **Sensor** — hint nodes (~2.4% of noise/symbol cells). Three subtypes:
   - **Sonar** `[S]` (cyan) — on reveal, triggers a triple pulse: 3 pulses at 1-second intervals, Euclidean radius 5, revealing the color signature of all cells in range.
   - **Thermal** `[T]` (blue→red gradient) — on reveal, the sensor cell's text color, background, and glow are set to a smooth blue-to-red gradient based on Manhattan distance to the target. Close to the target = red (hue 0°), far away = blue (hue 240°). The color is computed server-side via HSL interpolation and applied as an inline style. This is independent of the AI-controlled heatmap hint toggle.
@@ -78,6 +78,26 @@ Every cell decrypt triggers a **localized sonar pulse** (Euclidean radius 2) cen
 The pulse is delivered as a server-side JSON payload in a hidden `#pulse-data` div (OOB-swapped). Client-side JavaScript reads the JSON, applies temporary CSS animation classes (`cell--pulse-{color}`) to the affected cells, and removes them after 1 second.
 
 Sonar sensor nodes override the default radius 2 pulse with a **triple pulse** at radius 5 with 1-second intervals between each iteration. The JSON payload includes `pulseCount` and `pulseInterval` fields that the JS pulse handler uses to schedule repeated animations.
+
+### Trap Sonar Attraction
+
+Trap nodes are attracted to sonar pulse sources. After every cell decrypt, undecrypted trap nodes within a detection range move one cell closer to the pulse origin by swapping positions with an adjacent noise/symbol cell.
+
+**Pulse strengths:**
+- **Weak** (regular decrypt): detection range 5 cells (Euclidean), 1 move per event
+- **Strong** (sonar sensor): detection range 8 cells (Euclidean), 1 move per event with the larger range compensating for the triple-pulse's visual feedback
+
+This creates a risk/reward dynamic: every click reveals information through the pulse but also draws traps closer. Sonar sensors are especially dangerous — their large detection range can pull distant traps significantly closer.
+
+**Movement rules:**
+- Traps move toward the adjacent cell (including diagonals) that minimizes Euclidean distance to the pulse source
+- Traps can only swap with noise or symbol cells — they cannot overwrite addresses, sensors, other traps, garbled cells, or decrypted cells
+- Multiple traps moving in the same pulse cannot claim the same destination cell
+- Trap explosions do not trigger movement (the trap is detonating, not pulsing)
+- The server emits OOB cell swaps for both old (now noise) and new (now trap) positions, plus a `#trap-move-data` JSON payload for client-side arrival animation
+- Trap moves are included in the decrypt event payload sent to corm-brain (`trap_moves` field)
+
+**Visual feedback:** A subtle red flicker animation (`cell--trap-arrive`) is applied to the new trap position for 600ms. This is faint enough not to definitively reveal trap identity but rewards attentive players.
 
 ### Color-Coded Legend
 
@@ -187,6 +207,7 @@ puzzle-service/
 │   │   ├── generator.go        # Address generation, grid creation, sensor/trap placement
 │   │   ├── cipher.go           # Caesar, variable, position-based shift ciphers
 │   │   ├── grid.go             # Grid/Cell model, cell types, noise/trap symbols
+│   │   ├── trap_movement.go    # Trap sonar attraction: movement logic, pulse strengths
 │   │   └── session.go          # Per-player session state, session store
 │   ├── handlers/
 │   │   ├── handlers.go         # Handlers struct, rate limiter
@@ -220,7 +241,8 @@ puzzle-service/
 └── tests/
     ├── cipher_test.go
     ├── generator_test.go
-    └── handler_test.go
+    ├── handler_test.go
+    └── trap_movement_test.go
 ```
 
 ## Deployment
@@ -239,6 +261,7 @@ puzzle-service/
 - Auto-complete on target address discovery with "CONTRACT INTERFACE RECOVERED" overlay showing contract type and description, with staggered entrance animation
 - Seven cell types: noise, symbol, target, decoy, trap, sensor (sonar/thermal/vector), garbled
 - Trap explosion system with Euclidean radius 3 blast zone and permanent garbling
+- Trap sonar attraction: trap nodes move toward pulse sources (weak: range 5, strong/sonar: range 8) with subtle red flicker animation on arrival
 - Localized sonar pulse system on every decrypt (radius 2) with color-coded type signatures
 - Sonar sensor triple-pulse override (radius 5, 3 pulses at 1-second intervals)
 - Four AI-controlled hint systems: heatmap, vectors, decode, signal
@@ -262,4 +285,3 @@ puzzle-service/
 - SSU context integration (in-game Smart Storage Unit iframe embedding)
 - Dynamic contract list sync from corm-brain (currently uses hardcoded test contracts)
 - Additional sensor types or hybrid sensor behaviors
-- Trap chain reactions (trap explosion garbling another trap, causing secondary explosion)

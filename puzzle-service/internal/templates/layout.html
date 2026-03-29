@@ -413,6 +413,31 @@
         document.body.addEventListener('htmx:afterSettle', processPulseData);
     })();
 
+    // === Trap movement animation ===
+    // Processes JSON from #trap-move-data (OOB-swapped by server) and applies
+    // a subtle arrival flicker to cells that traps moved into.
+    (function() {
+        function processTrapMoves() {
+            var el = document.getElementById('trap-move-data');
+            if (!el) return;
+            var raw = el.textContent.trim();
+            if (!raw) return;
+            try {
+                var arrivals = JSON.parse(raw);
+                arrivals.forEach(function(entry) {
+                    var cell = document.getElementById('cell-' + entry.row + '-' + entry.col);
+                    if (!cell) return;
+                    cell.classList.remove('cell--trap-arrive');
+                    void cell.offsetWidth;
+                    cell.classList.add('cell--trap-arrive');
+                    setTimeout(function() { cell.classList.remove('cell--trap-arrive'); }, 600);
+                });
+            } catch(e) { /* ignore */ }
+            el.textContent = '';
+        }
+        document.body.addEventListener('htmx:afterSettle', processTrapMoves);
+    })();
+
     </script>
 </body>
 </html>{{end}}

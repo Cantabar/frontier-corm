@@ -304,7 +304,7 @@ func (h *Handlers) PuzzleDecrypt(w http.ResponseWriter, r *http.Request) {
 			writePulseData(w, sess, row, col, 3.0, 1, 0)
 		}
 
-		emitDecryptEvent(h, sess, row, col, cell, isTrap, prevDecrypt, guidedCellWasActive, false)
+		emitDecryptEvent(h, sess, row, col, cell, isTrap, prevDecrypt, guidedCellWasActive, false, nil)
 		return
 	}
 
@@ -341,7 +341,11 @@ func (h *Handlers) PuzzleDecrypt(w http.ResponseWriter, r *http.Request) {
 		// Localized pulse (radius 2) from the clicked cell
 		writePulseData(w, sess, row, col, 2.0, 1, 0)
 
-		emitDecryptEvent(h, sess, row, col, cell, false, prevDecrypt, guidedCellWasActive, false)
+		// Trap attraction: move traps toward pulse source
+		trapMoves := sess.MoveTrapsToPulse(row, col, puzzle.PulseWeak)
+		writeTrapMoves(w, sess, h, trapMoves)
+
+		emitDecryptEvent(h, sess, row, col, cell, false, prevDecrypt, guidedCellWasActive, false, trapMoves)
 
 		// Auto-complete if target address
 		if isTargetAddress {
@@ -420,12 +424,16 @@ func (h *Handlers) PuzzleDecrypt(w http.ResponseWriter, r *http.Request) {
 	h.templates.ExecuteTemplate(w, "cipher-analysis.html", analysis)
 
 	// Sonar sensor: triple pulse (radius 5, 3 iterations at 1s intervals)
+	var trapMoves []puzzle.TrapMoveResult
 	if isSonarSensor {
 		writePulseData(w, sess, row, col, 5.0, 3, 1000)
+		trapMoves = sess.MoveTrapsToPulse(row, col, puzzle.PulseStrong)
 	} else {
 		// Localized pulse (radius 2) on every decrypt
 		writePulseData(w, sess, row, col, 2.0, 1, 0)
+		trapMoves = sess.MoveTrapsToPulse(row, col, puzzle.PulseWeak)
 	}
+	writeTrapMoves(w, sess, h, trapMoves)
 
 	// If signal hint is active, return OOB signal meter update
 	if sess.CellHasHint(row, col, "signal") {
@@ -436,7 +444,7 @@ func (h *Handlers) PuzzleDecrypt(w http.ResponseWriter, r *http.Request) {
 			`</div>`, sig.Label, sig.CSS, sig.Percent)
 	}
 
-	emitDecryptEvent(h, sess, row, col, cell, false, prevDecrypt, guidedCellWasActive, guidedHit)
+	emitDecryptEvent(h, sess, row, col, cell, false, prevDecrypt, guidedCellWasActive, guidedHit, trapMoves)
 }
 
 // writePulseData writes the OOB pulse-data div with JSON for client-side pulse animation.
@@ -464,8 +472,39 @@ func writePulseData(w http.ResponseWriter, sess *puzzle.Session, centerRow, cent
 	fmt.Fprintf(w, `<div id="pulse-data" hx-swap-oob="innerHTML">%s</div>`, string(pulseJSON))
 }
 
+// writeTrapMoves renders OOB cell swaps for trap cells that moved and emits
+// a #trap-move-data div with JSON coordinates for client-side animation.
+func writeTrapMoves(w http.ResponseWriter, sess *puzzle.Session, h *Handlers, moves []puzzle.TrapMoveResult) {
+	if len(moves) == 0 {
+		return
+	}
+	for _, m := range moves {
+		// Re-render old position (now noise/symbol) as OOB swap
+		oldCD := buildCellData(sess, m.From.Row, m.From.Col)
+		oldCD.SwapOOB = true
+		h.templates.ExecuteTemplate(w, "cell.html", oldCD)
+
+		// Re-render new position (now trap) as OOB swap
+		newCD := buildCellData(sess, m.To.Row, m.To.Col)
+		newCD.SwapOOB = true
+		h.templates.ExecuteTemplate(w, "cell.html", newCD)
+	}
+
+	// Emit move data for client-side animation
+	type moveEntry struct {
+		Row int `json:"row"`
+		Col int `json:"col"`
+	}
+	var arrivals []moveEntry
+	for _, m := range moves {
+		arrivals = append(arrivals, moveEntry{Row: m.To.Row, Col: m.To.Col})
+	}
+	moveJSON, _ := json.Marshal(arrivals)
+	fmt.Fprintf(w, `<div id="trap-move-data" hx-swap-oob="innerHTML">%s</div>`, string(moveJSON))
+}
+
 // emitDecryptEvent sends a decrypt event to corm-brain.
-func emitDecryptEvent(h *Handlers, sess *puzzle.Session, row, col int, cell *puzzle.Cell, isTrap bool, prevDecrypt *puzzle.CellCoord, guidedCellWasActive, guidedHit bool) {
+func emitDecryptEvent(h *Handlers, sess *puzzle.Session, row, col int, cell *puzzle.Cell, isTrap bool, prevDecrypt *puzzle.CellCoord, guidedCellWasActive, guidedHit bool, trapMoves []puzzle.TrapMoveResult) {
 	evtPayload := map[string]any{
 		"row":                 row,
 		"col":                 col,
@@ -484,6 +523,9 @@ func emitDecryptEvent(h *Handlers, sess *puzzle.Session, row, col int, cell *puz
 			"row": prevDecrypt.Row,
 			"col": prevDecrypt.Col,
 		}
+	}
+	if len(trapMoves) > 0 {
+		evtPayload["trap_moves"] = trapMoves
 	}
 	payload, _ := json.Marshal(evtPayload)
 	evt := corm.CormEvent{
