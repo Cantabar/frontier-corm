@@ -323,6 +323,21 @@
         }
     })();
 
+    // === Grid entrance cleanup ===
+    // Remove .grid-entrance after the cascade animation completes so that
+    // its higher-specificity animation rule no longer blocks pulse/garble/
+    // heat-trap animations on cells.
+    (function() {
+        function scheduleEntranceRemoval() {
+            var entrance = document.querySelector('.grid-entrance');
+            if (!entrance) return;
+            // Max cascade delay (0.40s) + animation duration (0.30s) + buffer
+            setTimeout(function() { entrance.classList.remove('grid-entrance'); }, 800);
+        }
+        scheduleEntranceRemoval(); // initial page load (e.g. HX-Redirect to /puzzle?transition=1)
+        document.body.addEventListener('htmx:afterSettle', scheduleEntranceRemoval);
+    })();
+
     // === Pulse animation system ===
     // Processes JSON from #pulse-data (OOB-swapped by server) after HTMX settles
     // and applies temporary CSS pulse classes to cells.

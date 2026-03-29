@@ -121,7 +121,7 @@ Vectors auto-enable after a random threshold of 4–8 non-target cell clicks per
 - **UI Framework:** HTMX + server-rendered HTML templates (`html/template`)
 - **Transport:** HTTP (handlers) + SSE (log streaming) + WebSocket (corm relay)
 - **Assets:** Embedded via `go:embed` (templates in `internal/templates/`, static files in `static/`)
-- **Client-side JS:** Minimal — pulse animation system, terminal command dispatcher, collapsible sidebar, streaming log relay. No framework.
+- **Client-side JS:** Minimal — pulse animation system, terminal command dispatcher, collapsible sidebar, streaming log relay, grid-entrance cleanup. No framework.
 - **Layout:** Fixed viewport (`100vh`) split vertically — scrollable puzzle area on top, terminal bar (120px–30vh) on bottom. The puzzle main area scrolls independently when the grid exceeds available height.
 
 ## Configuration
@@ -238,6 +238,10 @@ puzzle-service/
 - In-game SSU iframe embedding support (`/ssu/{entity_id}/` routes)
 - Cipher analysis sidebar with substitution table and frequency analysis
 - Stability and corruption meter UI
+
+## Known Constraints
+
+- **Grid entrance vs pulse specificity** — the `.grid-entrance .cell` cascade animation (specificity 0,2,0) overrides lower-specificity `animation` declarations on cells. Pulse, garble, and heat-trap selectors use `.cell.cell--pulse-*` compound selectors to match specificity and win by source order. A JS cleanup timer removes the `.grid-entrance` class ~800 ms after it appears (post-animation) as a belt-and-suspenders safeguard.
 
 ## Open Questions / Future Work
 
