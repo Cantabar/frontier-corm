@@ -802,9 +802,6 @@ function StructureRow({
         <EnergyIndicator $connected={!!structure.energySourceId}>
           {structure.energySourceId ? "⚡ Connected" : "— No energy"}
         </EnergyIndicator>
-      </TagsLeft>
-
-      <TagsRight>
         {hasLocation ? (
           <LocationBadge title="Location POD registered">📍 Location</LocationBadge>
         ) : isOwner && hasTribeId ? (
@@ -819,7 +816,9 @@ function StructureRow({
             + Location
           </AddLocationButton>
         ) : null}
+      </TagsLeft>
 
+      <TagsRight>
         {isSsu && (
           <ExtensionBadge $enabled={hasCorm}>
             {hasCorm ? "CORM ✓" : "No Extension"}

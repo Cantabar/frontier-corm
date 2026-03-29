@@ -438,12 +438,12 @@ export function NetworkNodeGroup({
           <ConnectedMeta>
             {node.connectedAssemblyCount} connected · {structureCount} shown
           </ConnectedMeta>
-        </TagsLeft>
-
-        <TagsRight>
           {hasLocation && (
             <LocationBadge title="Location POD registered">📍 Location</LocationBadge>
           )}
+        </TagsLeft>
+
+        <TagsRight>
           {canOnline && (
             <ActionButton
               $variant="online"
@@ -470,8 +470,8 @@ export function NetworkNodeGroup({
               {pending ? "…" : "Offline"}
             </ActionButton>
           )}
-          <Chevron $open={open}>▶</Chevron>
         </TagsRight>
+        <Chevron $open={open}>▶</Chevron>
       </CardHeader>
       <GroupBody $open={open}>{children}</GroupBody>
     </GroupContainer>
