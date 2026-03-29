@@ -146,6 +146,7 @@ Per-environment defaults are defined in `config.ts` and overridden by explicit `
 - Install Corm: dashboard card for installing a corm on a player-owned Network Node (permissionless on-chain `corm_state::install`)
 - Event Explorer with type/tribe/character filtering and pagination
 - Structure browser with aggregated SSU inventory
+- Structure rows use CSS Grid for column-aligned tags (type, status, energy, extension, location, actions) so values line up vertically across rows
 
 ## Open Questions / Future Work
 

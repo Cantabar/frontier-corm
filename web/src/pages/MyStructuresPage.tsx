@@ -145,7 +145,8 @@ const Grid = styled.div`
 `;
 
 const StructureCard = styled.div<{ $clickable?: boolean; $expanded?: boolean }>`
-  display: flex;
+  display: grid;
+  grid-template-columns: 40px 1fr 130px 100px 120px 110px 90px auto;
   align-items: center;
   gap: ${({ theme }) => theme.spacing.md};
   padding: ${({ theme }) => theme.spacing.md};
@@ -319,6 +320,13 @@ const ExtensionBadge = styled.span<{ $enabled: boolean }>`
   color: ${({ $enabled, theme }) =>
     $enabled ? theme.colors.success : theme.colors.text.disabled};
   white-space: nowrap;
+`;
+
+const ActionsCell = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: flex-end;
 `;
 
 // ---------------------------------------------------------------------------
@@ -779,67 +787,72 @@ function StructureRow({
         {structure.energySourceId ? "⚡ Connected" : "— No energy"}
       </EnergyIndicator>
 
-      {isSsu && (
-        <ExtensionBadge $enabled={hasCorm}>
-          {hasCorm ? "CORM ✓" : "No Extension"}
-        </ExtensionBadge>
-      )}
+      <div>
+        {isSsu && (
+          <ExtensionBadge $enabled={hasCorm}>
+            {hasCorm ? "CORM ✓" : "No Extension"}
+          </ExtensionBadge>
+        )}
+      </div>
 
-      {isOwner && isSsu && !hasCorm && characterId && structure.status !== "Unanchoring" && (
-        <ActionButton
-          $variant="online"
-          disabled={enablingExt}
-          title="Authorize CormAuth extension on this SSU"
-          onClick={(e) => {
-            e.stopPropagation();
-            handleEnableExtension();
-          }}
-        >
-          {enablingExt ? "…" : "Enable CORM"}
-        </ActionButton>
-      )}
+      <div>
+        {hasLocation ? (
+          <LocationBadge title="Location POD registered">📍 Location</LocationBadge>
+        ) : isOwner && hasTribeId ? (
+          <AddLocationButton
+            disabled={!tlkUnlocked}
+            title={tlkUnlocked ? "Register a location for this structure" : "Unlock TLK on Locations page first"}
+            onClick={(e) => {
+              e.stopPropagation();
+              onAddLocation(structure.id);
+            }}
+          >
+            + Location
+          </AddLocationButton>
+        ) : null}
+      </div>
 
-      {hasLocation ? (
-        <LocationBadge title="Location POD registered">📍 Location</LocationBadge>
-      ) : isOwner && hasTribeId ? (
-        <AddLocationButton
-          disabled={!tlkUnlocked}
-          title={tlkUnlocked ? "Register a location for this structure" : "Unlock TLK on Locations page first"}
-          onClick={(e) => {
-            e.stopPropagation();
-            onAddLocation(structure.id);
-          }}
-        >
-          + Location
-        </AddLocationButton>
-      ) : null}
-
-      {canOnline && (
-        <ActionButton
-          $variant="online"
-          disabled={pending}
-          title="Bring this structure online"
-          onClick={(e) => {
-            e.stopPropagation();
-            handleToggle("online");
-          }}
-        >
-          {pending ? "…" : "Online"}
-        </ActionButton>
-      )}
-      {canOffline && (
-        <ActionButton
-          $variant="offline"
-          disabled={pending}
-          title="Take this structure offline"
-          onClick={(e) => {
-            e.stopPropagation();
-            handleToggle("offline");
-          }}
-        >
-          {pending ? "…" : "Offline"}
-        </ActionButton>
-      )}
+      <ActionsCell>
+        {isOwner && isSsu && !hasCorm && characterId && structure.status !== "Unanchoring" && (
+          <ActionButton
+            $variant="online"
+            disabled={enablingExt}
+            title="Authorize CormAuth extension on this SSU"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleEnableExtension();
+            }}
+          >
+            {enablingExt ? "…" : "Enable CORM"}
+          </ActionButton>
+        )}
+        {canOnline && (
+          <ActionButton
+            $variant="online"
+            disabled={pending}
+            title="Bring this structure online"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleToggle("online");
+            }}
+          >
+            {pending ? "…" : "Online"}
+          </ActionButton>
+        )}
+        {canOffline && (
+          <ActionButton
+            $variant="offline"
+            disabled={pending}
+            title="Take this structure offline"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleToggle("offline");
+            }}
+          >
+            {pending ? "…" : "Offline"}
+          </ActionButton>
+        )}
+      </ActionsCell>
     </StructureCard>
     {isExpanded && <SsuInventoryPanel ssu={structure} />}
     </div>
