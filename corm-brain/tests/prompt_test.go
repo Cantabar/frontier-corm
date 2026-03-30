@@ -4,84 +4,10 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/frontier-corm/corm-brain/internal/llm"
 	"github.com/frontier-corm/corm-brain/internal/types"
 )
-
-func TestBuildPromptIncludesAllLayers(t *testing.T) {
-	traits := &types.CormTraits{
-		CormID:    "test-corm",
-		Phase:     1,
-		Stability: 50,
-		Corruption: 10,
-		AgendaWeights: types.AgendaWeights{
-			Industry: 0.5, Expansion: 0.3, Defense: 0.2,
-		},
-		Patience: 0.6,
-		Paranoia: 0.1,
-		Volatility: 0.05,
-		PlayerAffinities: map[string]float64{"0xabc123456789": 0.8},
-	}
-
-	recentEvents := []types.CormEvent{
-		{EventType: "click", PlayerAddress: "0xabc123456789", Context: "browser"},
-	}
-
-	currentEvent := types.CormEvent{
-		EventType:     "decrypt",
-		PlayerAddress: "0xabc123456789",
-		Context:       "browser",
-		Timestamp:     time.Now(),
-	}
-
-	msgs := llm.BuildPrompt(traits, recentEvents, nil, currentEvent)
-
-	if len(msgs) < 3 {
-		t.Fatalf("expected at least 3 messages, got %d", len(msgs))
-	}
-
-	// Layer 1: system prompt should contain corm identity
-	if msgs[0].Role != "system" {
-		t.Error("first message should be system role")
-	}
-	if !strings.Contains(msgs[0].Content, "corm") {
-		t.Error("system prompt should mention corm")
-	}
-
-	// Layer 2: should contain trait context
-	found := false
-	for _, m := range msgs {
-		if strings.Contains(m.Content, "[STATE]") {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Error("prompt should contain trait context ([STATE])")
-	}
-}
-
-func TestPhase0PromptNoEllipsis(t *testing.T) {
-	traits := &types.CormTraits{
-		Phase:         0,
-		AgendaWeights: types.AgendaWeights{Industry: 0.33, Expansion: 0.33, Defense: 0.33},
-	}
-	currentEvent := types.CormEvent{EventType: "click", PlayerAddress: "0xabc123456789", Context: "browser"}
-	msgs := llm.BuildPrompt(traits, nil, nil, currentEvent)
-
-	system := msgs[0].Content
-	if strings.Contains(system, "> ...") {
-		t.Error("Phase 0 prompt should not contain ellipsis examples")
-	}
-	if strings.Contains(system, "use \"> \" prefix") || strings.Contains(system, "Formatting: use \"> \"") {
-		t.Error("Phase 0 prompt should not instruct > prefix usage")
-	}
-	if !strings.Contains(system, "NEVER use ellipsis") {
-		t.Error("system prompt should explicitly forbid ellipsis")
-	}
-}
 
 func TestSanitizeResponseStripsAnglePrefix(t *testing.T) {
 	cases := []struct {
@@ -184,34 +110,6 @@ func TestPhase1SignificanceIncorrectSubmit(t *testing.T) {
 	}
 }
 
-func TestPhase1PromptObservationMode(t *testing.T) {
-	traits := &types.CormTraits{
-		Phase:         1,
-		AgendaWeights: types.AgendaWeights{Industry: 0.33, Expansion: 0.33, Defense: 0.33},
-	}
-	payload, _ := json.Marshal(map[string]any{"is_trap": true})
-	evt := types.CormEvent{EventType: types.EventDecrypt, PlayerAddress: "0xabc123456789", Payload: payload}
-	msgs := llm.BuildPrompt(traits, nil, nil, evt)
-
-	system := msgs[0].Content
-	// Should use observation-driven [SILENCE] model
-	for _, want := range []string{"[SILENCE]", "GUIDANCE MODE", "SUI address"} {
-		if !strings.Contains(system, want) {
-			t.Errorf("Phase 1 prompt should contain %q", want)
-		}
-	}
-	// Should NOT contain the old prescriptive triggers
-	for _, notWant := range []string{"TRAP HIT", "TARGET CHARACTER", "STRUGGLING", "GUIDED CELL REACHED"} {
-		if strings.Contains(system, notWant) {
-			t.Errorf("Phase 1 prompt should NOT contain old trigger %q", notWant)
-		}
-	}
-	// Coordinate prohibition
-	if !strings.Contains(system, "Never reveal coordinates") {
-		t.Error("Phase 1 prompt should prohibit coordinate disclosure")
-	}
-}
-
 func TestPhase1SignificanceGuidedCellReached(t *testing.T) {
 	payload, _ := json.Marshal(map[string]any{"guided_cell_reached": true, "is_trap": false, "is_address": false})
 	evt := types.CormEvent{EventType: types.EventDecrypt, Payload: payload}
@@ -256,22 +154,3 @@ func TestPhase1SignificanceFallsBackForOtherEvents(t *testing.T) {
 	}
 }
 
-func TestTaskRequiresDeepReasoning(t *testing.T) {
-	// Phase 0/1 click → fast
-	task := types.Task{Phase: 0, EventType: types.EventClick}
-	if task.RequiresDeepReasoning() {
-		t.Error("Phase 0 click should not require deep reasoning")
-	}
-
-	// Phase 2 anything → deep
-	task = types.Task{Phase: 2, EventType: types.EventClick}
-	if !task.RequiresDeepReasoning() {
-		t.Error("Phase 2 should require deep reasoning")
-	}
-
-	// Phase transition → deep regardless of phase
-	task = types.Task{Phase: 0, EventType: types.EventPhaseTransition}
-	if !task.RequiresDeepReasoning() {
-		t.Error("Phase transition should require deep reasoning")
-	}
-}

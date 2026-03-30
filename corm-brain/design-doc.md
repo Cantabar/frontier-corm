@@ -2,7 +2,9 @@
 
 ## Overview
 
-Corm-brain is the AI reasoning engine for Frontier Corm. It observes player events from one or more game environments (via WebSocket or HTTP fallback from `puzzle-service`), generates contextual responses using a locally-hosted LLM (NVIDIA Nemotron 3 Super via TRT-LLM on DGX Spark), and writes corm state transitions to the Sui blockchain. Each corm develops a persistent personality through deterministic trait evolution driven by player interactions.
+Corm-brain is the reasoning engine for Frontier Corm. It observes player events from one or more game environments (via WebSocket or HTTP fallback from `puzzle-service`), generates contextual responses, and writes corm state transitions to the Sui blockchain. Each corm develops a persistent personality through deterministic trait evolution driven by player interactions.
+
+All response generation is deterministic — no external LLM or DGX Spark dependency.
 
 ## Architecture
 
@@ -33,16 +35,16 @@ puzzle-service (per env)           corm-brain
 ### Goroutines
 
 1. **Transport Manager** — runs per-environment WebSocket listeners with automatic fallback to HTTP polling when WS disconnects. All environments share a single `eventChan`.
-2. **Event Processor** — reads from `eventChan`, debounces events into per-session batches (configurable coalesce window + batch cap), then dispatches to the reasoning handler. Trait reduction runs inline on every event batch. The LLM is only invoked on phase transitions.
+2. **Event Processor** — reads from `eventChan`, debounces events into per-session batches (configurable coalesce window + batch cap), then dispatches to the reasoning handler. Trait reduction runs inline on every event batch. A deterministic transition message is emitted once per phase transition.
 
 ### Key Components
 
-- **LLM Client** (`internal/llm`) — single-endpoint streaming client targeting the Super TRT-LLM model (Nemotron 3 Super 120B, port 8000). Token limits are configurable per tier (default vs deep reasoning).
-- **LLM Post-Processor** (`internal/llm/postprocess.go`) — corruption garbling (replaces characters with noise glyphs proportional to corruption level), metadata leak sanitization (strips leaked event field patterns like `row=`, `session_id=`, angle-bracket artifacts, and ellipsis runs), response validation (rejects output without at least one 2+ alpha word), and response truncation.
+- **Text Post-Processor** (`internal/llm/postprocess.go`) — corruption garbling (replaces characters with noise glyphs proportional to corruption level), metadata leak sanitization (strips leaked event field patterns like `row=`, `session_id=`, angle-bracket artifacts, and ellipsis runs), response validation (rejects output without at least one 2+ alpha word), and response truncation.
+- **Transition Response Generator** (`internal/reasoning/transitions.go`) — deterministic in-character message selection for phase transitions. Messages are chosen from curated pools via a stable FNV hash of the corm ID, then passed through corruption garbling. No external service required.
 - **Trait Reducer** (`internal/memory/reducer.go`) — deterministic trait mutations (stability, corruption, patience, paranoia, volatility, player affinities, agenda weights, contract type affinity) applied inline on every event batch before phase transition detection.
 - **Chain Client** (`internal/chain`) — per-environment Sui RPC client for on-chain state writes (phase transitions, stability/corruption updates) using the corm-brain keypair. Includes stubs for contract creation (`contracts.go`), player inventory reading (`inventory.go`), and CORM token minting (`coin.go`).
 - **Chain Signer** (`internal/chain/signer.go`) — Ed25519 keypair management for signing Sui transactions.
-- **Reasoning Handler** (`internal/reasoning`) — orchestrates the full event→response pipeline: trait reduction, phase transition detection, prompt building, LLM response (on transitions only), response delivery, and phase effects. The conversational LLM is invoked exactly once per phase transition (0→1, 1→2). All other events are processed for side effects only (state sync, hints, boosts, contract generation).
+- **Reasoning Handler** (`internal/reasoning`) — orchestrates the full event→response pipeline: trait reduction, phase transition detection, transition message delivery, and phase effects. A deterministic in-character message is emitted on phase transitions (0→1, 1→2). All other events are processed for side effects only (state sync, hints, boosts, contract generation).
 
 ### Phase-Specific Effects
 
@@ -60,7 +62,6 @@ puzzle-service (per env)           corm-brain
 ## Tech Stack
 
 - **Language:** Go
-- **LLM Inference:** NVIDIA TRT-LLM (Nemotron 3 Super 120B) hosted on DGX Spark
 - **Database:** PostgreSQL
 - **Blockchain:** Sui (via JSON-RPC)
 - **Transport:** WebSocket (nhooyr.io/websocket) + HTTP fallback
@@ -69,9 +70,6 @@ puzzle-service (per env)           corm-brain
 
 All via environment variables (see `internal/config/config.go`):
 
-- `LLM_SUPER_URL` — TRT-LLM endpoint (default: localhost:8000)
-- `LLM_MAX_TOKENS_DEFAULT` — max generation tokens for standard streaming (default: 150)
-- `LLM_MAX_TOKENS_DEEP` — max generation tokens for deep reasoning streaming (default: 400)
 - `DATABASE_URL` — Postgres connection string
 - `EVENT_COALESCE_MS` — debounce window (default: 300ms)
 - `EVENT_BATCH_MAX` — max events per batch (default: 20)
@@ -98,18 +96,18 @@ Per-environment config (in JSON file): `name`, `puzzle_service_url`, `sui_rpc_ur
 
 - **Local:** built and run via `mprocs.yaml` using [air](https://github.com/air-verse/air) for live-reload on source changes (see `.air.toml`)
 - **Production:** Docker container on ECS Fargate (planned)
-- Requires: running Postgres, DGX Spark LLM tunnel, Sui RPC access, funded Sui keypair
+- Requires: running Postgres, Sui RPC access, funded Sui keypair
 
 ## Features
 
 - Multi-environment support with per-environment WebSocket/HTTP transport
-- Single-model LLM inference (Nemotron 3 Super via TRT-LLM)
+- Deterministic in-character transition responses (no LLM dependency)
 - Real-time deterministic trait reduction on every event batch
-- Corruption-proportional garbling of LLM output
-- Metadata leak sanitization (strips event field patterns from LLM output)
+- Corruption-proportional garbling of transition response text
+- Metadata leak sanitization (strips event field patterns from response text)
 - Response validation and truncation
 - Phase-aware event processing (Phase 0 dormancy, Phase 1 puzzles, Phase 2 contracts)
-- Phase-transition-only LLM responses (one conversational message per transition)
+- Phase-transition-only corm responses (one deterministic in-character message per transition)
 - Struggling player hint system (auto-activates on repeated failures)
 - On-chain state writes (phase transitions, stability/corruption updates)
 - Chain stubs for contract creation, inventory reading, and CORM minting
@@ -154,7 +152,7 @@ The puzzle-service emits a `phase2_load` event on every `GET /phase2` page load.
 - **CORMGiveaway** — corm distributes CORM for free (CoinForCoin with wanted_amount=0)
 - **Transport** — deferred (single-node isolation makes source=destination)
 
-All coin types are `Coin<CORM>`. The LLM never selects a coin type.
+All coin types are `Coin<CORM>`.
 
 ### Reducer Updates
 `reduceContractComplete` now parses `contract_type` from the event payload and updates `contract_type_affinity` and `agenda_weights` (trade → industry, transport → expansion). Agenda weights are normalized after each update.

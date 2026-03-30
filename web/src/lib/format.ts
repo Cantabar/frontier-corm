@@ -94,6 +94,45 @@ export function generateAvatarColor(id: string): string {
   return `hsl(${h}, 55%, 45%)`;
 }
 
+// ---- Event display names ----
+
+/** Map StatusChangedEvent action values to human-readable labels. */
+const STATUS_ACTION_LABELS: Record<string, string> = {
+  ANCHORED: "Structure Anchored",
+  UNANCHORED: "Structure Unanchored",
+  ONLINE: "Structure Online",
+  OFFLINE: "Structure Offline",
+  DESTROYED: "Structure Destroyed",
+};
+
+/**
+ * Resolve the action value from a StatusChangedEvent's event_data.
+ * The action may be a plain string or a Sui enum object `{ variant: "..." }`.
+ */
+function resolveAction(action: unknown): string | undefined {
+  if (typeof action === "string") return action;
+  if (typeof action === "object" && action !== null && "variant" in action) {
+    return String((action as { variant: unknown }).variant);
+  }
+  return undefined;
+}
+
+/**
+ * Human-readable display name for an archived event.
+ *
+ * For `StatusChangedEvent` this includes the action (e.g. "Structure Unanchored").
+ * All other events fall back to stripping the "Event" suffix.
+ */
+export function eventDisplayName(ev: { event_name: string; event_data: Record<string, unknown> }): string {
+  if (ev.event_name === "StatusChangedEvent") {
+    const action = resolveAction(ev.event_data?.action);
+    if (action && STATUS_ACTION_LABELS[action]) return STATUS_ACTION_LABELS[action];
+    if (action) return `Structure ${action.charAt(0)}${action.slice(1).toLowerCase()}`;
+    return "Structure Status Changed";
+  }
+  return ev.event_name.replace("Event", "");
+}
+
 /** Human-readable label for a trustless contract variant. */
 export function contractTypeLabel(variant: string): string {
   switch (variant) {

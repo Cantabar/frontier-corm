@@ -1,5 +1,5 @@
 // Package reasoning routes player events to phase-specific logic and
-// orchestrates LLM inference for corm responses.
+// orchestrates corm responses.
 package reasoning
 
 import (
@@ -7,22 +7,19 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"strings"
 	"time"
 
 	"github.com/frontier-corm/corm-brain/internal/chain"
 	"github.com/frontier-corm/corm-brain/internal/db"
-	"github.com/frontier-corm/corm-brain/internal/llm"
 	"github.com/frontier-corm/corm-brain/internal/memory"
 	"github.com/frontier-corm/corm-brain/internal/transport"
 	"github.com/frontier-corm/corm-brain/internal/types"
 )
 
 // NewHandler creates a new reasoning handler.
-func NewHandler(database *db.DB, llmClient *llm.Client, tm *transport.Manager, opts ...HandlerConfig) *Handler {
+func NewHandler(database *db.DB, tm *transport.Manager, opts ...HandlerConfig) *Handler {
 	h := &Handler{
 		db:               database,
-		llm:              llmClient,
 		tm:               tm,
 		contractCooldown: 30 * time.Second, // default
 	}
@@ -40,9 +37,8 @@ func NewHandler(database *db.DB, llmClient *llm.Client, tm *transport.Manager, o
 
 // Handler processes player events and generates corm responses.
 type Handler struct {
-	db  *db.DB
-	llm *llm.Client
-	tm  *transport.Manager
+	db *db.DB
+	tm *transport.Manager
 
 	// Phase 2: contract generation
 	registry         *chain.Registry
@@ -123,9 +119,9 @@ func (h *Handler) ProcessEventBatch(ctx context.Context, environment, cormID str
 		log.Printf("corm %s transitioned to Phase %d", cormID, traits.Phase)
 	}
 
-	// Only invoke the LLM on phase transitions.
+	// Deliver a transition message (deterministic, no LLM).
 	if transitioned {
-		h.streamTransitionResponse(ctx, environment, cormID, sessionID, sender, traits, events)
+		h.deliverTransitionResponse(ctx, environment, cormID, sessionID, sender, traits, events)
 	}
 
 	// Run phase-specific side effects for each event in order.
@@ -163,48 +159,15 @@ func detectPhaseTransition(events []types.CormEvent, traits *types.CormTraits) b
 	return false
 }
 
-// streamTransitionResponse invokes the LLM once to generate a single
-// post-transition log message and delivers it to the player.
-func (h *Handler) streamTransitionResponse(ctx context.Context, environment, cormID, sessionID string, sender *transport.ActionSender, traits *types.CormTraits, events []types.CormEvent) {
-	recentEvents, _ := h.db.RecentEvents(ctx, environment, cormID, 15)
-	recentResponses, _ := h.db.RecentResponses(ctx, environment, cormID, 5)
-
-	prompt := llm.BuildBatchPrompt(traits, recentEvents, recentResponses, events)
-
+// deliverTransitionResponse selects a deterministic in-character message for
+// the current phase transition and delivers it to the player.
+func (h *Handler) deliverTransitionResponse(ctx context.Context, environment, cormID, sessionID string, sender *transport.ActionSender, traits *types.CormTraits, events []types.CormEvent) {
 	queryEvent := types.MostSignificant(events)
-	task := types.Task{
-		CormID:      cormID,
-		Phase:       traits.Phase,
-		EventType:   queryEvent.EventType,
-		Corruption:  traits.Corruption,
-		Environment: environment,
-	}
-
 	entryID := fmt.Sprintf("corm_%s_%d", safePrefix(cormID, 8), queryEvent.Seq)
 
-	tokenCh, errCh := h.llm.Complete(ctx, task, prompt)
-
-	var rawTokens []string
-	for token := range tokenCh {
-		processed := llm.PostProcessToken(token, traits.Corruption)
-		if processed != "" {
-			rawTokens = append(rawTokens, processed)
-		}
-	}
-
-	if err := <-errCh; err != nil {
-		log.Printf("llm error for corm %s: %v", cormID, err)
-	}
-
-	fullResponse := llm.SanitizeResponse(strings.Join(rawTokens, ""))
-
-	if isSilence(fullResponse) {
-		log.Printf("corm %s chose silence for transition in session %s", cormID, sessionID)
-		return
-	}
-
-	if !llm.IsValidResponse(fullResponse) {
-		log.Printf("suppressed invalid transition response for %s: %q", cormID, fullResponse)
+	text := selectTransitionMessage(cormID, traits.Phase, traits)
+	if text == "" {
+		log.Printf("corm %s: no transition message for phase %d", cormID, traits.Phase)
 		return
 	}
 
@@ -213,13 +176,13 @@ func (h *Handler) streamTransitionResponse(ctx context.Context, environment, cor
 	})
 	sender.SendPayload(ctx, types.ActionLogStreamDelta, sessionID, types.LogStreamDeltaPayload{
 		EntryID: entryID,
-		Text:    fullResponse,
+		Text:    text,
 	})
 	sender.SendPayload(ctx, types.ActionLogStreamEnd, sessionID, types.LogStreamEndPayload{
 		EntryID: entryID,
 	})
 
-	responsePayload, _ := json.Marshal(map[string]string{"text": fullResponse, "entry_id": entryID})
+	responsePayload, _ := json.Marshal(map[string]string{"text": text, "entry_id": entryID})
 	h.db.InsertResponse(ctx, environment, &types.CormResponse{
 		CormID:     cormID,
 		SessionID:  sessionID,
@@ -243,12 +206,6 @@ func (h *Handler) buildStateSyncPayload(ctx context.Context, environment, cormID
 		payload.NetworkNodeID = nodeID
 	}
 	return payload
-}
-
-// isSilence returns true if the LLM response is a silence token.
-func isSilence(response string) bool {
-	trimmed := strings.TrimSpace(strings.ToUpper(response))
-	return trimmed == "[SILENCE]" || trimmed == "SILENCE"
 }
 
 // safePrefix returns the first n characters of s, or s itself if shorter.

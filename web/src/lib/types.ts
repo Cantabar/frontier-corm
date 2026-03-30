@@ -443,7 +443,9 @@ export type EventTypeName =
   | "BuildRequestCreatedEvent"
   | "BuildRequestFulfilledEvent"
   | "BuildRequestCancelledEvent"
-  | "BuildRequestExpiredEvent";
+  | "BuildRequestExpiredEvent"
+  // World — structure lifecycle
+  | "StatusChangedEvent";
 
 export interface ArchivedEvent {
   id: number;

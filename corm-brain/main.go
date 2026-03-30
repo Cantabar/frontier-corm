@@ -14,7 +14,6 @@ import (
 	"github.com/frontier-corm/corm-brain/internal/chain"
 	"github.com/frontier-corm/corm-brain/internal/config"
 	"github.com/frontier-corm/corm-brain/internal/db"
-	"github.com/frontier-corm/corm-brain/internal/llm"
 	"github.com/frontier-corm/corm-brain/internal/reasoning"
 	"github.com/frontier-corm/corm-brain/internal/transport"
 	"github.com/frontier-corm/corm-brain/internal/types"
@@ -36,12 +35,6 @@ func main() {
 	}
 	defer database.Close()
 	log.Println("database connected, migrations applied")
-
-	// --- LLM Client (shared) ---
-	llmClient := llm.NewClient(cfg.LLMSuperURL, llm.TokenLimits{
-		Default: cfg.LLMMaxTokensDefault,
-		Deep:    cfg.LLMMaxTokensDeep,
-	})
 
 	// --- Per-environment chain clients ---
 	chainClients := make(map[string]*chain.Client, len(cfg.Environments))
@@ -80,7 +73,7 @@ func main() {
 		break
 	}
 
-	handler := reasoning.NewHandler(database, llmClient, tm, reasoning.HandlerConfig{
+	handler := reasoning.NewHandler(database, tm, reasoning.HandlerConfig{
 		Registry:         registry,
 		ChainClient:      defaultChainClient,
 		Pricing:          reasoning.PricingConfig{CORMPerLUX: cfg.CORMPerLUX, CORMFloorPerUnit: cfg.CORMFloorPerUnit},

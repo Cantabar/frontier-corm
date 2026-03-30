@@ -2,7 +2,7 @@ import { useState } from "react";
 import styled from "styled-components";
 import { useQuery } from "@tanstack/react-query";
 import { getEvents } from "../lib/api";
-import { timeAgo } from "../lib/format";
+import { timeAgo, eventDisplayName } from "../lib/format";
 import { CopyableId } from "../components/shared/CopyableId";
 import { ProofViewer } from "../components/events/ProofViewer";
 import { LoadingSpinner } from "../components/shared/LoadingSpinner";
@@ -107,15 +107,18 @@ const NavButton = styled.button`
   }
 `;
 
-type ModuleFilter = "all" | "tribe" | "trustlessContracts";
+type ModuleFilter = "all" | "tribe" | "trustlessContracts" | "world";
 
 const MODULE_COLORS: Record<string, string> = {
   tribe: "#00E5FF",
   trustlessContracts: "#7C4DFF",
+  world: "#FF9100",
 };
 
 function moduleOf(eventName: string): string {
-  if (eventName.includes("Contract") || eventName.includes("Transport") || eventName.includes("Slot") || eventName.includes("MultiInput")) return "trustlessContracts";
+  if (eventName === "StatusChangedEvent") return "world";
+  if (eventName.includes("Metadata")) return "world";
+  if (eventName.includes("Contract") || eventName.includes("Transport") || eventName.includes("Slot") || eventName.includes("MultiInput") || eventName.includes("BuildRequest")) return "trustlessContracts";
   return "tribe";
 }
 
@@ -145,14 +148,14 @@ export function EventExplorer() {
       </Header>
 
       <FilterRow>
-        {(["all", "tribe", "trustlessContracts"] as ModuleFilter[]).map((m) => (
+        {(["all", "tribe", "trustlessContracts", "world"] as ModuleFilter[]).map((m) => (
           <FilterChip
             key={m}
             $active={moduleFilter === m}
 $color={m === "all" ? "#F0F4F8" : MODULE_COLORS[m]}
             onClick={() => setModuleFilter(m)}
           >
-            {m === "all" ? "All" : m === "trustlessContracts" ? "Contracts" : "Tribe"}
+            {m === "all" ? "All" : m === "trustlessContracts" ? "Contracts" : m === "world" ? "World" : "Tribe"}
           </FilterChip>
         ))}
       </FilterRow>
@@ -170,10 +173,10 @@ $color={m === "all" ? "#F0F4F8" : MODULE_COLORS[m]}
             const mod = moduleOf(ev.event_name);
             return (
               <EventRow key={ev.id} onClick={() => setProofEventId(ev.id)}>
-<ModuleBadge $color={MODULE_COLORS[mod] ?? "#78909C"}>
-                  {mod === "trustlessContracts" ? "CONTRACTS" : "TRIBE"}
+                <ModuleBadge $color={MODULE_COLORS[mod] ?? "#78909C"}>
+                  {mod === "trustlessContracts" ? "CONTRACTS" : mod === "world" ? "WORLD" : "TRIBE"}
                 </ModuleBadge>
-                <EventName>{ev.event_name.replace("Event", "")}</EventName>
+                <EventName>{eventDisplayName(ev)}</EventName>
                 {ev.character_id && <Meta><CopyableId id={ev.character_id} /></Meta>}
                 <Meta>{timeAgo(ev.timestamp_ms)}</Meta>
               </EventRow>

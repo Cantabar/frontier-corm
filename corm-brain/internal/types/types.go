@@ -268,30 +268,3 @@ type CormResponse struct {
 	CreatedAt  time.Time       `json:"created_at"`
 }
 
-// --- LLM Types ---
-
-// Message is an OpenAI-compatible chat message.
-type Message struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
-}
-
-// Task describes the context for an LLM inference request.
-type Task struct {
-	CormID      string
-	Phase       int
-	EventType   string
-	Corruption  float64
-	Environment string
-}
-
-// RequiresDeepReasoning returns true if the task should use the Super model.
-func (t Task) RequiresDeepReasoning() bool {
-	if t.Phase >= 2 {
-		return true
-	}
-	if t.EventType == EventContractComplete || t.EventType == EventPhaseTransition {
-		return true
-	}
-	return false
-}

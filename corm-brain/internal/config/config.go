@@ -23,13 +23,6 @@ type EnvironmentConfig struct {
 
 // Config holds all corm-brain configuration.
 type Config struct {
-	// LLM inference endpoint (shared across environments)
-	LLMSuperURL string
-
-	// LLM token limits (max generation tokens per tier)
-	LLMMaxTokensDefault int
-	LLMMaxTokensDeep    int
-
 	// WebSocket reconnect
 	WSReconnectMax time.Duration
 
@@ -71,9 +64,6 @@ type Config struct {
 // from the legacy env vars.
 func Load() Config {
 	cfg := Config{
-		LLMSuperURL:           envOrDefault("LLM_SUPER_URL", "http://localhost:8000"),
-		LLMMaxTokensDefault:   envInt("LLM_MAX_TOKENS_DEFAULT", 150),
-		LLMMaxTokensDeep:      envInt("LLM_MAX_TOKENS_DEEP", 400),
 		WSReconnectMax:        envDurationMs("WS_RECONNECT_MAX_MS", 30000),
 		FallbackPollInterval:  envDurationMs("FALLBACK_POLL_INTERVAL_MS", 2000),
 		EventCoalesceWindow:        envDurationMs("EVENT_COALESCE_MS", 300),

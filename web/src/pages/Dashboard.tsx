@@ -6,7 +6,7 @@ import { Link } from "react-router-dom";
 import { useIdentity } from "../hooks/useIdentity";
 import { useTribe } from "../hooks/useTribe";
 import { getStats, getEvents } from "../lib/api";
-import { timeAgo } from "../lib/format";
+import { timeAgo, eventDisplayName } from "../lib/format";
 import { CopyableId } from "../components/shared/CopyableId";
 import { LoadingSpinner } from "../components/shared/LoadingSpinner";
 import { PortalTooltip } from "../components/shared/PortalTooltip";
@@ -452,7 +452,7 @@ export function Dashboard() {
         <ActivityList>
           {events.map((ev) => (
             <ActivityRow key={ev.id}>
-              <EventName>{ev.event_name.replace("Event", "")}</EventName>
+              <EventName>{eventDisplayName(ev)}</EventName>
               {ev.character_id && <Meta><CopyableId id={ev.character_id} /></Meta>}
               <Meta>{timeAgo(ev.timestamp_ms)}</Meta>
             </ActivityRow>
