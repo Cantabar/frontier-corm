@@ -214,9 +214,9 @@ func safePrefix(s string, n int) string {
 // runPhaseEffects executes phase-specific side effects (boost, difficulty, etc.).
 func (h *Handler) runPhaseEffects(ctx context.Context, environment, cormID string, traits *types.CormTraits, evt types.CormEvent) {
 	// Handle phase2_load from any phase — always respond with current state.
+	// Also fall through to phase effects so Phase 2 can trigger contract generation.
 	if evt.EventType == types.EventPhase2Load {
 		h.dispatcher.SendPayload(ctx, types.ActionStateSync, evt.SessionID, h.buildStateSyncPayload(ctx, environment, cormID, traits))
-		return
 	}
 
 	switch traits.Phase {

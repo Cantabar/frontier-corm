@@ -292,6 +292,7 @@ type ActionTarget interface {
 	GetContext() string
 	GetEventBuffer() *RingBuffer
 	GetActionChan() chan CormAction
+	ActiveAIContractCount() int
 }
 
 // SessionLookup is the interface for finding sessions by ID.

@@ -585,6 +585,19 @@ func (s *Session) GetEventBuffer() *types.RingBuffer { return s.EventBuffer }
 // GetActionChan implements types.ActionTarget.
 func (s *Session) GetActionChan() chan types.CormAction { return s.ActionChan }
 
+// ActiveAIContractCount implements types.ActionTarget.
+func (s *Session) ActiveAIContractCount() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	count := 0
+	for _, c := range s.AIContracts {
+		if c.Status == "active" {
+			count++
+		}
+	}
+	return count
+}
+
 // --- Session Store ---
 
 // SessionStore is a thread-safe in-memory store for sessions.

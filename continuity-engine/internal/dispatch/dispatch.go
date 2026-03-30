@@ -67,6 +67,11 @@ func (d *Dispatcher) SendPayload(ctx context.Context, actionType, sessionID stri
 	})
 }
 
+// GetSession returns a session by ID, or nil if not found.
+func (d *Dispatcher) GetSession(sessionID string) types.ActionTarget {
+	return d.sessions.Get(sessionID)
+}
+
 // EventChan returns the read side of the event channel for the event processor.
 func (d *Dispatcher) EventChan() <-chan types.CormEvent {
 	return d.eventChan

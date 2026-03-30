@@ -167,7 +167,7 @@ Only `types.json` and `groups.json` are copied from `fsd_built/` — the rest of
   - Vector sensors: directional arrow toward target on revealed cell
 - Contract address discovery with group-reveal and auto-complete
 - Four AI-controlled hint systems: heatmap, vectors, decode, signal
-- Deterministic Phase 2 contract generation from traits + inventory state
+- Deterministic Phase 2 contract generation from traits + inventory state with automatic slot fill-up (up to 5 active contracts per corm, triggered on page load, node bind, and contract completion/failure; rate-limited by `CONTRACT_GENERATION_COOLDOWN_MS`)
 - On-chain state writes (phase transitions, stability/corruption updates)
 - Multi-environment support via per-environment chain clients
 - HTMX server-rendered UI with SSE log streaming
