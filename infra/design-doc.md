@@ -78,7 +78,9 @@ All resources are prefixed with `fc-{env}` (e.g. `fc-utopia`, `fc-stillness`). C
 
 - `make infra-init` — first-time CDK bootstrap + npm install
 - `make deploy-infra ENV=utopia` — deploy CDK stack only
-- `make deploy-images ENV=utopia` — build + push Docker images to ECR + force ECS redeployment
+- `make deploy-indexer ENV=utopia` — build + push indexer image + force indexer ECS redeployment
+- `make deploy-continuity ENV=utopia` — build + push continuity-engine image + force continuity-engine ECS redeployment
+- `make deploy-images ENV=utopia` — build + push all Docker images (calls `deploy-indexer` + `deploy-continuity`)
 - `make deploy-frontend ENV=utopia` — build frontend + S3 sync + CloudFront invalidation
 - `make deploy-env ENV=utopia` — deploy everything (infra + images + frontend)
 - `make teardown ENV=utopia` — destroy all AWS resources for an environment

@@ -11,7 +11,9 @@
 #   make deploy-stillness   Shorthand for deploy-env ENV=stillness
 #   make teardown ENV=utopia Destroy all AWS resources for an environment
 #
-#   make deploy-images      Build + push Docker images to ECR
+#   make deploy-images      Build + push all Docker images to ECR
+#   make deploy-indexer     Build + push + redeploy indexer only
+#   make deploy-continuity  Build + push + redeploy continuity-engine only
 #   make deploy-frontend    Build + sync frontend to S3 + invalidate cache
 #   make deploy-infra       CDK deploy only (no image push)
 #   make publish-contracts ENV=utopia  Publish Move contracts for an environment
@@ -23,6 +25,7 @@
 
 .PHONY: local local-down local-reset \
         infra-init deploy-env deploy-infra deploy-images deploy-frontend teardown \
+        ecr-login deploy-indexer deploy-continuity \
         deploy-utopia deploy-stillness \
         publish-contracts publish-utopia publish-stillness \
         build clean enrich-items seed-ores zk-build zk-clean help
@@ -77,25 +80,35 @@ deploy-infra: ## Deploy CDK stack for ENV (infra only)
 
 # ── Docker Images ──────────────────────────────────────────────────
 
-deploy-images: ## Build and push Docker images to ECR
-	$(eval INDEXER_ECR := $(call get_output,IndexerEcrUri))
-	$(eval CONTINUITY_ECR := $(call get_output,ContinuityEcrUri))
+ecr-login: ## Log in to ECR (shared helper)
 	$(eval AWS_ACCOUNT := $(shell aws sts get-caller-identity --query Account --output text))
 	@echo "Logging in to ECR..."
 	aws ecr get-login-password --region $(AWS_REGION) | \
 		docker login --username AWS --password-stdin $(AWS_ACCOUNT).dkr.ecr.$(AWS_REGION).amazonaws.com
+
+deploy-indexer: ecr-login ## Build + push + redeploy indexer only
+	$(eval INDEXER_ECR := $(call get_output,IndexerEcrUri))
 	@echo "Building and pushing indexer..."
 	docker build -t $(INDEXER_ECR):latest ./indexer
 	docker push $(INDEXER_ECR):latest
+	@echo "Forcing indexer ECS redeployment..."
+	aws ecs update-service --cluster fc-$(ENV)-cluster --service $(STACK_NAME)-IndexerServiceE6A6AFC3-* \
+		--force-new-deployment --region $(AWS_REGION) > /dev/null
+	@echo "Done. Indexer is redeploying."
+
+deploy-continuity: ecr-login ## Build + push + redeploy continuity-engine only
+	$(eval CONTINUITY_ECR := $(call get_output,ContinuityEcrUri))
 	@echo "Building and pushing continuity-engine..."
 	docker build -f continuity-engine/Dockerfile -t $(CONTINUITY_ECR):latest .
 	docker push $(CONTINUITY_ECR):latest
-	@echo "Forcing ECS redeployment..."
-	aws ecs update-service --cluster fc-$(ENV)-cluster --service $(STACK_NAME)-IndexerServiceE6A6AFC3-* \
-		--force-new-deployment --region $(AWS_REGION) > /dev/null
+	@echo "Forcing continuity-engine ECS redeployment..."
 	aws ecs update-service --cluster fc-$(ENV)-cluster --service $(STACK_NAME)-ContinuityService* \
 		--force-new-deployment --region $(AWS_REGION) > /dev/null
-	@echo "Done. ECS indexer and continuity-engine are redeploying."
+	@echo "Done. Continuity-engine is redeploying."
+
+deploy-images: ## Build and push all Docker images to ECR
+	$(MAKE) deploy-indexer ENV=$(ENV)
+	$(MAKE) deploy-continuity ENV=$(ENV)
 
 # ── Frontend ───────────────────────────────────────────────────────
 
