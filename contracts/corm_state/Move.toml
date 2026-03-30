@@ -4,6 +4,8 @@ edition = "2024.beta"
 
 [environments]
 localnet = "5b035e1b"
+stillness = "4c78adac"
+utopia = "4c78adac"
 
 [dependencies]
 corm_auth = { local = "../corm_auth" }

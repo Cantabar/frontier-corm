@@ -4,6 +4,8 @@ edition = "2024.beta"
 
 [environments]
 localnet = "a1b2c3d4"
+stillness = "4c78adac"
+utopia = "4c78adac"
 
 [dependencies]
 world = { local = "../../../world-contracts/contracts/world" }

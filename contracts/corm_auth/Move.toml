@@ -4,3 +4,5 @@ edition = "2024.beta"
 
 [environments]
 localnet = "5dd031c2"
+stillness = "4c78adac"
+utopia = "4c78adac"

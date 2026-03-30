@@ -42,7 +42,7 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 ENV_FILE="$PROJECT_ROOT/.env.${ENV}"
 WEB_ENV_FILE="$PROJECT_ROOT/web/.env.${ENV}"
 PUB_FILE="$PROJECT_ROOT/Pub.${ENV}.toml"
-GAS_BUDGET=2000000000  # 2 SUI
+GAS_BUDGET=1000000000  # 1 SUI (actual publish cost is ~0.5 SUI)
 SUI_RPC="https://fullnode.testnet.sui.io:443"
 
 PACKAGES=("tribe" "corm_auth" "trustless_contracts" "witnessed_contracts" "corm_state" "assembly_metadata")
@@ -170,21 +170,40 @@ for i in "${!PACKAGES[@]}"; do
 
   echo ""
   echo "Publishing $pkg..."
-  sui client publish "$pkg_path" \
-    --gas-budget "$GAS_BUDGET" \
-    --build-env "$ENV" \
-    --with-unpublished-dependencies \
-    --json > /tmp/publish-result.json 2>&1 || {
-    echo "ERROR: publish failed for $pkg" >&2
-    cat /tmp/publish-result.json >&2
-    exit 1
-  }
 
-  # Extract package ID from publish transaction result
-  PACKAGE_ID=$(jq -r '(.objectChanges // [])[] | select(.type == "published") | .packageId // empty' /tmp/publish-result.json)
-  if [ -z "$PACKAGE_ID" ] || [ "$PACKAGE_ID" = "null" ]; then
-    # Fallback: try reading from Pub.{ENV}.toml
-    PACKAGE_ID=$(grep -A1 "$pkg_path" "$PUB_FILE" | grep 'published-at' | sed 's/.*"\(0x[^"]*\)".*/\1/')
+  # Check if already published for this environment
+  PUBLISHED_TOML="$pkg_path/Published.toml"
+  ALREADY_PUBLISHED_ID=""
+  if [ -f "$PUBLISHED_TOML" ]; then
+    ALREADY_PUBLISHED_ID=$(sed -n '/^\[published\.'"$ENV"'\]/,/^\[/{ /published-at/s/.*"\(0x[^"]*\)".*/\1/p; }' "$PUBLISHED_TOML")
+  fi
+
+  if [ -n "$ALREADY_PUBLISHED_ID" ]; then
+    echo "  Already published for $ENV: $ALREADY_PUBLISHED_ID (from Published.toml)"
+    PACKAGE_ID="$ALREADY_PUBLISHED_ID"
+  else
+    sui client publish "$pkg_path" \
+      --gas-budget "$GAS_BUDGET" \
+      --environment "$ENV" \
+      --with-unpublished-dependencies \
+      --json > /tmp/publish-result.json 2>&1 || true
+    # Note: CLI may return non-zero even on success (e.g. version mismatch warnings).
+    # We check the JSON output for the actual result instead of the exit code.
+
+    # Extract package ID from publish transaction result
+    # Strip non-JSON lines (e.g. [warning] messages, build output) before parsing
+    sed -n '/^{/,$p' /tmp/publish-result.json > /tmp/publish-result-clean.json
+    PACKAGE_ID=$(jq -r '(.objectChanges // [])[] | select(.type == "published") | .packageId // empty' /tmp/publish-result-clean.json 2>/dev/null)
+    if [ -z "$PACKAGE_ID" ] || [ "$PACKAGE_ID" = "null" ]; then
+      # Fallback: try reading from Published.toml (created by successful publish)
+      if [ -f "$pkg_path/Published.toml" ]; then
+        PACKAGE_ID=$(sed -n '/^\[published\.'"$ENV"'\]/,/^\[/{ /published-at/s/.*"\(0x[^"]*\)".*/\1/p; }' "$pkg_path/Published.toml")
+      fi
+    fi
+    if [ -z "$PACKAGE_ID" ] || [ "$PACKAGE_ID" = "null" ]; then
+      # Fallback: try reading from Pub.{ENV}.toml
+      PACKAGE_ID=$(grep -A1 "$pkg_path" "$PUB_FILE" | grep 'published-at' | sed 's/.*"\(0x[^"]*\)".*/\1/')
+    fi
   fi
 
   if [ -z "$PACKAGE_ID" ] || [ "$PACKAGE_ID" = "null" ]; then
@@ -242,7 +261,7 @@ for i in "${!PACKAGES[@]}"; do
   fi
 done
 
-rm -f /tmp/publish-result.json
+rm -f /tmp/publish-result.json /tmp/publish-result-clean.json
 
 # ── Create CormConfig (post-deploy admin setup) ──────────────────
 # The permissionless `install` function requires a shared CormConfig
@@ -291,13 +310,12 @@ if [ -n "$CORM_AUTH_PKG" ] && [ -n "$CORM_STATE_PKG" ]; then
         --function create_config \
         --args "$ADMIN_CAP_ID" "$BRAIN_ADDRESS" \
         --gas-budget "$GAS_BUDGET" \
-        --json > /tmp/create-config-result.json 2>&1 || {
-        echo "  ERROR: create_config call failed" >&2
-        cat /tmp/create-config-result.json >&2
-      }
+        --json > /tmp/create-config-result.json 2>&1 || true
+      # Note: CLI may return non-zero even on success (version mismatch warnings)
 
+    sed -n '/^{/,$p' /tmp/create-config-result.json > /tmp/create-config-result-clean.json
     CORM_CONFIG_ID=$(
-      jq -r '(.changed_objects // .objectChanges // [])[] | select(.idOperation == "CREATED" or .type == "created") | select(.objectType | contains("CormConfig")) | .objectId' /tmp/create-config-result.json
+      jq -r '(.changed_objects // .objectChanges // [])[] | select(.idOperation == "CREATED" or .type == "created") | select(.objectType | contains("CormConfig")) | .objectId' /tmp/create-config-result-clean.json
     )
 
       if [ -n "$CORM_CONFIG_ID" ] && [ "$CORM_CONFIG_ID" != "null" ]; then
@@ -310,7 +328,7 @@ if [ -n "$CORM_AUTH_PKG" ] && [ -n "$CORM_STATE_PKG" ]; then
         echo "  WARNING: Could not extract CormConfig ID from create_config result" >&2
       fi
 
-      rm -f /tmp/create-config-result.json
+      rm -f /tmp/create-config-result.json /tmp/create-config-result-clean.json
     fi
   fi
 else

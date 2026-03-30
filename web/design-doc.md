@@ -124,6 +124,8 @@ All via Vite environment variables (`VITE_*`), resolved in `src/config.ts`:
 
 Per-environment defaults are defined in `config.ts` and overridden by explicit `VITE_*` vars. Environment files: `.env.localnet`, `.env.utopia`, `.env.stillness`. Package IDs and shared object IDs are auto-populated by `scripts/publish-contracts.sh`; any package left at `0x0` will trigger an "Unconfigured Packages" warning on page load.
 
+**Stillness deployment status:** All contract package IDs are configured in `web/.env.stillness` and deployed to https://ef-corm.com via S3 + CloudFront.
+
 ## Deployment
 
 - **Local:** `npm run dev` via `mprocs.yaml` (Vite dev server on :5173, proxies `/api` → indexer)

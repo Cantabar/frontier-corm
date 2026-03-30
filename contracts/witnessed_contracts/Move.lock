@@ -33,3 +33,33 @@ source = { local = "../../../world-contracts/contracts/world" }
 use_environment = "localnet"
 manifest_digest = "EAE83E4C2C7D5B4EF605145EE3703A5AF265593E686986BA5E58EE3F5D5E884F"
 deps = { std = "MoveStdlib", sui = "Sui" }
+
+[pinned.stillness.MoveStdlib]
+source = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/move-stdlib", rev = "868c226359ef914f1f3b080518f27eb13d8967f5" }
+use_environment = "stillness"
+manifest_digest = "C4FE4C91DE74CBF223B2E380AE40F592177D21870DC2D7EB6227D2D694E05363"
+deps = {}
+
+[pinned.stillness.Sui]
+source = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "868c226359ef914f1f3b080518f27eb13d8967f5" }
+use_environment = "stillness"
+manifest_digest = "AB28A3CA462EEB4ACB78EDAEFD72AE494CC5717E874D0B5273C81F1854E9F175"
+deps = { MoveStdlib = "MoveStdlib" }
+
+[pinned.stillness.corm_auth]
+source = { local = "../corm_auth" }
+use_environment = "stillness"
+manifest_digest = "480BE163F816038DC28791A8D9FFD0EFD4B02AB45F2A666D10A529486AEE4AD3"
+deps = { std = "MoveStdlib", sui = "Sui" }
+
+[pinned.stillness.witnessed_contracts]
+source = { root = true }
+use_environment = "stillness"
+manifest_digest = "9F3FB13A90EE0AA30196E3E414EEB5A58361CAD32A75BD6C3D69CDE9BC3CCDB5"
+deps = { corm_auth = "corm_auth", std = "MoveStdlib", sui = "Sui", world = "world" }
+
+[pinned.stillness.world]
+source = { local = "../../../world-contracts/contracts/world" }
+use_environment = "stillness"
+manifest_digest = "480BE163F816038DC28791A8D9FFD0EFD4B02AB45F2A666D10A529486AEE4AD3"
+deps = { std = "MoveStdlib", sui = "Sui" }
