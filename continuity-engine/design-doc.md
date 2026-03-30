@@ -128,7 +128,8 @@ continuity-engine/
 
 - **Local:** built and run via `mprocs.yaml` using air for live-reload
 - **Production (utopia/stillness):** Dockerfile for containerized deployment on AWS ECS/Fargate; `entrypoint.sh` assembles `DATABASE_URL` from `DB_HOST`/`DB_PORT`/`DB_NAME`/`DB_USERNAME`/`DB_PASSWORD` injected by ECS from AWS Secrets Manager (`{prefix}/db-credentials`)
-- Requires: running Postgres, Sui RPC access, funded Sui keypair
+- Requires: running Postgres (with pgvector extension), Sui RPC access, funded Sui keypair
+- **pgvector:** The `001_initial.sql` migration runs `CREATE EXTENSION IF NOT EXISTS vector`. On AWS RDS Postgres 16 this works automatically — pgvector is a supported extension and the master DB user has sufficient privileges. Local dev uses the `pgvector/pgvector:pg16` Docker image.
 
 ### Docker Image Data Files
 

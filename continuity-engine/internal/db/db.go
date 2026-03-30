@@ -84,19 +84,30 @@ func (d *DB) runMigrations(ctx context.Context) error {
 			continue
 		}
 
-		// Read and execute migration
+		// Read and execute migration inside a transaction
 		data, err := migrationsFS.ReadFile("migrations/" + entry.Name())
 		if err != nil {
 			return fmt.Errorf("read migration %s: %w", entry.Name(), err)
 		}
 
-		if _, err := d.Pool.Exec(ctx, string(data)); err != nil {
+		tx, err := d.Pool.Begin(ctx)
+		if err != nil {
+			return fmt.Errorf("begin tx for migration %s: %w", entry.Name(), err)
+		}
+
+		if _, err := tx.Exec(ctx, string(data)); err != nil {
+			tx.Rollback(ctx)
 			return fmt.Errorf("exec migration %s: %w", entry.Name(), err)
 		}
 
-		// Record migration
-		if _, err := d.Pool.Exec(ctx, "INSERT INTO _migrations (name) VALUES ($1)", entry.Name()); err != nil {
+		// Record migration within the same transaction
+		if _, err := tx.Exec(ctx, "INSERT INTO _migrations (name) VALUES ($1)", entry.Name()); err != nil {
+			tx.Rollback(ctx)
 			return fmt.Errorf("record migration %s: %w", entry.Name(), err)
+		}
+
+		if err := tx.Commit(ctx); err != nil {
+			return fmt.Errorf("commit migration %s: %w", entry.Name(), err)
 		}
 
 		log.Printf("applied migration: %s", entry.Name())
