@@ -23,18 +23,12 @@ type EnvironmentConfig struct {
 
 // Config holds all corm-brain configuration.
 type Config struct {
-	// LLM inference endpoints (shared across environments)
+	// LLM inference endpoint (shared across environments)
 	LLMSuperURL string
-	LLMFastURL  string
 
 	// LLM token limits (max generation tokens per tier)
-	LLMMaxTokensFast    int
 	LLMMaxTokensDefault int
 	LLMMaxTokensDeep    int
-	LLMMaxTokensSync    int
-
-	// Embedding model (shared)
-	EmbedModelPath string
 
 	// WebSocket reconnect
 	WSReconnectMax time.Duration
@@ -48,12 +42,6 @@ type Config struct {
 
 	// Maximum events to collect per coalesce window before forcing a flush.
 	EventBatchMax int
-
-	// Memory consolidation interval
-	ConsolidationInterval time.Duration
-
-	// Max episodic memories per corm
-	MemoryCapPerCorm int
 
 	// Item registry paths
 	ItemRegistryPath string
@@ -84,18 +72,12 @@ type Config struct {
 func Load() Config {
 	cfg := Config{
 		LLMSuperURL:           envOrDefault("LLM_SUPER_URL", "http://localhost:8000"),
-		LLMFastURL:            envOrDefault("LLM_FAST_URL", "http://localhost:8001"),
-		LLMMaxTokensFast:      envInt("LLM_MAX_TOKENS_FAST", 60),
 		LLMMaxTokensDefault:   envInt("LLM_MAX_TOKENS_DEFAULT", 150),
 		LLMMaxTokensDeep:      envInt("LLM_MAX_TOKENS_DEEP", 400),
-		LLMMaxTokensSync:      envInt("LLM_MAX_TOKENS_SYNC", 500),
-		EmbedModelPath:        envOrDefault("EMBED_MODEL_PATH", "./models/nomic-embed"),
 		WSReconnectMax:        envDurationMs("WS_RECONNECT_MAX_MS", 30000),
 		FallbackPollInterval:  envDurationMs("FALLBACK_POLL_INTERVAL_MS", 2000),
 		EventCoalesceWindow:        envDurationMs("EVENT_COALESCE_MS", 300),
 		EventBatchMax:              envInt("EVENT_BATCH_MAX", 20),
-		ConsolidationInterval:      envDurationMs("CONSOLIDATION_INTERVAL_MS", 60000),
-		MemoryCapPerCorm:           envInt("MEMORY_CAP_PER_CORM", 500),
 		ItemRegistryPath:           envOrDefault("ITEM_REGISTRY_PATH", "./static-data/data/phobos/fsd_built"),
 		ItemValuesPath:             envOrDefault("ITEM_VALUES_PATH", "./corm-brain/data/item-values.json"),
 		CORMPerLUX:                 envFloat("CORM_PER_LUX", 1.0),

@@ -258,28 +258,6 @@ type AgendaWeights struct {
 	Defense   float64 `json:"defense"`
 }
 
-// CormMemory is an episodic memory entry (Layer 3).
-type CormMemory struct {
-	ID             int64     `json:"id"`
-	CormID         string    `json:"corm_id"`
-	MemoryText     string    `json:"memory_text"`
-	MemoryType     string    `json:"memory_type"`
-	Importance     float64   `json:"importance"`
-	SourceEvents   []int64   `json:"source_events"`
-	Embedding      []float32 `json:"embedding,omitempty"`
-	CreatedAt      time.Time `json:"created_at"`
-	LastRecalledAt time.Time `json:"last_recalled_at"`
-}
-
-// Memory type constants.
-const (
-	MemoryObservation = "observation"
-	MemoryBetrayal    = "betrayal"
-	MemoryAchievement = "achievement"
-	MemoryPattern     = "pattern"
-	MemoryWarning     = "warning"
-)
-
 // CormResponse is a logged corm response for conversational continuity.
 type CormResponse struct {
 	ID         int64           `json:"id"`

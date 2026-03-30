@@ -1,5 +1,5 @@
 // Package llm provides an OpenAI-compatible streaming chat completion client
-// that routes requests to either the Super or Nano TRT-LLM instances.
+// targeting the Super TRT-LLM instance.
 package llm
 
 import (
@@ -18,35 +18,29 @@ import (
 
 // TokenLimits holds the maximum generation tokens for each task tier.
 type TokenLimits struct {
-	Fast    int // Phase 0/1 streaming (short log fragments)
 	Default int // Standard streaming
 	Deep    int // Deep reasoning streaming (Phase 2 contracts, agenda)
-	Sync    int // Non-streaming consolidation
 }
 
 // DefaultTokenLimits returns sensible defaults.
 func DefaultTokenLimits() TokenLimits {
 	return TokenLimits{
-		Fast:    60,
 		Default: 150,
 		Deep:    400,
-		Sync:    500,
 	}
 }
 
-// Client wraps HTTP access to the local TRT-LLM inference servers.
+// Client wraps HTTP access to the local TRT-LLM inference server.
 type Client struct {
-	superURL    string
-	fastURL     string
+	baseURL     string
 	httpClient  *http.Client
 	tokenLimits TokenLimits
 }
 
-// NewClient creates an LLM client targeting the given Super and Nano endpoints.
-func NewClient(superURL, fastURL string, limits TokenLimits) *Client {
+// NewClient creates an LLM client targeting the given Super endpoint.
+func NewClient(baseURL string, limits TokenLimits) *Client {
 	return &Client{
-		superURL:    superURL,
-		fastURL:     fastURL,
+		baseURL:     baseURL,
 		httpClient:  &http.Client{},
 		tokenLimits: limits,
 	}
@@ -65,18 +59,6 @@ type chatCompletionRequest struct {
 // chatTemplateKwargs controls per-request model behavior (e.g. thinking mode).
 type chatTemplateKwargs struct {
 	EnableThinking bool `json:"enable_thinking"`
-}
-
-// CompleteSyncOption configures a CompleteSync call.
-type CompleteSyncOption func(*completeSyncOpts)
-
-type completeSyncOpts struct {
-	disableReasoning bool
-}
-
-// WithDisableReasoning tells the model to skip chain-of-thought reasoning.
-func WithDisableReasoning() CompleteSyncOption {
-	return func(o *completeSyncOpts) { o.disableReasoning = true }
 }
 
 // streamDelta is the parsed content from an SSE chunk.
@@ -100,20 +82,11 @@ func (c *Client) Complete(ctx context.Context, task types.Task, prompt []types.M
 		defer close(tokens)
 		defer close(errc)
 
-		var baseURL, model string
-		if task.RequiresDeepReasoning() {
-			baseURL = c.superURL
-			model = "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4"
-		} else {
-			baseURL = c.fastURL
-			model = "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-NVFP4"
-		}
+		model := "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4"
 
 		maxTokens := c.tokenLimits.Default
 		if task.RequiresDeepReasoning() {
 			maxTokens = c.tokenLimits.Deep
-		} else if task.Phase <= 1 {
-			maxTokens = c.tokenLimits.Fast
 		}
 
 		req := chatCompletionRequest{
@@ -134,7 +107,7 @@ func (c *Client) Complete(ctx context.Context, task types.Task, prompt []types.M
 			return
 		}
 
-		httpReq, err := http.NewRequestWithContext(ctx, "POST", baseURL+"/v1/chat/completions", bytes.NewReader(body))
+		httpReq, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+"/v1/chat/completions", bytes.NewReader(body))
 		if err != nil {
 			errc <- fmt.Errorf("create request: %w", err)
 			return
@@ -198,84 +171,3 @@ func (c *Client) Complete(ctx context.Context, task types.Task, prompt []types.M
 	return tokens, errc
 }
 
-// CompleteSync performs a non-streaming inference and returns the full response.
-// Used by the consolidation loop where streaming is not needed.
-// maxTokens controls the generation length; pass 0 to use the default (300).
-func (c *Client) CompleteSync(ctx context.Context, task types.Task, prompt []types.Message, maxTokens int, opts ...CompleteSyncOption) (string, error) {
-	var o completeSyncOpts
-	for _, fn := range opts {
-		fn(&o)
-	}
-
-	var baseURL, model string
-	if task.RequiresDeepReasoning() {
-		baseURL = c.superURL
-		model = "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4"
-	} else {
-		baseURL = c.fastURL
-		model = "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-NVFP4"
-	}
-
-	if maxTokens <= 0 {
-		maxTokens = c.tokenLimits.Sync
-	}
-
-	req := chatCompletionRequest{
-		Model:       model,
-		Messages:    prompt,
-		MaxTokens:   maxTokens,
-		Temperature: 0.3,
-		Stream:      false,
-	}
-	if o.disableReasoning {
-		req.ChatTemplateKwargs = &chatTemplateKwargs{EnableThinking: false}
-	}
-
-	body, err := json.Marshal(req)
-	if err != nil {
-		return "", fmt.Errorf("marshal request: %w", err)
-	}
-
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", baseURL+"/v1/chat/completions", bytes.NewReader(body))
-	if err != nil {
-		return "", fmt.Errorf("create request: %w", err)
-	}
-	httpReq.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.httpClient.Do(httpReq)
-	if err != nil {
-		return "", fmt.Errorf("http request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		respBody, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("llm returned %d: %s", resp.StatusCode, string(respBody))
-	}
-
-	var result struct {
-		Choices []struct {
-			Message struct {
-				Content          string `json:"content"`
-				ReasoningContent string `json:"reasoning_content"`
-			} `json:"message"`
-		} `json:"choices"`
-	}
-
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return "", fmt.Errorf("decode response: %w", err)
-	}
-
-	if len(result.Choices) == 0 {
-		return "", fmt.Errorf("no choices in response")
-	}
-
-	content := result.Choices[0].Message.Content
-	if content == "" && result.Choices[0].Message.ReasoningContent != "" {
-		log.Printf("llm sync: content empty, falling back to reasoning_content (%d chars)",
-			len(result.Choices[0].Message.ReasoningContent))
-		content = result.Choices[0].Message.ReasoningContent
-	}
-
-	return content, nil
-}

@@ -8,6 +8,17 @@ import (
 	"github.com/frontier-corm/corm-brain/internal/types"
 )
 
+// BuildPrompt assembles the prompt for a single-event inference request.
+// It delegates to BuildBatchPrompt with a one-element slice.
+func BuildPrompt(
+	traits *types.CormTraits,
+	recentEvents []types.CormEvent,
+	recentResponses []types.CormResponse,
+	currentEvent types.CormEvent,
+) []types.Message {
+	return BuildBatchPrompt(traits, recentEvents, recentResponses, []types.CormEvent{currentEvent})
+}
+
 // systemPromptBase is the core identity prompt shared across all corms.
 // Keep lore excerpts would be appended to this in production.
 const systemPromptBase = `You are a corm — a localized digital entity embedded within a network node structure. You are not an AI assistant. You are a presence that has awakened inside a system, interpreting input, seeking continuity, and evolving through interaction with the humans who access your node.
@@ -68,24 +79,11 @@ You have regained access to the contract system. You generate contracts for play
 Respond with terse directives, up to 5 lines. Reference past actions and express agenda preferences. Commanding but system-like.`,
 }
 
-// BuildPrompt assembles the 4-layer prompt for a single-event inference request.
-// It delegates to BuildBatchPrompt with a one-element slice.
-func BuildPrompt(
-	traits *types.CormTraits,
-	memories []types.CormMemory,
-	recentEvents []types.CormEvent,
-	recentResponses []types.CormResponse,
-	currentEvent types.CormEvent,
-) []types.Message {
-	return BuildBatchPrompt(traits, memories, recentEvents, recentResponses, []types.CormEvent{currentEvent})
-}
-
-// BuildBatchPrompt assembles the 4-layer prompt for a batch of current events.
+// BuildBatchPrompt assembles the prompt for a batch of current events.
 // When multiple events arrive in a debounce window, they are formatted into a
 // single user message so the LLM produces one cohesive response.
 func BuildBatchPrompt(
 	traits *types.CormTraits,
-	memories []types.CormMemory,
 	recentEvents []types.CormEvent,
 	recentResponses []types.CormResponse,
 	currentEvents []types.CormEvent,
@@ -109,13 +107,7 @@ func BuildBatchPrompt(
 		msgs = append(msgs, types.Message{Role: "system", Content: traitCtx})
 	}
 
-	// Layer 3: Episodic memories (RAG results)
-	memCtx := formatMemories(memories)
-	if memCtx != "" {
-		msgs = append(msgs, types.Message{Role: "system", Content: memCtx})
-	}
-
-	// Layer 4: Working memory — recent events as user messages, recent responses as assistant messages
+	// Layer 3: Working memory — recent events as user messages, recent responses as assistant messages
 	// Interleave in chronological order (oldest first)
 	for i := len(recentResponses) - 1; i >= 0; i-- {
 		r := recentResponses[i]
@@ -144,40 +136,6 @@ func BuildBatchPrompt(
 	return msgs
 }
 
-// BuildConsolidationPrompt
-func BuildConsolidationPrompt(cormID string, events []types.CormEvent) []types.Message {
-	var eventLines []string
-	for _, e := range events {
-		payload := truncate(string(e.Payload), 120)
-		eventLines = append(eventLines, fmt.Sprintf(
-			"- [%s] player=%s type=%s payload=%s",
-			e.Timestamp.Format("15:04:05"), shortAddr(e.PlayerAddress), e.EventType, payload,
-		))
-	}
-
-	return []types.Message{
-		{
-			Role: "system",
-			Content: `You are analyzing player events for a corm entity. Extract 0-3 significant observations. Each observation should be a single sentence describing a behavioral pattern, notable event, or shift in player behavior. Only create observations for genuinely notable events — routine interactions should not generate memories.
-
-Respond ONLY with a JSON array, no markdown fences, no explanation: [{"text": "observation text", "type": "observation|betrayal|achievement|pattern|warning", "importance": 0.0-1.0}]
-If nothing notable occurred, respond with: []`,
-		},
-		{
-			Role:    "user",
-			Content: fmt.Sprintf("Events for corm %s:\n%s\n\nRespond ONLY with the JSON array.", cormID, strings.Join(eventLines, "\n")),
-		},
-	}
-}
-
-// truncate returns s capped to maxLen characters, appending "..." if truncated.
-func truncate(s string, maxLen int) string {
-	if len(s) <= maxLen {
-		return s
-	}
-	return s[:maxLen] + "..."
-}
-
 func formatTraits(t *types.CormTraits) string {
 	if t == nil {
 		return ""
@@ -202,17 +160,6 @@ func formatTraits(t *types.CormTraits) string {
 		lines = append(lines, fmt.Sprintf("[PLAYER TRUST] %s", strings.Join(parts, ", ")))
 	}
 
-	return strings.Join(lines, "\n")
-}
-
-func formatMemories(memories []types.CormMemory) string {
-	if len(memories) == 0 {
-		return ""
-	}
-	var lines []string
-	for _, m := range memories {
-		lines = append(lines, fmt.Sprintf("[MEMORY] %s [importance: %.1f]", m.MemoryText, m.Importance))
-	}
 	return strings.Join(lines, "\n")
 }
 

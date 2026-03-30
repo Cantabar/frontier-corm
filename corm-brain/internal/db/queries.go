@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/pgvector/pgvector-go"
 
 	"github.com/frontier-corm/corm-brain/internal/types"
 )
@@ -98,31 +97,6 @@ func (d *DB) InsertEvent(ctx context.Context, environment, cormID string, evt ty
 	return id, err
 }
 
-// EventsSince returns events for a corm with id > afterID.
-func (d *DB) EventsSince(ctx context.Context, environment, cormID string, afterID int64) ([]types.CormEvent, error) {
-	rows, err := d.Pool.Query(ctx,
-		`SELECT id, corm_id, network_node_id, session_id, player_address, event_type, payload, created_at
-		 FROM corm_events WHERE environment = $1 AND corm_id = $2 AND id > $3 ORDER BY id`,
-		environment, cormID, afterID,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var events []types.CormEvent
-	for rows.Next() {
-		var e types.CormEvent
-		var id int64
-		if err := rows.Scan(&id, &e.NetworkNodeID, &e.NetworkNodeID, &e.SessionID, &e.PlayerAddress, &e.EventType, &e.Payload, &e.Timestamp); err != nil {
-			return nil, err
-		}
-		e.Seq = uint64(id)
-		events = append(events, e)
-	}
-	return events, rows.Err()
-}
-
 // --- Traits ---
 
 // GetTraits returns the learned traits for a corm, or nil if not found.
@@ -176,96 +150,6 @@ func (d *DB) UpsertTraits(ctx context.Context, environment string, t *types.Corm
 	return err
 }
 
-// --- Memories ---
-
-// InsertMemory stores an episodic memory with its embedding.
-func (d *DB) InsertMemory(ctx context.Context, environment string, m *types.CormMemory) (int64, error) {
-	sourceJSON, _ := json.Marshal(m.SourceEvents)
-	var emb *pgvector.Vector
-	if len(m.Embedding) > 0 {
-		v := pgvector.NewVector(m.Embedding)
-		emb = &v
-	}
-
-	var id int64
-	err := d.Pool.QueryRow(ctx,
-		`INSERT INTO corm_memories (environment, corm_id, memory_text, memory_type, importance, source_events, embedding)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
-		environment, m.CormID, m.MemoryText, m.MemoryType, m.Importance, sourceJSON, emb,
-	).Scan(&id)
-	return id, err
-}
-
-// SearchMemories performs a pgvector similarity search for a corm's episodic memories.
-// Returns top-k memories ranked by: 0.5*similarity + 0.3*importance + 0.2*recency.
-func (d *DB) SearchMemories(ctx context.Context, environment, cormID string, queryEmbedding []float32, topK int) ([]types.CormMemory, error) {
-	qvec := pgvector.NewVector(queryEmbedding)
-
-	rows, err := d.Pool.Query(ctx,
-		`SELECT id, corm_id, memory_text, memory_type, importance, source_events, created_at, last_recalled_at,
-		        1 - (embedding <=> $1) AS similarity
-		 FROM corm_memories
-		 WHERE environment = $2 AND corm_id = $3 AND embedding IS NOT NULL
-		 ORDER BY
-		   0.5 * (1 - (embedding <=> $1)) +
-		   0.3 * importance +
-		   0.2 * (1.0 / (1.0 + EXTRACT(EPOCH FROM (now() - last_recalled_at)) / 86400.0))
-		 DESC
-		 LIMIT $4`,
-		qvec, environment, cormID, topK,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var memories []types.CormMemory
-	for rows.Next() {
-		var m types.CormMemory
-		var sourceJSON []byte
-		var similarity float64
-		if err := rows.Scan(&m.ID, &m.CormID, &m.MemoryText, &m.MemoryType, &m.Importance, &sourceJSON, &m.CreatedAt, &m.LastRecalledAt, &similarity); err != nil {
-			return nil, err
-		}
-		json.Unmarshal(sourceJSON, &m.SourceEvents)
-		memories = append(memories, m)
-	}
-	return memories, rows.Err()
-}
-
-// MemoryCount returns the number of memories for a corm.
-func (d *DB) MemoryCount(ctx context.Context, environment, cormID string) (int, error) {
-	var count int
-	err := d.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM corm_memories WHERE environment = $1 AND corm_id = $2", environment, cormID).Scan(&count)
-	return count, err
-}
-
-// PruneMemories deletes the lowest-ranked memories exceeding the cap.
-func (d *DB) PruneMemories(ctx context.Context, environment, cormID string, cap int) (int64, error) {
-	tag, err := d.Pool.Exec(ctx,
-		`DELETE FROM corm_memories WHERE id IN (
-		   SELECT id FROM corm_memories WHERE environment = $1 AND corm_id = $2
-		   ORDER BY importance ASC, last_recalled_at ASC
-		   LIMIT (SELECT GREATEST(COUNT(*) - $3, 0) FROM corm_memories WHERE environment = $1 AND corm_id = $2)
-		 )`, environment, cormID, cap,
-	)
-	if err != nil {
-		return 0, err
-	}
-	return tag.RowsAffected(), nil
-}
-
-// TouchMemories updates last_recalled_at for retrieved memories.
-func (d *DB) TouchMemories(ctx context.Context, ids []int64) error {
-	if len(ids) == 0 {
-		return nil
-	}
-	_, err := d.Pool.Exec(ctx,
-		"UPDATE corm_memories SET last_recalled_at = now() WHERE id = ANY($1)", ids,
-	)
-	return err
-}
-
 // --- Responses ---
 
 // InsertResponse logs a corm response.
@@ -301,32 +185,7 @@ func (d *DB) RecentResponses(ctx context.Context, environment, cormID string, li
 	return responses, rows.Err()
 }
 
-// ActiveCormIDs returns corm IDs with unconsolidated events for a given environment.
-func (d *DB) ActiveCormIDs(ctx context.Context, environment string) ([]string, error) {
-	rows, err := d.Pool.Query(ctx,
-		`SELECT DISTINCT t.corm_id FROM corm_traits t
-		 WHERE t.environment = $1 AND EXISTS (
-		   SELECT 1 FROM corm_events e WHERE e.environment = $1 AND e.corm_id = t.corm_id AND e.id > t.consolidation_checkpoint
-		 )`,
-		environment,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var ids []string
-	for rows.Next() {
-		var id string
-		if err := rows.Scan(&id); err != nil {
-			return nil, err
-		}
-		ids = append(ids, id)
-	}
-	return ids, rows.Err()
-}
-
-// RecentEvents returns the last N events for a corm.
+// RecentEvents
 func (d *DB) RecentEvents(ctx context.Context, environment, cormID string, limit int) ([]types.CormEvent, error) {
 	rows, err := d.Pool.Query(ctx,
 		`SELECT id, network_node_id, session_id, player_address, event_type, payload, created_at

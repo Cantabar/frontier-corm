@@ -25,10 +25,6 @@ func TestBuildPromptIncludesAllLayers(t *testing.T) {
 		PlayerAffinities: map[string]float64{"0xabc123456789": 0.8},
 	}
 
-	memories := []types.CormMemory{
-		{MemoryText: "Player reliably completes transport contracts", Importance: 0.8},
-	}
-
 	recentEvents := []types.CormEvent{
 		{EventType: "click", PlayerAddress: "0xabc123456789", Context: "browser"},
 	}
@@ -40,7 +36,7 @@ func TestBuildPromptIncludesAllLayers(t *testing.T) {
 		Timestamp:     time.Now(),
 	}
 
-	msgs := llm.BuildPrompt(traits, memories, recentEvents, nil, currentEvent)
+	msgs := llm.BuildPrompt(traits, recentEvents, nil, currentEvent)
 
 	if len(msgs) < 3 {
 		t.Fatalf("expected at least 3 messages, got %d", len(msgs))
@@ -65,18 +61,6 @@ func TestBuildPromptIncludesAllLayers(t *testing.T) {
 	if !found {
 		t.Error("prompt should contain trait context ([STATE])")
 	}
-
-	// Layer 3: should contain memory
-	found = false
-	for _, m := range msgs {
-		if strings.Contains(m.Content, "[MEMORY]") {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Error("prompt should contain episodic memories")
-	}
 }
 
 func TestPhase0PromptNoEllipsis(t *testing.T) {
@@ -85,7 +69,7 @@ func TestPhase0PromptNoEllipsis(t *testing.T) {
 		AgendaWeights: types.AgendaWeights{Industry: 0.33, Expansion: 0.33, Defense: 0.33},
 	}
 	currentEvent := types.CormEvent{EventType: "click", PlayerAddress: "0xabc123456789", Context: "browser"}
-	msgs := llm.BuildPrompt(traits, nil, nil, nil, currentEvent)
+	msgs := llm.BuildPrompt(traits, nil, nil, currentEvent)
 
 	system := msgs[0].Content
 	if strings.Contains(system, "> ...") {
@@ -207,7 +191,7 @@ func TestPhase1PromptObservationMode(t *testing.T) {
 	}
 	payload, _ := json.Marshal(map[string]any{"is_trap": true})
 	evt := types.CormEvent{EventType: types.EventDecrypt, PlayerAddress: "0xabc123456789", Payload: payload}
-	msgs := llm.BuildPrompt(traits, nil, nil, nil, evt)
+	msgs := llm.BuildPrompt(traits, nil, nil, evt)
 
 	system := msgs[0].Content
 	// Should use observation-driven [SILENCE] model

@@ -18,12 +18,31 @@ import (
 	"github.com/frontier-corm/corm-brain/internal/types"
 )
 
+// NewHandler creates a new reasoning handler.
+func NewHandler(database *db.DB, llmClient *llm.Client, tm *transport.Manager, opts ...HandlerConfig) *Handler {
+	h := &Handler{
+		db:               database,
+		llm:              llmClient,
+		tm:               tm,
+		contractCooldown: 30 * time.Second, // default
+	}
+	if len(opts) > 0 {
+		cfg := opts[0]
+		h.registry = cfg.Registry
+		h.chainClient = cfg.ChainClient
+		h.pricing = cfg.Pricing
+		if cfg.ContractCooldown > 0 {
+			h.contractCooldown = cfg.ContractCooldown
+		}
+	}
+	return h
+}
+
 // Handler processes player events and generates corm responses.
 type Handler struct {
-	db        *db.DB
-	llm       *llm.Client
-	retriever *memory.Retriever
-	tm        *transport.Manager
+	db  *db.DB
+	llm *llm.Client
+	tm  *transport.Manager
 
 	// Phase 2: contract generation
 	registry         *chain.Registry
@@ -38,27 +57,6 @@ type HandlerConfig struct {
 	ChainClient      *chain.Client
 	Pricing          PricingConfig
 	ContractCooldown time.Duration
-}
-
-// NewHandler creates a new reasoning handler.
-func NewHandler(database *db.DB, llmClient *llm.Client, retriever *memory.Retriever, tm *transport.Manager, opts ...HandlerConfig) *Handler {
-	h := &Handler{
-		db:               database,
-		llm:              llmClient,
-		retriever:        retriever,
-		tm:               tm,
-		contractCooldown: 30 * time.Second, // default
-	}
-	if len(opts) > 0 {
-		cfg := opts[0]
-		h.registry = cfg.Registry
-		h.chainClient = cfg.ChainClient
-		h.pricing = cfg.Pricing
-		if cfg.ContractCooldown > 0 {
-			h.contractCooldown = cfg.ContractCooldown
-		}
-	}
-	return h
 }
 
 // ProcessEvent handles a single event for a resolved corm.
@@ -107,6 +105,12 @@ func (h *Handler) ProcessEventBatch(ctx context.Context, environment, cormID str
 		if _, err := h.db.InsertEvent(ctx, environment, cormID, evt); err != nil {
 			log.Printf("insert event: %v", err)
 		}
+	}
+
+	// Reduce traits immediately from the event batch.
+	memory.ReduceEvents(traits, events)
+	if err := h.db.UpsertTraits(ctx, environment, traits); err != nil {
+		log.Printf("upsert traits after reduction: %v", err)
 	}
 
 	// Detect phase transitions before running effects or the LLM.
@@ -162,18 +166,12 @@ func detectPhaseTransition(events []types.CormEvent, traits *types.CormTraits) b
 // streamTransitionResponse invokes the LLM once to generate a single
 // post-transition log message and delivers it to the player.
 func (h *Handler) streamTransitionResponse(ctx context.Context, environment, cormID, sessionID string, sender *transport.ActionSender, traits *types.CormTraits, events []types.CormEvent) {
-	queryEvent := types.MostSignificant(events)
-
-	memories, err := h.retriever.Recall(ctx, environment, cormID, queryEvent, 5)
-	if err != nil {
-		log.Printf("recall memories: %v", err)
-	}
-
 	recentEvents, _ := h.db.RecentEvents(ctx, environment, cormID, 15)
 	recentResponses, _ := h.db.RecentResponses(ctx, environment, cormID, 5)
 
-	prompt := llm.BuildBatchPrompt(traits, memories, recentEvents, recentResponses, events)
+	prompt := llm.BuildBatchPrompt(traits, recentEvents, recentResponses, events)
 
+	queryEvent := types.MostSignificant(events)
 	task := types.Task{
 		CormID:      cormID,
 		Phase:       traits.Phase,

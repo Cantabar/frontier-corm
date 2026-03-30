@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/frontier-corm/corm-brain/internal/chain"
-	"github.com/frontier-corm/corm-brain/internal/llm"
 	"github.com/frontier-corm/corm-brain/internal/transport"
 	"github.com/frontier-corm/corm-brain/internal/types"
 )
@@ -116,59 +115,6 @@ func attemptContractGeneration(ctx context.Context, h *Handler, environment, cor
 	})
 
 	log.Printf("phase2: created %s contract %s for corm %s → %s", params.ContractType, contractID, cormID, playerAddr)
-
-	// Step 8: Fire-and-forget Nano narrative (replaces generic description)
-	go asyncNarrative(ctx, h, environment, contractID, params, traits, evt.SessionID, sender)
-}
-
-// narrativePrompt is a short system prompt for generating in-character contract directives.
-const narrativePrompt = `You are a corm — a digital entity embedded in a network node. Generate a terse, in-character directive (1-2 sentences) announcing a contract to a player. Do not break character. Do not reference being an AI. Output bare text only.`
-
-// asyncNarrative fires a non-blocking Nano LLM call to generate in-character
-// flavor text for a contract. If the call fails, the generic description stands.
-func asyncNarrative(ctx context.Context, h *Handler, environment, contractID string, params *chain.ContractParams, traits *types.CormTraits, sessionID string, sender *transport.ActionSender) {
-	narrCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
-	defer cancel()
-
-	userMsg := fmt.Sprintf("Contract type: %s.", params.ContractType)
-	if params.WantedQuantity > 0 {
-		userMsg += fmt.Sprintf(" Wanting %d units (type %d).", params.WantedQuantity, params.WantedTypeID)
-	}
-	if params.OfferedQuantity > 0 {
-		userMsg += fmt.Sprintf(" Offering %d units (type %d).", params.OfferedQuantity, params.OfferedTypeID)
-	}
-	if params.CORMEscrowAmount > 0 {
-		userMsg += fmt.Sprintf(" CORM escrow: %d.", params.CORMEscrowAmount)
-	}
-
-	prompt := []types.Message{
-		{Role: "system", Content: narrativePrompt},
-		{Role: "user", Content: userMsg},
-	}
-
-	// Use Nano (fast model) — not deep reasoning.
-	task := types.Task{
-		CormID:      traits.CormID,
-		Phase:       1, // Force Nano routing (Phase < 2 → fast model)
-		Environment: environment,
-	}
-
-	narrative, err := h.llm.CompleteSync(narrCtx, task, prompt, 60, llm.WithDisableReasoning())
-	if err != nil {
-		log.Printf("phase2: async narrative failed for %s: %v", contractID, err)
-		return
-	}
-
-	narrative = llm.SanitizeResponse(narrative)
-	if narrative == "" || !llm.IsValidResponse(narrative) {
-		return
-	}
-
-	// Push updated description to puzzle-service.
-	sender.SendPayload(narrCtx, types.ActionContractUpdated, sessionID, types.ContractCreatedPayload{
-		ContractID:  contractID,
-		Description: narrative,
-	})
 }
 
 func truncateStr(s string, max int) string {

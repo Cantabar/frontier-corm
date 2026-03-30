@@ -14,9 +14,7 @@ import (
 	"github.com/frontier-corm/corm-brain/internal/chain"
 	"github.com/frontier-corm/corm-brain/internal/config"
 	"github.com/frontier-corm/corm-brain/internal/db"
-	"github.com/frontier-corm/corm-brain/internal/embed"
 	"github.com/frontier-corm/corm-brain/internal/llm"
-	"github.com/frontier-corm/corm-brain/internal/memory"
 	"github.com/frontier-corm/corm-brain/internal/reasoning"
 	"github.com/frontier-corm/corm-brain/internal/transport"
 	"github.com/frontier-corm/corm-brain/internal/types"
@@ -40,16 +38,10 @@ func main() {
 	log.Println("database connected, migrations applied")
 
 	// --- LLM Client (shared) ---
-	llmClient := llm.NewClient(cfg.LLMSuperURL, cfg.LLMFastURL, llm.TokenLimits{
-		Fast:    cfg.LLMMaxTokensFast,
+	llmClient := llm.NewClient(cfg.LLMSuperURL, llm.TokenLimits{
 		Default: cfg.LLMMaxTokensDefault,
 		Deep:    cfg.LLMMaxTokensDeep,
-		Sync:    cfg.LLMMaxTokensSync,
 	})
-
-	// --- Embedder (shared) ---
-	embedder := embed.NewEmbedder(cfg.EmbedModelPath)
-	defer embedder.Close()
 
 	// --- Per-environment chain clients ---
 	chainClients := make(map[string]*chain.Client, len(cfg.Environments))
@@ -79,10 +71,6 @@ func main() {
 	// --- Item Registry (shared) ---
 	registry := chain.NewRegistry(cfg.ItemRegistryPath, cfg.ItemValuesPath)
 
-	// --- Memory (shared) ---
-	retriever := memory.NewRetriever(database, embedder)
-	consolidator := memory.NewConsolidator(database, llmClient, embedder, cfg.MemoryCapPerCorm)
-
 	// --- Reasoning ---
 	// Use the first environment's chain client for contract generation.
 	// Multi-env contract generation would need per-env chain client routing.
@@ -92,7 +80,7 @@ func main() {
 		break
 	}
 
-	handler := reasoning.NewHandler(database, llmClient, retriever, tm, reasoning.HandlerConfig{
+	handler := reasoning.NewHandler(database, llmClient, tm, reasoning.HandlerConfig{
 		Registry:         registry,
 		ChainClient:      defaultChainClient,
 		Pricing:          reasoning.PricingConfig{CORMPerLUX: cfg.CORMPerLUX, CORMFloorPerUnit: cfg.CORMFloorPerUnit},
@@ -114,13 +102,6 @@ func main() {
 	go func() {
 		defer wg.Done()
 		runEventProcessor(ctx, cfg, database, chainClients, handler, eventChan)
-	}()
-
-	// Goroutine 3: Slow consolidation loop (iterates all environments)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		runConsolidationLoop(ctx, cfg, database, consolidator, tm.Environments())
 	}()
 
 	log.Println("corm-brain running")
@@ -261,35 +242,3 @@ func processBatch(
 	}
 }
 
-// runConsolidationLoop periodically consolidates events into memories and updates traits.
-func runConsolidationLoop(
-	ctx context.Context,
-	cfg config.Config,
-	database *db.DB,
-	consolidator *memory.Consolidator,
-	environments []string,
-) {
-	ticker := time.NewTicker(cfg.ConsolidationInterval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			for _, env := range environments {
-				cormIDs, err := database.ActiveCormIDs(ctx, env)
-				if err != nil {
-					log.Printf("consolidation [%s]: active corms: %v", env, err)
-					continue
-				}
-
-				for _, cormID := range cormIDs {
-					if err := consolidator.ConsolidateCorm(ctx, env, cormID); err != nil {
-						log.Printf("consolidation [%s]: corm %s: %v", env, cormID, err)
-					}
-				}
-			}
-		}
-	}
-}

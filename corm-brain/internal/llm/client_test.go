@@ -4,31 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/frontier-corm/corm-brain/internal/types"
 )
-
-// mockResponse builds a non-streaming OpenAI chat completion response body.
-func mockResponse(content, reasoningContent string) string {
-	type msg struct {
-		Content          string `json:"content"`
-		ReasoningContent string `json:"reasoning_content,omitempty"`
-	}
-	type choice struct {
-		Message msg `json:"message"`
-	}
-	resp := struct {
-		Choices []choice `json:"choices"`
-	}{
-		Choices: []choice{{Message: msg{Content: content, ReasoningContent: reasoningContent}}},
-	}
-	b, _ := json.Marshal(resp)
-	return string(b)
-}
 
 // mockSSE builds an SSE stream body from a sequence of (content, reasoningContent) pairs.
 func mockSSE(deltas []struct{ content, reasoning string }) string {
@@ -70,126 +51,6 @@ func prompt() []types.Message {
 	return []types.Message{{Role: "user", Content: "hello"}}
 }
 
-// --- CompleteSync tests ---
-
-func TestCompleteSync_ContentOnly(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, mockResponse(`[{"text":"obs","type":"observation","importance":0.5}]`, ""))
-	}))
-	defer srv.Close()
-
-	client := NewClient(srv.URL, srv.URL)
-	got, err := client.CompleteSync(context.Background(), newTask(), prompt(), 100)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if got != `[{"text":"obs","type":"observation","importance":0.5}]` {
-		t.Errorf("got %q, want JSON array", got)
-	}
-}
-
-func TestCompleteSync_ContentWithReasoning(t *testing.T) {
-	// When both fields are set, content should be preferred.
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, mockResponse(`[{"text":"real answer","type":"observation","importance":0.7}]`, "thinking about it..."))
-	}))
-	defer srv.Close()
-
-	client := NewClient(srv.URL, srv.URL)
-	got, err := client.CompleteSync(context.Background(), newTask(), prompt(), 100)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if got != `[{"text":"real answer","type":"observation","importance":0.7}]` {
-		t.Errorf("got %q, want content field", got)
-	}
-}
-
-func TestCompleteSync_ReasoningOnly(t *testing.T) {
-	// When content is empty but reasoning_content has data, fall back to reasoning.
-	reasoning := `I need to produce JSON. The answer is [{"text":"from reasoning","type":"pattern","importance":0.6}]`
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, mockResponse("", reasoning))
-	}))
-	defer srv.Close()
-
-	client := NewClient(srv.URL, srv.URL)
-	got, err := client.CompleteSync(context.Background(), newTask(), prompt(), 100)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if got != reasoning {
-		t.Errorf("got %q, want reasoning_content fallback", got)
-	}
-}
-
-func TestCompleteSync_EmptyResponse(t *testing.T) {
-	// Both content and reasoning_content empty — should return empty string, no error.
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, mockResponse("", ""))
-	}))
-	defer srv.Close()
-
-	client := NewClient(srv.URL, srv.URL)
-	got, err := client.CompleteSync(context.Background(), newTask(), prompt(), 100)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if got != "" {
-		t.Errorf("got %q, want empty", got)
-	}
-}
-
-func TestCompleteSync_DisableReasoning(t *testing.T) {
-	// Verify the request body includes chat_template_kwargs when reasoning is disabled.
-	var receivedBody chatCompletionRequest
-
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		b, _ := io.ReadAll(r.Body)
-		json.Unmarshal(b, &receivedBody)
-		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, mockResponse("[]", ""))
-	}))
-	defer srv.Close()
-
-	client := NewClient(srv.URL, srv.URL)
-	_, err := client.CompleteSync(context.Background(), newTask(), prompt(), 100, WithDisableReasoning())
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if receivedBody.ChatTemplateKwargs == nil {
-		t.Fatal("expected chat_template_kwargs to be set")
-	}
-	if receivedBody.ChatTemplateKwargs.EnableThinking != false {
-		t.Error("expected enable_thinking=false")
-	}
-}
-
-func TestCompleteSync_NoDisableReasoning(t *testing.T) {
-	// Without the option, chat_template_kwargs should be omitted.
-	var rawBody map[string]interface{}
-
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		b, _ := io.ReadAll(r.Body)
-		json.Unmarshal(b, &rawBody)
-		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, mockResponse("[]", ""))
-	}))
-	defer srv.Close()
-
-	client := NewClient(srv.URL, srv.URL)
-	_, _ = client.CompleteSync(context.Background(), newTask(), prompt(), 100)
-
-	if _, found := rawBody["chat_template_kwargs"]; found {
-		t.Error("chat_template_kwargs should be omitted when not explicitly set")
-	}
-}
-
 // --- Complete (streaming) tests ---
 
 func TestComplete_ContentDeltas(t *testing.T) {
@@ -203,7 +64,7 @@ func TestComplete_ContentDeltas(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	client := NewClient(srv.URL, srv.URL)
+	client := NewClient(srv.URL, DefaultTokenLimits())
 	tokens, errc := client.Complete(context.Background(), newTask(), prompt())
 
 	var got string
@@ -233,7 +94,7 @@ func TestComplete_ReasoningThenContent(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	client := NewClient(srv.URL, srv.URL)
+	client := NewClient(srv.URL, DefaultTokenLimits())
 	tokens, errc := client.Complete(context.Background(), newTask(), prompt())
 
 	var got string
@@ -260,7 +121,7 @@ func TestComplete_ReasoningOnlyStream(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	client := NewClient(srv.URL, srv.URL)
+	client := NewClient(srv.URL, DefaultTokenLimits())
 	tokens, errc := client.Complete(context.Background(), newTask(), prompt())
 
 	var count int
@@ -283,7 +144,7 @@ func TestComplete_EmptyStream(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	client := NewClient(srv.URL, srv.URL)
+	client := NewClient(srv.URL, DefaultTokenLimits())
 	tokens, errc := client.Complete(context.Background(), newTask(), prompt())
 
 	var count int
@@ -295,35 +156,5 @@ func TestComplete_EmptyStream(t *testing.T) {
 	}
 	if count != 0 {
 		t.Errorf("got %d tokens, want 0", count)
-	}
-}
-
-func TestComplete_ModelRouting(t *testing.T) {
-	// Phase 0 task should hit the fast URL (Nano).
-	var receivedReq chatCompletionRequest
-	fastSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		b, _ := io.ReadAll(r.Body)
-		json.Unmarshal(b, &receivedReq)
-		w.Header().Set("Content-Type", "text/event-stream")
-		fmt.Fprint(w, "data: [DONE]\n\n")
-	}))
-	defer fastSrv.Close()
-
-	superSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		t.Error("Phase 0 task should not hit super URL")
-	}))
-	defer superSrv.Close()
-
-	client := NewClient(superSrv.URL, fastSrv.URL)
-	tokens, errc := client.Complete(context.Background(), types.Task{Phase: 0}, prompt())
-	for range tokens {
-	}
-	<-errc
-
-	if receivedReq.Model != "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-NVFP4" {
-		t.Errorf("got model %q, want Nano", receivedReq.Model)
-	}
-	if receivedReq.ChatTemplateKwargs == nil || receivedReq.ChatTemplateKwargs.EnableThinking != false {
-		t.Error("streaming requests should disable thinking")
 	}
 }

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Corm-brain is the AI reasoning engine for Frontier Corm. It observes player events from one or more game environments (via WebSocket or HTTP fallback from `puzzle-service`), generates contextual responses using locally-hosted LLMs (NVIDIA TRT-LLM on DGX Spark), and writes corm state transitions to the Sui blockchain. Each corm develops a persistent personality through episodic memory and trait evolution.
+Corm-brain is the AI reasoning engine for Frontier Corm. It observes player events from one or more game environments (via WebSocket or HTTP fallback from `puzzle-service`), generates contextual responses using a locally-hosted LLM (NVIDIA Nemotron 3 Super via TRT-LLM on DGX Spark), and writes corm state transitions to the Sui blockchain. Each corm develops a persistent personality through deterministic trait evolution driven by player interactions.
 
 ## Architecture
 
@@ -18,41 +18,31 @@ puzzle-service (per env)           corm-brain
                                    │    └─ Debounce → GroupBySession│
                                    ├──────────────────────────────┤
                                    │  Reasoning Handler            │
+                                   │    ├─ Trait Reduction         │
                                    │    ├─ Phase Transition Gate   │
-                                   │    ├─ Memory Retrieval        │
                                    │    ├─ LLM Stream Response     │
                                    │    │    (transitions only)     │
                                    │    └─ Phase Effects           │
-                                   ├──────────────────────────────┤
-                                   │  Consolidation Loop           │
-                                   │    ├─ LLM Summarization       │
-                                   │    ├─ Embedding + pgvector    │
-                                   │    └─ Trait Reduction          │
                                    └──────────────────────────────┘
                                         │              │
                                    ┌────┴────┐   ┌────┴────┐
                                    │ Postgres │   │ Sui RPC │
-                                   │ pgvector │   │  Chain  │
                                    └─────────┘   └─────────┘
 ```
 
 ### Goroutines
 
 1. **Transport Manager** — runs per-environment WebSocket listeners with automatic fallback to HTTP polling when WS disconnects. All environments share a single `eventChan`.
-2. **Event Processor** — reads from `eventChan`, debounces events into per-session batches (configurable coalesce window + batch cap), then dispatches to the reasoning handler. The LLM is only invoked on phase transitions.
-3. **Consolidation Loop** — periodic sweep across all environments/corms. Summarizes unconsolidated events into episodic memories via LLM, generates embeddings, runs deterministic trait reducers, and prunes memories exceeding the per-corm cap.
+2. **Event Processor** — reads from `eventChan`, debounces events into per-session batches (configurable coalesce window + batch cap), then dispatches to the reasoning handler. Trait reduction runs inline on every event batch. The LLM is only invoked on phase transitions.
 
 ### Key Components
 
-- **LLM Client** (`internal/llm`) — dual-endpoint client targeting Super (deep reasoning, port 8000) and Nano (fast extraction, port 8001) TRT-LLM models. Supports streaming and sync completion with optional reasoning disable.
+- **LLM Client** (`internal/llm`) — single-endpoint streaming client targeting the Super TRT-LLM model (Nemotron 3 Super 120B, port 8000). Token limits are configurable per tier (default vs deep reasoning).
 - **LLM Post-Processor** (`internal/llm/postprocess.go`) — corruption garbling (replaces characters with noise glyphs proportional to corruption level), metadata leak sanitization (strips leaked event field patterns like `row=`, `session_id=`, angle-bracket artifacts, and ellipsis runs), response validation (rejects output without at least one 2+ alpha word), and response truncation.
-- **Embedder** (`internal/embed`) — local nomic-embed model for memory vector generation. Supports single and batch embedding.
-- **Memory Retriever** (`internal/memory`) — pgvector cosine similarity search over episodic memories. Touches recalled memories to update recency scoring.
-- **Memory Consolidator** (`internal/memory`) — LLM-driven event summarization → embedding → storage. Deterministic trait reduction (agenda weights, patience, player affinities).
-- **Memory Pruner** (`internal/memory/pruner.go`) — enforces per-corm memory caps by removing lowest-ranked memories when a corm exceeds its limit.
+- **Trait Reducer** (`internal/memory/reducer.go`) — deterministic trait mutations (stability, corruption, patience, paranoia, volatility, player affinities, agenda weights, contract type affinity) applied inline on every event batch before phase transition detection.
 - **Chain Client** (`internal/chain`) — per-environment Sui RPC client for on-chain state writes (phase transitions, stability/corruption updates) using the corm-brain keypair. Includes stubs for contract creation (`contracts.go`), player inventory reading (`inventory.go`), and CORM token minting (`coin.go`).
 - **Chain Signer** (`internal/chain/signer.go`) — Ed25519 keypair management for signing Sui transactions.
-- **Reasoning Handler** (`internal/reasoning`) — orchestrates the full event→response pipeline: trait lookup, phase transition detection, memory recall, prompt building, LLM response (on transitions only), response delivery, and phase effects. The conversational LLM is invoked exactly once per phase transition (0→1, 1→2). All other events are processed for side effects only (state sync, hints, boosts, contract generation).
+- **Reasoning Handler** (`internal/reasoning`) — orchestrates the full event→response pipeline: trait reduction, phase transition detection, prompt building, LLM response (on transitions only), response delivery, and phase effects. The conversational LLM is invoked exactly once per phase transition (0→1, 1→2). All other events are processed for side effects only (state sync, hints, boosts, contract generation).
 
 ### Phase-Specific Effects
 
@@ -70,9 +60,8 @@ puzzle-service (per env)           corm-brain
 ## Tech Stack
 
 - **Language:** Go
-- **LLM Inference:** NVIDIA TRT-LLM (Nemotron 3 Super/Nano) hosted on DGX Spark
-- **Embedding:** nomic-embed (local GGUF via cgo)
-- **Database:** PostgreSQL + pgvector
+- **LLM Inference:** NVIDIA TRT-LLM (Nemotron 3 Super 120B) hosted on DGX Spark
+- **Database:** PostgreSQL
 - **Blockchain:** Sui (via JSON-RPC)
 - **Transport:** WebSocket (nhooyr.io/websocket) + HTTP fallback
 
@@ -80,17 +69,12 @@ puzzle-service (per env)           corm-brain
 
 All via environment variables (see `internal/config/config.go`):
 
-- `LLM_SUPER_URL` / `LLM_FAST_URL` — TRT-LLM endpoints (default: localhost:8000/8001)
-- `LLM_MAX_TOKENS_FAST` — max generation tokens for Phase 0/1 streaming (default: 60)
+- `LLM_SUPER_URL` — TRT-LLM endpoint (default: localhost:8000)
 - `LLM_MAX_TOKENS_DEFAULT` — max generation tokens for standard streaming (default: 150)
 - `LLM_MAX_TOKENS_DEEP` — max generation tokens for deep reasoning streaming (default: 400)
-- `LLM_MAX_TOKENS_SYNC` — max generation tokens for sync consolidation (default: 500)
-- `EMBED_MODEL_PATH` — path to nomic-embed GGUF model
 - `DATABASE_URL` — Postgres connection string
 - `EVENT_COALESCE_MS` — debounce window (default: 300ms)
 - `EVENT_BATCH_MAX` — max events per batch (default: 20)
-- `CONSOLIDATION_INTERVAL_MS` — memory sweep interval (default: 60000ms)
-- `MEMORY_CAP_PER_CORM` — max episodic memories per corm (default: 500)
 - `WS_RECONNECT_MAX_MS` — max WS reconnect backoff (default: 30000ms)
 - `FALLBACK_POLL_INTERVAL_MS` — HTTP poll interval (default: 2000ms)
 - `ENVIRONMENTS_CONFIG` — path to JSON file for multi-environment setup (optional; falls back to single "default" env from legacy vars)
@@ -102,10 +86,9 @@ Per-environment config (in JSON file): `name`, `puzzle_service_url`, `sui_rpc_ur
 
 ### Postgres Tables (managed by corm-brain migrations)
 
-- `corm_traits` — per-corm personality state: phase, stability, corruption, agenda weights, patience, player affinities, contract type affinity, consolidation checkpoint
+- `corm_traits` — per-corm personality state: phase, stability, corruption, agenda weights, patience, player affinities, contract type affinity
 - `corm_events` — raw player events with environment, session, payload
 - `corm_responses` — logged corm responses for conversational continuity
-- `corm_memories` — episodic memories with pgvector embeddings, importance, type, source events, last-recalled timestamp
 
 ### On-Chain Objects
 
@@ -115,18 +98,16 @@ Per-environment config (in JSON file): `name`, `puzzle_service_url`, `sui_rpc_ur
 
 - **Local:** built and run via `mprocs.yaml` using [air](https://github.com/air-verse/air) for live-reload on source changes (see `.air.toml`)
 - **Production:** Docker container on ECS Fargate (planned)
-- Requires: running Postgres with pgvector, DGX Spark LLM tunnel, Sui RPC access, funded Sui keypair
+- Requires: running Postgres, DGX Spark LLM tunnel, Sui RPC access, funded Sui keypair
 
 ## Features
 
 - Multi-environment support with per-environment WebSocket/HTTP transport
-- Dual LLM inference (Super for deep reasoning, Nano for fast extraction)
-- Local nomic-embed vector generation for episodic memories
+- Single-model LLM inference (Nemotron 3 Super via TRT-LLM)
+- Real-time deterministic trait reduction on every event batch
 - Corruption-proportional garbling of LLM output
 - Metadata leak sanitization (strips event field patterns from LLM output)
 - Response validation and truncation
-- Memory consolidation with LLM summarization, embedding, and trait reduction
-- Memory pruning with configurable per-corm caps
 - Phase-aware event processing (Phase 0 dormancy, Phase 1 puzzles, Phase 2 contracts)
 - Phase-transition-only LLM responses (one conversational message per transition)
 - Struggling player hint system (auto-activates on repeated failures)
@@ -145,7 +126,7 @@ The corm generates trustless contracts for players to execute in the game world.
 1. **Trait-weighted intent** — `reasoning/contract_gen.go:GenerateContractIntent` produces a `ContractIntent` deterministically from corm traits (`agenda_weights`, `contract_type_affinity`, `patience`, `paranoia`, `corruption`, `player_affinities`) and actual inventory state. Contract type is selected via weighted random (affinity + agenda alignment). Items are picked directly from `WorldSnapshot` inventories, eliminating hallucination. Qualitative scales (quantity, urgency, CORM amount) are derived from trait values.
 2. **Go resolves to exact params** — the intent resolver (`reasoning/resolver.go`) maps item names to type IDs via fuzzy registry lookup, converts qualitative scale hints to exact quantities, computes CORM amounts from LUX-based item valuations, and applies divisibility constraints.
 3. **Validation gate** — `ValidateParams` checks hard constraints (balance, divisibility, deadline, contract cap) and silently fixes correctable issues before the chain write.
-4. **Async Nano narrative** — after the contract is created on-chain and the puzzle-service is notified with a generic description, a fire-and-forget Nano call (2s timeout) generates in-character flavor text. If it fails, the generic description stands. The narrative is delivered via `ActionContractUpdated`.
+4. **Generic narrative** — `genericNarrative()` produces a deterministic in-character description from the contract intent. No LLM call in the contract path.
 
 ### Item Type Registry (`chain/registry.go`)
 Startup-loaded from `static-data/data/phobos/fsd_built/types.json` + `groups.json`. Published items only (628). Joined with LUX valuations from `corm-brain/data/item-values.json` (build artifact from `scripts/build-item-values.mjs`).
