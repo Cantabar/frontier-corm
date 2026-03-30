@@ -78,6 +78,7 @@ interface ExtensionEventRow {
 export class WitnessService {
   private pool: pg.Pool;
   private client: SuiClient;
+  private suiRpcUrl: string;
   private config: WitnessConfig;
   private keypair: Ed25519Keypair;
   private running = false;
@@ -88,6 +89,7 @@ export class WitnessService {
 
   constructor(pool: pg.Pool, suiRpcUrl: string, config: WitnessConfig) {
     this.pool = pool;
+    this.suiRpcUrl = suiRpcUrl;
     this.client = new SuiClient({ url: suiRpcUrl });
     this.config = config;
     this.keypair = loadKeypair(config.privateKey);
@@ -173,9 +175,10 @@ export class WitnessService {
 
     for (const anchor of anchorRows) {
       const anchorData = parseJson(anchor.event_data);
-      const structureId: string =
-        anchorData.storage_unit_id ?? anchorData.assembly_id ?? anchorData.turret_id;
-      const ownerCapId: string = anchorData.owner_cap_id;
+      const structureId = String(
+        anchorData.storage_unit_id ?? anchorData.assembly_id ?? anchorData.turret_id ?? "",
+      );
+      const ownerCapId = String(anchorData.owner_cap_id ?? "");
       const typeId: number = Number(anchorData.type_id);
 
       if (!structureId || !ownerCapId) continue;
@@ -248,7 +251,7 @@ export class WitnessService {
       };
 
       const attestationBytes = encodeBuildAttestation(attestationData);
-      const signature = signAttestation(attestationBytes, this.keypair);
+      const signature = await signAttestation(attestationBytes, this.keypair);
 
       await this.submitFulfillTx(
         contract.contractId,
@@ -280,12 +283,7 @@ export class WitnessService {
     let hasMore = true;
 
     while (hasMore) {
-      const page = await this.client.queryObjects({
-        filter: { StructType: structType },
-        options: { showContent: true },
-        cursor: cursor ?? undefined,
-        limit: 50,
-      });
+      const page = await this.rpcQueryObjects(structType, cursor);
 
       for (const obj of page.data) {
         const parsed = this.parseContract(obj);
@@ -565,6 +563,49 @@ export class WitnessService {
         `[witness] ✗ Fulfill tx failed for ${contractId}: ${errMsg}`,
       );
     }
+  }
+  // ================================================================
+  // SUI RPC: raw queryObjects (not exposed by SuiClient in this SDK)
+  // ================================================================
+
+  /**
+   * Raw JSON-RPC call to `suix_queryObjects` — the SUI TypeScript SDK
+   * v1.x does not expose this method on SuiClient directly.
+   */
+  private async rpcQueryObjects(
+    structType: string,
+    cursor?: string | null,
+    limit = 50,
+  ): Promise<{
+    data: Array<{ data?: { objectId: string; content?: unknown } | null }>;
+    hasNextPage: boolean;
+    nextCursor: string | null;
+  }> {
+    const res = await fetch(this.suiRpcUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "suix_queryObjects",
+        params: [
+          { filter: { StructType: structType }, options: { showContent: true } },
+          cursor ?? null,
+          limit,
+        ],
+      }),
+    });
+
+    const json = (await res.json()) as {
+      result?: {
+        data: Array<{ data?: { objectId: string; content?: unknown } | null }>;
+        hasNextPage: boolean;
+        nextCursor: string | null;
+      };
+      error?: { message: string };
+    };
+    if (json.error) throw new Error(`RPC queryObjects: ${json.error.message}`);
+    return json.result!;
   }
 }
 

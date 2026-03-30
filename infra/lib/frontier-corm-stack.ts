@@ -195,6 +195,11 @@ export class FrontierCormStack extends cdk.Stack {
       defaultRootObject: "index.html",
       errorResponses: [
         {
+          httpStatus: 403,
+          responseHttpStatus: 200,
+          responsePagePath: "/index.html", // S3 returns 403 for missing keys
+        },
+        {
           httpStatus: 404,
           responseHttpStatus: 200,
           responsePagePath: "/index.html", // SPA client-side routing
@@ -357,22 +362,40 @@ export class FrontierCormStack extends cdk.Stack {
     // ================================================================
     const indexerTg = httpsListener.addTargets("IndexerTarget", {
       port: 3100,
+      protocol: elbv2.ApplicationProtocol.HTTP,
       targets: [indexerService],
       healthCheck: { path: "/health", interval: cdk.Duration.seconds(30) },
-      conditions: [elbv2.ListenerCondition.pathPatterns(["/api/indexer/*"])],
+      conditions: [elbv2.ListenerCondition.pathPatterns(["/api/v1/*", "/api/v1", "/health"])],
       priority: 10,
     });
 
     // Sticky sessions required: continuity-engine uses an in-memory session
     // store (puzzle.SessionStore). Without stickiness, scaling desiredCount > 1
     // would route requests to tasks that lack the player's session state.
-    const continuityTg = httpsListener.addTargets("ContinuityTarget", {
+    const continuityTg = new elbv2.ApplicationTargetGroup(this, "ContinuityTg", {
       port: 3300,
+      protocol: elbv2.ApplicationProtocol.HTTP,
       targets: [continuityService],
       healthCheck: { path: "/health", interval: cdk.Duration.seconds(30) },
-      conditions: [elbv2.ListenerCondition.pathPatterns(["/api/continuity/*", "/phase0", "/phase0/*", "/puzzle", "/puzzle/*", "/phase2", "/phase2/*", "/stream", "/status", "/contracts", "/ssu/*"])],
-      priority: 20,
+      vpc,
       stickinessCookieDuration: cdk.Duration.days(1),
+    });
+
+    // ALB rules limited to 5 path values per condition — split across rules
+    httpsListener.addTargetGroups("ContinuityRule1", {
+      targetGroups: [continuityTg],
+      conditions: [elbv2.ListenerCondition.pathPatterns(["/api/continuity/*", "/phase0", "/phase0/*", "/puzzle", "/puzzle/*"])],
+      priority: 20,
+    });
+    httpsListener.addTargetGroups("ContinuityRule2", {
+      targetGroups: [continuityTg],
+      conditions: [elbv2.ListenerCondition.pathPatterns(["/phase2", "/phase2/*", "/stream", "/status", "/contracts"])],
+      priority: 21,
+    });
+    httpsListener.addTargetGroups("ContinuityRule3", {
+      targetGroups: [continuityTg],
+      conditions: [elbv2.ListenerCondition.pathPatterns(["/ssu/*"])],
+      priority: 22,
     });
 
     // Default action

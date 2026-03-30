@@ -20,7 +20,7 @@
         "cloudformation:DeleteChangeSet"
       ],
       "Resource": [
-        "arn:aws:cloudformation:us-east-1:*:stack/FrontierCorm/*",
+        "arn:aws:cloudformation:us-east-1:*:stack/FrontierCorm*/*",
         "arn:aws:cloudformation:us-east-1:*:stack/CDKToolkit/*"
       ]
     },
@@ -79,7 +79,7 @@
         "secretsmanager:PutResourcePolicy",
         "secretsmanager:DeleteResourcePolicy"
       ],
-      "Resource": "arn:aws:secretsmanager:us-east-1:*:secret:fc/*"
+      "Resource": "arn:aws:secretsmanager:us-east-1:*:secret:fc-*"
     },
     {
       "Sid": "CloudWatchLogs",
@@ -93,7 +93,10 @@
         "logs:TagLogGroup",
         "logs:UntagLogGroup",
         "logs:TagResource",
-        "logs:UntagResource"
+        "logs:UntagResource",
+        "logs:FilterLogEvents",
+        "logs:GetLogEvents",
+        "logs:DescribeLogStreams"
       ],
       "Resource": "arn:aws:logs:us-east-1:*:log-group:/ecs/fc*"
     },
@@ -106,6 +109,30 @@
         "ssm:PutParameter"
       ],
       "Resource": "arn:aws:ssm:us-east-1:*:parameter/cdk-bootstrap/*"
+    },
+    {
+      "Sid": "Route53",
+      "Effect": "Allow",
+      "Action": [
+        "route53:ListHostedZonesByName",
+        "route53:GetHostedZone",
+        "route53:ListResourceRecordSets",
+        "route53:ChangeResourceRecordSets",
+        "route53:GetChange"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ACM",
+      "Effect": "Allow",
+      "Action": [
+        "acm:RequestCertificate",
+        "acm:DescribeCertificate",
+        "acm:DeleteCertificate",
+        "acm:ListCertificates",
+        "acm:AddTagsToCertificate"
+      ],
+      "Resource": "*"
     },
     {
       "Sid": "STS",

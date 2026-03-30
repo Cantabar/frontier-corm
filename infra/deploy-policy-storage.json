@@ -43,8 +43,8 @@
         "s3:PutBucketVersioning"
       ],
       "Resource": [
-        "arn:aws:s3:::fc-ui-*",
-        "arn:aws:s3:::fc-ui-*/*"
+        "arn:aws:s3:::fc-*-ui-*",
+        "arn:aws:s3:::fc-*-ui-*/*"
       ]
     },
     {

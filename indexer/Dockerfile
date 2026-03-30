@@ -5,10 +5,10 @@ FROM node:20-alpine AS circom-builder
 WORKDIR /app
 
 # Rust toolchain (needed to compile circom from source)
-RUN apk add --no-cache curl build-base && \
+RUN apk add --no-cache curl build-base bash && \
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
 ENV PATH="/root/.cargo/bin:${PATH}"
-RUN cargo install circom
+RUN cargo install --git https://github.com/iden3/circom.git --tag v2.1.9 circom
 
 # Node deps (snarkjs + circomlib needed by the build script)
 COPY package*.json ./

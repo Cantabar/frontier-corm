@@ -39,23 +39,26 @@ export interface BuildAttestationData {
  * `unpack_build_attestation` deserialization order.
  */
 export function encodeBuildAttestation(data: BuildAttestationData): Uint8Array {
-  const Address = bcs.Address;
-  const writer = bcs.writer();
+  const BuildAttestationBcs = bcs.struct("BuildAttestation", {
+    contractId: bcs.Address,
+    witnessAddress: bcs.Address,
+    builderCharacterId: bcs.Address,
+    builderAddress: bcs.Address,
+    structureId: bcs.Address,
+    structureTypeId: bcs.u64(),
+    ownerCapId: bcs.Address,
+    extensionAuthorized: bcs.bool(),
+    anchorTxDigest: bcs.vector(bcs.u8()),
+    anchorCheckpointSeq: bcs.u64(),
+    extensionTxDigest: bcs.vector(bcs.u8()),
+    deadlineMs: bcs.u64(),
+  });
 
-  writer.write(Address, data.contractId);
-  writer.write(Address, data.witnessAddress);
-  writer.write(Address, data.builderCharacterId);
-  writer.write(Address, data.builderAddress);
-  writer.write(Address, data.structureId);
-  writer.write(bcs.u64(), data.structureTypeId);
-  writer.write(Address, data.ownerCapId);
-  writer.write(bcs.bool(), data.extensionAuthorized);
-  writer.write(bcs.vector(bcs.u8()), data.anchorTxDigest);
-  writer.write(bcs.u64(), data.anchorCheckpointSeq);
-  writer.write(bcs.vector(bcs.u8()), data.extensionTxDigest);
-  writer.write(bcs.u64(), data.deadlineMs);
-
-  return writer.toBytes();
+  return BuildAttestationBcs.serialize({
+    ...data,
+    anchorTxDigest: Array.from(data.anchorTxDigest),
+    extensionTxDigest: Array.from(data.extensionTxDigest),
+  }).toBytes();
 }
 
 // ============================================================
@@ -72,11 +75,11 @@ export function encodeBuildAttestation(data: BuildAttestationData): Uint8Array {
  *   signature = Ed25519.sign(digest, privateKey)
  *   fullSig = 0x00 || signature(64) || publicKey(32)
  */
-export function signAttestation(
+export async function signAttestation(
   attestationBytes: Uint8Array,
   keypair: Ed25519Keypair,
-): Uint8Array {
-  const { signature } = keypair.signPersonalMessage(attestationBytes);
+): Promise<Uint8Array> {
+  const { signature } = await keypair.signPersonalMessage(attestationBytes);
   // signPersonalMessage returns base64; decode to raw bytes
   return Buffer.from(signature, "base64");
 }

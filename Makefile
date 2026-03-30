@@ -70,10 +70,10 @@ local-reset: ## Stop local dev + delete all data
 
 infra-init: ## First-time CDK + npm setup
 	npm --prefix infra ci
-	npx --prefix infra cdk bootstrap aws://$(shell aws sts get-caller-identity --query Account --output text)/$(AWS_REGION)
+	cd infra && npx cdk bootstrap aws://$(shell aws sts get-caller-identity --query Account --output text)/$(AWS_REGION)
 
 deploy-infra: ## Deploy CDK stack for ENV (infra only)
-	npx --prefix infra cdk deploy $(STACK_NAME) --require-approval never -c appEnv=$(ENV) -c suiNetwork=testnet
+	cd infra && npx cdk deploy $(STACK_NAME) --require-approval never -c appEnv=$(ENV) -c suiNetwork=testnet
 
 # ── Docker Images ──────────────────────────────────────────────────
 
@@ -142,7 +142,7 @@ deploy-stillness: ## Deploy everything for Stillness
 teardown: ## Destroy all AWS resources for ENV
 	@echo "This will destroy ALL Frontier Corm $(ENV) AWS resources (stack: $(STACK_NAME))."
 	@read -p "Type 'yes' to confirm: " confirm && [ "$$confirm" = "yes" ] || exit 1
-	npx --prefix infra cdk destroy $(STACK_NAME) --force -c appEnv=$(ENV)
+	cd infra && npx cdk destroy $(STACK_NAME) --force -c appEnv=$(ENV)
 	@echo "$(STACK_NAME) resources destroyed."
 
 # ── Static Data ────────────────────────────────────────────────────
