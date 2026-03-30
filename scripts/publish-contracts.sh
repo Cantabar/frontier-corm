@@ -20,12 +20,18 @@ set -euo pipefail
 VALID_ENVS=("utopia" "stillness")
 
 if [ $# -lt 1 ]; then
-  echo "Usage: $0 <environment>"
+  echo "Usage: $0 <environment> [--force-republish]"
   echo "  Environments: ${VALID_ENVS[*]}"
+  echo "  --force-republish  Ignore existing Published.toml entries and re-publish all packages"
   exit 1
 fi
 
 ENV="$1"
+FORCE_REPUBLISH=0
+if [ "${2:-}" = "--force-republish" ]; then
+  FORCE_REPUBLISH=1
+  echo "Force-republish mode: will ignore existing Published.toml entries"
+fi
 
 # Validate environment name
 VALID=false
@@ -133,9 +139,24 @@ CHAIN_ID=$(curl -s "$SUI_RPC" -X POST \
   -d '{"jsonrpc":"2.0","id":1,"method":"sui_getChainIdentifier","params":[]}' \
   | jq -r '.result')
 SUI_VERSION=$(sui --version 2>/dev/null | grep -oP '\d+\.\d+\.\d+' || echo "1.65.2")
-WORLD_PATH=$(cd "$PROJECT_ROOT/../world-contracts/contracts/world" && pwd)
+WORLD_GIT_URL="https://github.com/evefrontier/world-contracts.git"
+WORLD_GIT_SUBDIR="contracts/world"
+WORLD_GIT_REV="main"
 
 echo "Chain ID: $CHAIN_ID"
+
+# ── Map environment names to world-contracts convention ────────────
+# The world-contracts repo (github.com/evefrontier/world-contracts) uses
+# "testnet_stillness" / "testnet_utopia" as environment names in its
+# Published.toml. Our corm packages must use matching names so that
+# `sui client publish --environment` can resolve the world dependency
+# as already-published rather than bundling it inline.
+case "$ENV" in
+  stillness) BUILD_ENV="testnet_stillness" ;;
+  utopia)    BUILD_ENV="testnet_utopia" ;;
+  *)         BUILD_ENV="$ENV" ;;
+esac
+echo "Build environment: $BUILD_ENV (maps to world-contracts Published.toml entry)"
 
 # ── Generate Pub.{ENV}.toml with world dependency pinned ───────────
 rm -f "$PUB_FILE"
@@ -145,7 +166,7 @@ build-env = "$ENV"
 chain-id = "$CHAIN_ID"
 
 [[published]]
-source = { local = "$WORLD_PATH" }
+source = { git = "$WORLD_GIT_URL", subdir = "$WORLD_GIT_SUBDIR", rev = "$WORLD_GIT_REV" }
 published-at = "$WORLD_PKG_ID"
 original-id = "$WORLD_PKG_ID"
 version = 1
@@ -171,20 +192,32 @@ for i in "${!PACKAGES[@]}"; do
   echo ""
   echo "Publishing $pkg..."
 
-  # Check if already published for this environment
+  # Check if already published for this environment.
+  # Pass --force-republish to override stale Published.toml entries from
+  # broken prior deploys (e.g. packages that bundled world inline).
   PUBLISHED_TOML="$pkg_path/Published.toml"
   ALREADY_PUBLISHED_ID=""
-  if [ -f "$PUBLISHED_TOML" ]; then
-    ALREADY_PUBLISHED_ID=$(sed -n '/^\[published\.'"$ENV"'\]/,/^\[/{ /published-at/s/.*"\(0x[^"]*\)".*/\1/p; }' "$PUBLISHED_TOML")
+  if [ "$FORCE_REPUBLISH" != "1" ] && [ -f "$PUBLISHED_TOML" ]; then
+    ALREADY_PUBLISHED_ID=$(sed -n '/^\[published\.'"$BUILD_ENV"'\]/,/^\[/{ /published-at/s/.*"\(0x[^"]*\)".*/\1/p; }' "$PUBLISHED_TOML")
   fi
 
   if [ -n "$ALREADY_PUBLISHED_ID" ]; then
-    echo "  Already published for $ENV: $ALREADY_PUBLISHED_ID (from Published.toml)"
+    echo "  Already published for $BUILD_ENV: $ALREADY_PUBLISHED_ID (from Published.toml)"
     PACKAGE_ID="$ALREADY_PUBLISHED_ID"
   else
+    # Clear stale Published.toml entry for this env so the CLI doesn't
+    # refuse to publish ("already published" error).
+    if [ -f "$PUBLISHED_TOML" ]; then
+      sed -i '/^\[published\.'"$BUILD_ENV"'\]/,/^\[/{/^\[published\.'"$BUILD_ENV"'\]/d;/^\[/!d}' "$PUBLISHED_TOML"
+      # Remove the file if it's now empty (only comments/whitespace)
+      if ! grep -q '^\[' "$PUBLISHED_TOML" 2>/dev/null; then
+        rm -f "$PUBLISHED_TOML"
+      fi
+    fi
+
     sui client publish "$pkg_path" \
       --gas-budget "$GAS_BUDGET" \
-      --environment "$ENV" \
+      --environment "$BUILD_ENV" \
       --with-unpublished-dependencies \
       --json > /tmp/publish-result.json 2>&1 || true
     # Note: CLI may return non-zero even on success (e.g. version mismatch warnings).
@@ -197,17 +230,33 @@ for i in "${!PACKAGES[@]}"; do
     if [ -z "$PACKAGE_ID" ] || [ "$PACKAGE_ID" = "null" ]; then
       # Fallback: try reading from Published.toml (created by successful publish)
       if [ -f "$pkg_path/Published.toml" ]; then
-        PACKAGE_ID=$(sed -n '/^\[published\.'"$ENV"'\]/,/^\[/{ /published-at/s/.*"\(0x[^"]*\)".*/\1/p; }' "$pkg_path/Published.toml")
+        PACKAGE_ID=$(sed -n '/^\[published\.'"$BUILD_ENV"'\]/,/^\[/{ /published-at/s/.*"\(0x[^"]*\)".*/\1/p; }' "$pkg_path/Published.toml")
       fi
-    fi
-    if [ -z "$PACKAGE_ID" ] || [ "$PACKAGE_ID" = "null" ]; then
-      # Fallback: try reading from Pub.{ENV}.toml
-      PACKAGE_ID=$(grep -A1 "$pkg_path" "$PUB_FILE" | grep 'published-at' | sed 's/.*"\(0x[^"]*\)".*/\1/')
     fi
   fi
 
   if [ -z "$PACKAGE_ID" ] || [ "$PACKAGE_ID" = "null" ]; then
     echo "ERROR: Could not extract package ID for $pkg" >&2
+    echo "  Publish output:" >&2
+    cat /tmp/publish-result.json >&2 2>/dev/null || true
+    exit 1
+  fi
+
+  # ── Verify the published package doesn't bundle world modules ────
+  # If the world dependency wasn't resolved correctly, the package will
+  # contain character/access/etc. modules that produce TypeMismatch
+  # errors at runtime. Catch this immediately.
+  PUBLISHED_MODULES=$(
+    curl -s "$SUI_RPC" -X POST \
+      -H 'Content-Type: application/json' \
+      -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"sui_getObject\",\"params\":[\"$PACKAGE_ID\",{\"showContent\":true}]}" \
+    | jq -r '.result.data.content.disassembled | keys[]' 2>/dev/null
+  )
+  if echo "$PUBLISHED_MODULES" | grep -qw 'character'; then
+    echo "ERROR: Package $pkg ($PACKAGE_ID) contains bundled world modules!" >&2
+    echo "  This means the world dependency was not resolved as published." >&2
+    echo "  Published modules: $PUBLISHED_MODULES" >&2
+    echo "  Expected world package: $WORLD_PKG_ID" >&2
     exit 1
   fi
 

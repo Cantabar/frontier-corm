@@ -77,7 +77,16 @@ infra-init: ## First-time CDK + npm setup
 	cd infra && npx cdk bootstrap aws://$(shell aws sts get-caller-identity --query Account --output text)/$(AWS_REGION)
 
 deploy-infra: ## Deploy CDK stack for ENV (infra only)
-	cd infra && npx cdk deploy $(STACK_NAME) --require-approval never -c appEnv=$(ENV) -c suiNetwork=testnet
+	$(eval CORM_STATE_PKG := $(shell grep '^VITE_CORM_STATE_PACKAGE_ID=' .env.$(ENV) 2>/dev/null | cut -d= -f2))
+	$(eval TRIBE_PKG := $(shell grep '^PACKAGE_TRIBE=' .env.$(ENV) 2>/dev/null | cut -d= -f2))
+	$(eval TC_PKG := $(shell grep '^PACKAGE_TRUSTLESS_CONTRACTS=' .env.$(ENV) 2>/dev/null | cut -d= -f2))
+	$(eval AM_PKG := $(shell grep '^PACKAGE_ASSEMBLY_METADATA=' .env.$(ENV) 2>/dev/null | cut -d= -f2))
+	cd infra && npx cdk deploy $(STACK_NAME) --require-approval never \
+		-c appEnv=$(ENV) -c suiNetwork=testnet \
+		-c cormStatePackageId=$(CORM_STATE_PKG) \
+		-c tribePackageId=$(TRIBE_PKG) \
+		-c trustlessContractsPackageId=$(TC_PKG) \
+		-c assemblyMetadataPackageId=$(AM_PKG)
 
 # ── Docker Images ──────────────────────────────────────────────────
 
@@ -89,21 +98,23 @@ ecr-login: ## Log in to ECR (shared helper)
 
 deploy-indexer: ecr-login ## Build + push + redeploy indexer only
 	$(eval INDEXER_ECR := $(call get_output,IndexerEcrUri))
+	$(eval INDEXER_SVC := $(shell aws ecs list-services --cluster fc-$(ENV)-cluster --region $(AWS_REGION) --output text 2>/dev/null | grep -oP '$(STACK_NAME)-IndexerService[^\s]+'))
 	@echo "Building and pushing indexer..."
 	docker build -t $(INDEXER_ECR):latest ./indexer
 	docker push $(INDEXER_ECR):latest
-	@echo "Forcing indexer ECS redeployment..."
-	aws ecs update-service --cluster fc-$(ENV)-cluster --service $(STACK_NAME)-IndexerServiceE6A6AFC3-* \
+	@echo "Forcing indexer ECS redeployment ($(INDEXER_SVC))..."
+	aws ecs update-service --cluster fc-$(ENV)-cluster --service $(INDEXER_SVC) \
 		--force-new-deployment --region $(AWS_REGION) > /dev/null
 	@echo "Done. Indexer is redeploying."
 
 deploy-continuity: ecr-login ## Build + push + redeploy continuity-engine only
 	$(eval CONTINUITY_ECR := $(call get_output,ContinuityEcrUri))
+	$(eval CONTINUITY_SVC := $(shell aws ecs list-services --cluster fc-$(ENV)-cluster --region $(AWS_REGION) --output text 2>/dev/null | grep -oP '$(STACK_NAME)-ContinuityService[^\s]+'))
 	@echo "Building and pushing continuity-engine..."
 	docker build -f continuity-engine/Dockerfile -t $(CONTINUITY_ECR):latest .
 	docker push $(CONTINUITY_ECR):latest
-	@echo "Forcing continuity-engine ECS redeployment..."
-	aws ecs update-service --cluster fc-$(ENV)-cluster --service $(STACK_NAME)-ContinuityService* \
+	@echo "Forcing continuity-engine ECS redeployment ($(CONTINUITY_SVC))..."
+	aws ecs update-service --cluster fc-$(ENV)-cluster --service $(CONTINUITY_SVC) \
 		--force-new-deployment --region $(AWS_REGION) > /dev/null
 	@echo "Done. Continuity-engine is redeploying."
 

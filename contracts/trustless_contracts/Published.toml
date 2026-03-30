@@ -10,3 +10,12 @@ version = 1
 toolchain-version = "1.65.2"
 build-config = { flavor = "sui", edition = "2024" }
 upgrade-capability = "0x91f7a9daaf927558c91d10459a674f73b8ed51801579e9878fba1c5b82f5974b"
+
+[published.testnet_stillness]
+chain-id = "4c78adac"
+published-at = "0x42625fcf0fac8466d7dbb90ada7bc6db32bf86101d26aa24b42469badc23901d"
+original-id = "0x42625fcf0fac8466d7dbb90ada7bc6db32bf86101d26aa24b42469badc23901d"
+version = 1
+toolchain-version = "1.65.2"
+build-config = { flavor = "sui", edition = "2024" }
+upgrade-capability = "0x44356a305813d7012623cff2228c49ba965305dfd467d4fcc96cde7730a0bc54"

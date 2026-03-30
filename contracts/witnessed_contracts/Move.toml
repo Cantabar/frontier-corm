@@ -5,8 +5,10 @@ edition = "2024.beta"
 [environments]
 localnet = "5c915d2a"
 stillness = "4c78adac"
+testnet_stillness = "4c78adac"
 utopia = "4c78adac"
+testnet_utopia = "4c78adac"
 
 [dependencies]
-world = { local = "../../../world-contracts/contracts/world" }
+world = { git = "https://github.com/evefrontier/world-contracts.git", subdir = "contracts/world", rev = "main" }
 corm_auth = { local = "../corm_auth" }

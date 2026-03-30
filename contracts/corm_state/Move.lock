@@ -51,3 +51,27 @@ source = { root = true }
 use_environment = "stillness"
 manifest_digest = "DE44F76EFA7D98E50343E0B541A2FA6671945BC20AED74060E998D3F4EDA742B"
 deps = { corm_auth = "corm_auth", std = "MoveStdlib", sui = "Sui" }
+
+[pinned.testnet_stillness.MoveStdlib]
+source = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/move-stdlib", rev = "868c226359ef914f1f3b080518f27eb13d8967f5" }
+use_environment = "testnet_stillness"
+manifest_digest = "C4FE4C91DE74CBF223B2E380AE40F592177D21870DC2D7EB6227D2D694E05363"
+deps = {}
+
+[pinned.testnet_stillness.Sui]
+source = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "868c226359ef914f1f3b080518f27eb13d8967f5" }
+use_environment = "testnet_stillness"
+manifest_digest = "38D8855849DF7CA0FAD3B9510DD9EC3755149F5B283E45CA6547194ADFF90D73"
+deps = { MoveStdlib = "MoveStdlib" }
+
+[pinned.testnet_stillness.corm_auth]
+source = { local = "../corm_auth" }
+use_environment = "testnet_stillness"
+manifest_digest = "16363423CD37589C5B9A56E3F9E984FED988276E0134635135B45CB4480A9484"
+deps = { std = "MoveStdlib", sui = "Sui" }
+
+[pinned.testnet_stillness.corm_state]
+source = { root = true }
+use_environment = "testnet_stillness"
+manifest_digest = "83EB33A5FB978D9AC146A79974293E5C5A7331BE2125F30B06CE8A0795D82457"
+deps = { corm_auth = "corm_auth", std = "MoveStdlib", sui = "Sui" }

@@ -174,6 +174,15 @@ export class FrontierCormStack extends cdk.Stack {
     const cormStatePackageId: string =
       this.node.tryGetContext("cormStatePackageId") ?? "";
 
+    // Package IDs for the indexer event subscriber. Read from CDK context
+    // so they stay in sync with the publish-contracts.sh output.
+    const tribePackageId: string =
+      this.node.tryGetContext("tribePackageId") ?? "";
+    const trustlessContractsPackageId: string =
+      this.node.tryGetContext("trustlessContractsPackageId") ?? "";
+    const assemblyMetadataPackageId: string =
+      this.node.tryGetContext("assemblyMetadataPackageId") ?? "";
+
     // ================================================================
     // S3 — Frontend (static site)
     // ================================================================
@@ -318,6 +327,9 @@ export class FrontierCormStack extends cdk.Stack {
         DB_HOST: db.dbInstanceEndpointAddress,
         DB_PORT: db.dbInstanceEndpointPort,
         DB_NAME: "frontier_corm",
+        PACKAGE_TRIBE: tribePackageId,
+        PACKAGE_TRUSTLESS_CONTRACTS: trustlessContractsPackageId,
+        PACKAGE_ASSEMBLY_METADATA: assemblyMetadataPackageId,
       },
       secrets: {
         SUI_RPC_URL: ecs.Secret.fromSecretsManager(suiSecret, "SUI_RPC_URL"),
