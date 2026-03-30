@@ -81,7 +81,8 @@ Session fields are accessed by multiple goroutines (HTTP handlers, SSE stream go
 All via environment variables:
 
 - `PORT` — HTTP listen port (default: 3300)
-- `DATABASE_URL` — Postgres connection string
+- `DATABASE_URL` — Postgres connection string (local dev / direct override)
+- `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USERNAME`, `DB_PASSWORD` — individual DB fields injected by ECS from AWS Secrets Manager; `entrypoint.sh` assembles these into `DATABASE_URL` at container startup when `DATABASE_URL` is not already set
 - `EVENT_COALESCE_MS` — debounce window (default: 300ms)
 - `EVENT_BATCH_MAX` — max events per batch (default: 20)
 - `ENVIRONMENTS_CONFIG` — path to JSON file for multi-environment setup
@@ -126,7 +127,7 @@ continuity-engine/
 ## Deployment
 
 - **Local:** built and run via `mprocs.yaml` using air for live-reload
-- **Production:** Dockerfile for containerized deployment on AWS ECS/Fargate
+- **Production (utopia/stillness):** Dockerfile for containerized deployment on AWS ECS/Fargate; `entrypoint.sh` assembles `DATABASE_URL` from `DB_HOST`/`DB_PORT`/`DB_NAME`/`DB_USERNAME`/`DB_PASSWORD` injected by ECS from AWS Secrets Manager (`{prefix}/db-credentials`)
 - Requires: running Postgres, Sui RPC access, funded Sui keypair
 
 ## Features
