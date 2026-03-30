@@ -266,20 +266,32 @@ async function verifyZkLoginViaGraphql(
       data?: {
         verifyZkLoginSignature?: { success: boolean };
       };
-      errors?: { message: string }[];
+      errors?: { message: string; path?: string[]; extensions?: { code?: string } }[];
     };
 
-    // GraphQL-level errors (schema mismatch, etc.) — fall through
-    if (json.errors?.length) return null;
-
-    const result = json.data?.verifyZkLoginSignature;
-    if (!result) return null;
-
-    if (result.success) {
+    // If we got a successful verification result, return it
+    if (json.data?.verifyZkLoginSignature?.success) {
       return { valid: true, address: expectedAddress };
     }
 
-    return { valid: false, address: expectedAddress, error: "zkLogin verification failed" };
+    // GraphQL errors at the verifyZkLoginSignature path are verification
+    // failures (e.g. "Cannot parse signature", "Invalid signature").
+    // Only treat errors WITHOUT a path as schema/infrastructure issues.
+    if (json.errors?.length) {
+      const verifyError = json.errors.find((e) => e.path?.[0] === "verifyZkLoginSignature");
+      if (verifyError) {
+        return { valid: false, address: expectedAddress, error: verifyError.message };
+      }
+      // Schema or infrastructure error — fall through to RPC
+      return null;
+    }
+
+    // success: false with no errors
+    if (json.data?.verifyZkLoginSignature) {
+      return { valid: false, address: expectedAddress, error: "zkLogin verification failed" };
+    }
+
+    return null;
   } catch {
     return null; // Network error — let caller fall through to RPC
   }
