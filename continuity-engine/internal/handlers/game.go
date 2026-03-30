@@ -129,6 +129,14 @@ func (h *Handlers) PuzzlePage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Phase 2+ sessions belong on the contracts dashboard, not the puzzle grid.
+	// Without this guard, layout.html would render phase2-content.html with
+	// PuzzleData (missing Phase2-specific fields) and cause a template error.
+	if sess.Phase >= puzzle.PhaseContracts {
+		http.Redirect(w, r, "/phase2", http.StatusFound)
+		return
+	}
+
 	// Compute grid dimensions from client viewport (cw/ch query params).
 	// Store on session so subsequent loads ("next puzzle") reuse them.
 	if cw, err := strconv.Atoi(r.URL.Query().Get("cw")); err == nil && cw > 0 {

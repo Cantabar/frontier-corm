@@ -17,9 +17,13 @@ func (h *Handlers) Phase0Page(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// If the session has already transitioned past Phase 0, redirect to /puzzle
-	// so that a puzzle is generated. This handles page refreshes where the
-	// browser URL is still /phase0 but the session is in Phase 1+.
+	// If the session has already transitioned past Phase 0, redirect to the
+	// appropriate phase handler. Phase 2+ goes to /phase2 (contracts dashboard),
+	// Phase 1 goes to /puzzle.
+	if sess.Phase >= puzzle.PhaseContracts {
+		http.Redirect(w, r, "/phase2", http.StatusFound)
+		return
+	}
 	if sess.Phase >= puzzle.PhasePuzzle {
 		http.Redirect(w, r, "/puzzle", http.StatusFound)
 		return

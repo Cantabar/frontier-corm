@@ -72,18 +72,44 @@ func registerGameRoutes(mux *http.ServeMux, gh GameHandlers, prefix string) {
 	// Contracts
 	mux.HandleFunc("GET "+prefix+"/contracts", gh.ContractsPage)
 
-	// Root redirect — browser entry sends to phase0
+	// Root redirect — route to the correct phase handler and preserve query params
+	// (the ?player= param is needed if the session cookie was lost/blocked).
 	if prefix == "" {
 		mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path == "/" {
-				http.Redirect(w, r, "/phase0", http.StatusFound)
+				target := phaseRedirectTarget(r, "")
+				if r.URL.RawQuery != "" {
+					target += "?" + r.URL.RawQuery
+				}
+				http.Redirect(w, r, target, http.StatusFound)
 				return
 			}
 			http.NotFound(w, r)
 		})
 	} else {
 		mux.HandleFunc("GET "+prefix+"/", func(w http.ResponseWriter, r *http.Request) {
-			http.Redirect(w, r, prefix+"/phase0", http.StatusFound)
+			target := phaseRedirectTarget(r, prefix)
+			if r.URL.RawQuery != "" {
+				target += "?" + r.URL.RawQuery
+			}
+			http.Redirect(w, r, target, http.StatusFound)
 		})
+	}
+}
+
+// phaseRedirectTarget returns the appropriate route for the session's current phase.
+// Falls back to /phase0 when no session is available (new visitor).
+func phaseRedirectTarget(r *http.Request, prefix string) string {
+	sess, _ := r.Context().Value(puzzle.SessionContextKey).(*puzzle.Session)
+	if sess == nil {
+		return prefix + "/phase0"
+	}
+	switch {
+	case sess.Phase >= puzzle.PhaseContracts:
+		return prefix + "/phase2"
+	case sess.Phase >= puzzle.PhasePuzzle:
+		return prefix + "/puzzle"
+	default:
+		return prefix + "/phase0"
 	}
 }
