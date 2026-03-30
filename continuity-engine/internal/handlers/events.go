@@ -8,9 +8,9 @@ import (
 	"github.com/frontier-corm/continuity-engine/internal/types"
 )
 
-// buildEvent constructs a CormEvent with all session-derived fields pre-filled.
-// This ensures NetworkNodeID is always propagated when bound.
-func buildEvent(sess *puzzle.Session, eventType string, payload json.RawMessage) types.CormEvent {
+// buildEvent constructs a CormEvent with all session-derived fields pre-filled,
+// including the Environment tag required by the event processor.
+func (h *Handlers) buildEvent(sess *puzzle.Session, eventType string, payload json.RawMessage) types.CormEvent {
 	return types.CormEvent{
 		Type:          "event",
 		SessionID:     sess.ID,
@@ -20,5 +20,6 @@ func buildEvent(sess *puzzle.Session, eventType string, payload json.RawMessage)
 		EventType:     eventType,
 		Payload:       payload,
 		Timestamp:     time.Now(),
+		Environment:   h.defaultEnv,
 	}
 }

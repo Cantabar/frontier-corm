@@ -86,7 +86,7 @@ func (h *Handlers) Phase2Page(w http.ResponseWriter, r *http.Request) {
 
 	// Emit phase2_load so the reasoning engine sends back a state_sync
 	// with the network node (resolves the binding for returning players).
-	evt := buildEvent(sess, "phase2_load", nil)
+	evt := h.buildEvent(sess, "phase2_load", nil)
 	sess.EventBuffer.Push(evt)
 	go h.dispatcher.EmitEvent(evt)
 }
@@ -112,7 +112,7 @@ func (h *Handlers) Phase2BindNode(w http.ResponseWriter, r *http.Request) {
 	payload, _ := json.Marshal(map[string]any{
 		"network_node_id": nodeID,
 	})
-	evt := buildEvent(sess, "node_bind", payload)
+	evt := h.buildEvent(sess, "node_bind", payload)
 	sess.EventBuffer.Push(evt)
 	go h.dispatcher.EmitEvent(evt)
 

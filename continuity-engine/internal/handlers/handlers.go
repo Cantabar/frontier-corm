@@ -19,16 +19,19 @@ type Handlers struct {
 	sessions     *puzzle.SessionStore
 	dispatcher   *dispatch.Dispatcher
 	rateLimiter  *RateLimiter
+	defaultEnv   string
 }
 
 // New creates a new Handlers instance, parsing templates from the embedded FS.
-func New(templateFS embed.FS, sessions *puzzle.SessionStore, dispatcher *dispatch.Dispatcher) *Handlers {
+// defaultEnv is the environment name to stamp on emitted events (e.g. "default").
+func New(templateFS embed.FS, sessions *puzzle.SessionStore, dispatcher *dispatch.Dispatcher, defaultEnv string) *Handlers {
 	tmpl := template.Must(template.ParseFS(templateFS, "internal/templates/*.html"))
 	return &Handlers{
 		templates:   tmpl,
 		sessions:    sessions,
 		dispatcher:  dispatcher,
 		rateLimiter: NewRateLimiter(2, 4), // 2 req/s, burst 4
+		defaultEnv:  defaultEnv,
 	}
 }
 

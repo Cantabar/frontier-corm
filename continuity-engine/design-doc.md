@@ -44,13 +44,15 @@ Browser → HTTP handler → dispatcher.EmitEvent(evt) → eventChan
 
 All communication is in-process via Go channels. No WebSocket, no HTTP relay.
 
+**Environment tagging:** Each `CormEvent` carries an `Environment` field (e.g. `"default"`) that the event processor uses to select the correct per-environment chain client. The `Handlers` struct holds a `defaultEnv` string (set from `cfg.Environments[0].Name` at startup) and stamps it on every event via its `buildEvent()` method.
+
 ### Key Components
 
 - **Dispatcher** (`internal/dispatch`) — bridges the HTTP layer and the reasoning layer. `EmitEvent` pushes player events to the event channel; `SendAction` routes corm actions to the correct session's channel.
 - **Session Store** (`internal/puzzle`) — in-memory concurrent map of player sessions. Each session tracks phase, puzzle state, hints, contracts, event buffer, and an action channel for SSE delivery. Because sessions contain Go channels and non-serializable state, multi-task deployments require ALB sticky sessions (configured in the CDK stack) to pin each player to a single task.
 - **Handlers** (`internal/handlers`) — HTTP handlers for each game interaction, returning HTMX partial HTML fragments.
 - **Puzzle Generator** (`internal/puzzle`) — creates dynamically-sized cipher grids with configurable difficulty.
-- **Reasoning Handler** (`internal/reasoning`) — processes event batches: runs trait reduction, detects phase transitions, delivers deterministic transition messages, and executes phase-specific effects (hints, difficulty adjustments, contract generation).
+- **Reasoning Handler** (`internal/reasoning`) — processes event batches: runs trait reduction, detects phase transitions, delivers deterministic transition messages, and executes phase-specific effects (Phase 0 escalation, Phase 1 hints/difficulty, Phase 2 contract generation).
 - **Trait Reducer** (`internal/memory`) — deterministic trait mutations (stability, corruption, patience, paranoia, etc.) applied inline on every event batch.
 - **Chain Client** (`internal/chain`) — per-environment Sui RPC client for on-chain state writes.
 
@@ -154,7 +156,10 @@ Only `types.json` and `groups.json` are copied from `fsd_built/` — the rest of
 - Deterministic in-character transition responses (no LLM dependency)
 - Real-time deterministic trait reduction on every event batch
 - Corruption-proportional garbling of transition response text
-- Phase-aware event processing (Phase 0 dormancy, Phase 1 puzzles, Phase 2 contracts)
+- Phase-aware event processing with corm responses:
+  - Phase 0: escalating awareness messages at click-count thresholds (passive noise → fragment awareness → growing awareness)
+  - Phase 1: struggling hints (heatmap/signal on every 4th incorrect submit), boost evaluation
+  - Phase 2: contract generation, pattern alignment tracking
 - Dynamically-sized cipher grids, three cipher tiers, sensor/trap mechanics
   - Sonar sensors: radius-5 pulse revealing nearby cell types (3 pulses, 1000ms interval), triggers trap movement
   - Thermal sensors: radius-4 area-of-effect applying heatmap proximity hints to nearby cells (2 pulses, 500ms interval), own cell shows blue-to-red gradient based on distance to target

@@ -416,7 +416,7 @@ func (h *Handlers) PuzzleDecrypt(w http.ResponseWriter, r *http.Request) {
 				"solve_count":        sess.SolveCount,
 				"incorrect_attempts": sess.IncorrectAttempts,
 			})
-			submitEvt := buildEvent(sess, "submit", submitPayload)
+			submitEvt := h.buildEvent(sess, "submit", submitPayload)
 			sess.EventBuffer.Push(submitEvt)
 			go h.dispatcher.EmitEvent(submitEvt)
 
@@ -426,7 +426,7 @@ func (h *Handlers) PuzzleDecrypt(w http.ResponseWriter, r *http.Request) {
 					"from": 1,
 					"to":   2,
 				})
-			transEvt := buildEvent(sess, "phase_transition", transPayload)
+		transEvt := h.buildEvent(sess, "phase_transition", transPayload)
 				sess.EventBuffer.Push(transEvt)
 				go h.dispatcher.EmitEvent(transEvt)
 			}
@@ -579,7 +579,7 @@ func emitDecryptEvent(h *Handlers, sess *puzzle.Session, row, col int, cell *puz
 		evtPayload["trap_moves"] = trapMoves
 	}
 	payload, _ := json.Marshal(evtPayload)
-	evt := buildEvent(sess, "decrypt", payload)
+	evt := h.buildEvent(sess, "decrypt", payload)
 	sess.EventBuffer.Push(evt)
 	go h.dispatcher.EmitEvent(evt)
 }
@@ -676,7 +676,7 @@ func (h *Handlers) PuzzleSubmit(w http.ResponseWriter, r *http.Request) {
 		"solve_count":        sess.SolveCount,
 		"incorrect_attempts": sess.IncorrectAttempts,
 	})
-	evt := buildEvent(sess, "submit", payload)
+	evt := h.buildEvent(sess, "submit", payload)
 	sess.EventBuffer.Push(evt)
 	go h.dispatcher.EmitEvent(evt)
 

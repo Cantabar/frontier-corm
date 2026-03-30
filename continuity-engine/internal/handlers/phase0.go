@@ -56,14 +56,14 @@ func (h *Handlers) Phase0Interact(w http.ResponseWriter, r *http.Request) {
 		"transition":  transition,
 	})
 
-	evt := buildEvent(sess, "click", payload)
+	evt := h.buildEvent(sess, "click", payload)
 	sess.EventBuffer.Push(evt)
 	go h.dispatcher.EmitEvent(evt)
 
 	if transition {
 		// Emit phase transition event
 		transPayload, _ := json.Marshal(map[string]string{"from": "0", "to": "1"})
-		transEvt := buildEvent(sess, "phase_transition", transPayload)
+		transEvt := h.buildEvent(sess, "phase_transition", transPayload)
 		sess.EventBuffer.Push(transEvt)
 		go h.dispatcher.EmitEvent(transEvt)
 

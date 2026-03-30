@@ -82,7 +82,8 @@ func main() {
 	})
 
 	// --- HTTP handlers + router ---
-	h := handlers.New(templateFS, sessionStore, dispatcher)
+	defaultEnv := cfg.Environments[0].Name
+	h := handlers.New(templateFS, sessionStore, dispatcher, defaultEnv)
 
 	gh := server.GameHandlers{
 		Health:           h.Health,
