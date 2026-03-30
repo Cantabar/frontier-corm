@@ -19,7 +19,7 @@ Route 53 (ef-corm.com)
                                     ▼
                               ECS Fargate Cluster
                                 ├─ Indexer Service (port 3100)
-                                └─ (future: corm-brain, puzzle-service)
+                                └─ Continuity Engine Service (port 3300)
                                     │
                                     ▼
                               RDS Postgres 16 (private subnet)
@@ -55,13 +55,13 @@ All resources are prefixed with `fc-{env}` (e.g. `fc-utopia`, `fc-stillness`). C
 ## Tech Stack
 
 - **IaC:** AWS CDK (TypeScript)
-- **Compute:** ECS Fargate (512 CPU / 1024 MB per indexer task)
+- **Compute:** ECS Fargate (512 CPU / 1024 MB per task)
 - **Database:** RDS Postgres 16 (t4g.micro, gp3 20GB, single-AZ)
 - **Storage:** S3 (frontend static assets, block public access)
 - **CDN:** CloudFront (SPA routing via 404 → /index.html, custom domain + ACM cert)
 - **DNS:** Route 53 (A alias records for CloudFront + ALB)
 - **TLS:** ACM (ef-corm.com + *.ef-corm.com, DNS validation)
-- **Registry:** ECR (`fc-{env}-indexer`)
+- **Registry:** ECR (`fc-{env}-indexer`, `fc-{env}-continuity-engine`)
 - **Secrets:** Secrets Manager (DB credentials with auto-generated password, Sui RPC config)
 - **Logging:** CloudWatch Logs (`/ecs/fc-{env}`, 2-week retention)
 
@@ -84,14 +84,17 @@ All resources are prefixed with `fc-{env}` (e.g. `fc-utopia`, `fc-stillness`). C
 ### Stack Outputs
 
 - `IndexerEcrUri` — ECR repository URI for the indexer image
+- `ContinuityEcrUri` — ECR repository URI for the continuity-engine image
 - `UiBucketName` — S3 bucket name for frontend assets
 - `CloudFrontDistributionId` — CloudFront distribution ID (for cache invalidation)
+- `AlbDns` — API load balancer DNS name
+- `DbEndpoint` — RDS Postgres endpoint address
 - `SiteUrl` — public frontend URL (e.g. `https://ef-corm.com` or `https://utopia.ef-corm.com`)
 - `ApiUrl` — public API URL (e.g. `https://api.ef-corm.com` or `https://api.utopia.ef-corm.com`)
 
 ## Data Model
 
-No application data — this service provisions infrastructure only. Database schema is managed by the indexer and corm-brain services at startup.
+No application data — this service provisions infrastructure only. Database schema is managed by the indexer and continuity-engine services at startup.
 
 ## Deployment
 
@@ -104,7 +107,7 @@ No application data — this service provisions infrastructure only. Database sc
 
 - Single parameterized CDK stack supporting multiple game-world environments (utopia, stillness)
 - VPC with 2-AZ layout, NAT gateway, public/private subnet isolation
-- ECS Fargate with 512 CPU / 1024 MB per indexer task
+- ECS Fargate with 512 CPU / 1024 MB per task (indexer + continuity-engine)
 - RDS Postgres 16 (t4g.micro, gp3 20GB, single-AZ)
 - S3 static frontend with CloudFront CDN and SPA routing
 - Custom domain (ef-corm.com) with Route 53 DNS + ACM TLS certificate
@@ -117,7 +120,6 @@ No application data — this service provisions infrastructure only. Database sc
 
 ## Open Questions / Future Work
 
-- ECS tasks for corm-brain and puzzle-service (currently local-only)
 - Auto-scaling policies for ECS services
 - Multi-AZ RDS for production reliability
 - WAF integration for CloudFront/ALB
