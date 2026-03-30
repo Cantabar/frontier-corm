@@ -1,4 +1,4 @@
-// Package chain provides SUI blockchain interaction for the corm-brain service.
+// Package chain provides SUI blockchain interaction for the continuity-engine service.
 //
 // This package wraps pattonkan/sui-go for JSON-RPC calls, PTB building,
 // Ed25519 signing, and BCS decoding. The real implementation will be added

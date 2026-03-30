@@ -5,8 +5,7 @@
 # Stop:   docker compose down
 # Reset:  docker compose down -v   (removes volumes / DB data)
 #
-# The indexer currently uses SQLite. A postgres service is included for
-# future migration and for any new services that need a relational DB.
+# All services (indexer, continuity-engine) use Postgres.
 
 services:
   # ── Indexer (subscriber + API on port 3100) ──────────────────────

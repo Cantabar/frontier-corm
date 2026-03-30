@@ -1,4 +1,4 @@
--- 001_initial.sql — corm-brain schema
+-- 001_initial.sql — continuity-engine schema
 CREATE EXTENSION IF NOT EXISTS vector;
 
 -- Corm → network node mapping (many nodes can belong to one corm)
