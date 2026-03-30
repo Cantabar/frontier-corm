@@ -18,14 +18,12 @@ Browser                         Off-chain                          On-chain (Sui
 └──────┬───────┘          └─────────────────┘
        │ iframe                    ▲ Postgres (pgvector)
 ┌──────┴───────┐                   │
-│ Puzzle Svc   │          ┌────────┴────────┐
-│ (Go + HTMX)  │◄── WS ─►│  Corm Brain (Go)│
-│ :3300        │          │  ├─ LLM (TRT)   │
-│ Phase 0/1/2  │          │  ├─ Memory       │── state ──► Sui RPC
-│              │          │  └─ Traits       │
-└──────────────┘          └─────────────────┘
-                                   ▲
-                          DGX Spark (Nemotron 3 Super/Nano)
+│ Continuity   │───────────────────┘
+│ Engine (Go)  │
+│ :3300        │── state ──► Sui RPC
+│ Phase 0/1/2  │
+│ Traits+Reason│
+└──────────────┘
 ```
 
 ## Repository Structure
@@ -33,8 +31,7 @@ Browser                         Off-chain                          On-chain (Sui
 | Directory | Description | Details |
 |-----------|-------------|---------|
 | `contracts/` | Sui Move smart contracts — corm identity, tribes, trustless exchanges, witnessed bounties | [design-doc](contracts/design-doc.md) |
-| `corm-brain/` | Go AI reasoning engine — LLM inference, episodic memory, trait evolution, on-chain writes | [design-doc](corm-brain/design-doc.md) |
-| `puzzle-service/` | Go + HTMX game server — three-phase Continuity Engine (awakening → cipher puzzles → contracts) | [design-doc](puzzle-service/design-doc.md) |
+| `continuity-engine/` | Go game server + reasoning engine — three-phase Continuity Engine, deterministic trait evolution, on-chain writes | [design-doc](continuity-engine/design-doc.md) |
 | `indexer/` | TypeScript event archiver + REST API — checkpoint proofs, reputation, shadow locations, ZK proofs | [design-doc](indexer/design-doc.md) |
 | `web/` | React SPA — tribes, contracts, forge planner, locations, Continuity Engine iframe | [design-doc](web/design-doc.md) |
 | `infra/` | AWS CDK stack — ECS Fargate, RDS, S3, CloudFront, Route 53 | [design-doc](infra/design-doc.md) |
@@ -47,11 +44,11 @@ Browser                         Off-chain                          On-chain (Sui
 ## Prerequisites
 
 - **Node.js** (v18+) — indexer, web, scripts
-- **Go** (1.22+) — corm-brain, puzzle-service
+- **Go** (1.22+) — continuity-engine
 - **Sui CLI** — contract publishing and local network
 - **Docker** + **Docker Compose** — local Postgres, containerized services
 - **mprocs** — local dev orchestration (`cargo install mprocs`)
-- **air** — Go live-reload for corm-brain and puzzle-service (`go install github.com/air-verse/air@latest`)
+- **air** — Go live-reload for continuity-engine (`go install github.com/air-verse/air@latest`)
 
 For deployment only:
 - **AWS CLI** + **AWS CDK** — infrastructure provisioning
@@ -74,14 +71,13 @@ mprocs starts services in dependency order:
 4. **contracts-publish** — publishes Frontier Corm contracts (writes package IDs to `.env.localnet`)
 5. **indexer** — event subscriber + API on `:3100`
 6. **web** — Vite dev server on `:5173`
-7. **puzzle-service** — Continuity Engine on `:3300`
-8. **corm-brain** — AI engine (requires DGX tunnel for LLM inference)
+7. **continuity-engine** — Continuity Engine on `:3300`
 
 ### Docker-only subset
 
 ```bash
 cp .env.example .env
-make local          # indexer + postgres + puzzle-service
+make local          # indexer + postgres + continuity-engine
 make local-down     # stop (keep data)
 make local-reset    # stop + delete volumes
 ```
@@ -95,7 +91,7 @@ make local-reset    # stop + delete volumes
 | `.env.utopia.example` | Template for Utopia testnet deployment |
 | `.env.stillness.example` | Template for Stillness testnet deployment |
 
-Key variables: `SUI_RPC_URL`, `PACKAGE_*` (contract IDs), `VITE_*` (web app), `DATABASE_URL`, `LLM_*_URL` (corm-brain). See each service's design doc for full configuration details.
+Key variables: `SUI_RPC_URL`, `PACKAGE_*` (contract IDs), `VITE_*` (web app), `DATABASE_URL`, `EVENT_COALESCE_MS`, `SUI_PRIVATE_KEY` (continuity-engine). See each service's design doc for full configuration details.
 
 ## Deployment
 
