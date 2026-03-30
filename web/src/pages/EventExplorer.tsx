@@ -49,17 +49,19 @@ const EventList = styled.div`
   gap: ${({ theme }) => theme.spacing.xs};
 `;
 
-const EventRow = styled.div`
+const EventRow = styled.div<{ $selected?: boolean }>`
   display: flex;
   align-items: center;
   gap: ${({ theme }) => theme.spacing.md};
   padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.md};
   background: ${({ theme }) => theme.colors.surface.raised};
-  border: 1px solid ${({ theme }) => theme.colors.surface.border};
-  border-radius: ${({ theme }) => theme.radii.sm};
+  border: 1px solid ${({ $selected, theme }) =>
+    $selected ? theme.colors.surface.borderHover : theme.colors.surface.border};
+  border-radius: ${({ $selected, theme }) =>
+    $selected ? `${theme.radii.sm} ${theme.radii.sm} 0 0` : theme.radii.sm};
   font-size: 13px;
   cursor: pointer;
-  transition: border-color 0.15s;
+  transition: border-color 0.15s, border-radius 0.15s;
 
   &:hover {
     border-color: ${({ theme }) => theme.colors.surface.borderHover};
@@ -171,15 +173,28 @@ $color={m === "all" ? "#F0F4F8" : MODULE_COLORS[m]}
         <EventList>
           {filtered.map((ev) => {
             const mod = moduleOf(ev.event_name);
+            const isSelected = proofEventId === ev.id;
             return (
-              <EventRow key={ev.id} onClick={() => setProofEventId(ev.id)}>
-                <ModuleBadge $color={MODULE_COLORS[mod] ?? "#78909C"}>
-                  {mod === "trustlessContracts" ? "CONTRACTS" : mod === "world" ? "WORLD" : "TRIBE"}
-                </ModuleBadge>
-                <EventName>{eventDisplayName(ev)}</EventName>
-                {ev.character_id && <Meta><CopyableId id={ev.character_id} /></Meta>}
-                <Meta>{timeAgo(ev.timestamp_ms)}</Meta>
-              </EventRow>
+              <div key={ev.id}>
+                <EventRow
+                  $selected={isSelected}
+                  onClick={() => setProofEventId(isSelected ? null : ev.id)}
+                >
+                  <ModuleBadge $color={MODULE_COLORS[mod] ?? "#78909C"}>
+                    {mod === "trustlessContracts" ? "CONTRACTS" : mod === "world" ? "WORLD" : "TRIBE"}
+                  </ModuleBadge>
+                  <EventName>{eventDisplayName(ev)}</EventName>
+                  {ev.character_id && <Meta><CopyableId id={ev.character_id} /></Meta>}
+                  <Meta>{timeAgo(ev.timestamp_ms)}</Meta>
+                </EventRow>
+                {isSelected && (
+                  <ProofViewer
+                    eventId={ev.id}
+                    accentColor={MODULE_COLORS[mod] ?? "#78909C"}
+                    onClose={() => setProofEventId(null)}
+                  />
+                )}
+              </div>
             );
           })}
         </EventList>
@@ -194,9 +209,6 @@ $color={m === "all" ? "#F0F4F8" : MODULE_COLORS[m]}
         </NavButton>
       </PageNav>
 
-      {proofEventId !== null && (
-        <ProofViewer eventId={proofEventId} onClose={() => setProofEventId(null)} />
-      )}
     </Page>
   );
 }

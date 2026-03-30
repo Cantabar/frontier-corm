@@ -152,7 +152,7 @@ Per-environment defaults are defined in `config.ts` and overridden by explicit `
 - Auto-join tribe detection and one-click self_join
 - Initialize tribe banner for unclaimed in-game tribes
 - Install Corm: inline overview card (alongside Tribe and Events) for installing a corm on a player-owned Network Node (permissionless on-chain `corm_state::install`)
-- Event Explorer with type/tribe/character filtering, pagination, and "World" module category for structure lifecycle events
+- Event Explorer with type/tribe/character filtering, pagination, and "World" module category for structure lifecycle events. Clicking an event row expands an inline drawer directly below it showing on-chain proof details (tx digest, event sequence, checkpoint, timestamp, verification note, raw event data) with a module-colored left accent and slide-down animation.
 - Descriptive event display names: `StatusChangedEvent` renders as "Structure Anchored", "Structure Unanchored", etc. based on the event's `action` field, via centralized `eventDisplayName()` formatter
 - Structure browser with aggregated SSU inventory
 - Assembly metadata: user-defined structure names via on-chain MetadataRegistry, inline edit UI, indexer-backed batch reads

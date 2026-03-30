@@ -1,16 +1,24 @@
-import styled from "styled-components";
+import styled, { keyframes } from "styled-components";
 import { useQuery } from "@tanstack/react-query";
 import { getEventProof } from "../../lib/api";
 import { timeAgo } from "../../lib/format";
 import { CopyableId } from "../shared/CopyableId";
 import { LoadingSpinner } from "../shared/LoadingSpinner";
 
-const Wrapper = styled.div`
+const slideDown = keyframes`
+  from { opacity: 0; max-height: 0; }
+  to   { opacity: 1; max-height: 500px; }
+`;
+
+const Wrapper = styled.div<{ $accentColor: string }>`
   background: ${({ theme }) => theme.colors.surface.raised};
-  border: 1px solid ${({ theme }) => theme.colors.surface.border};
-  border-radius: ${({ theme }) => theme.radii.md};
+  border: 1px solid ${({ theme }) => theme.colors.surface.borderHover};
+  border-top: none;
+  border-radius: 0 0 ${({ theme }) => theme.radii.sm} ${({ theme }) => theme.radii.sm};
+  border-left: 3px solid ${({ $accentColor }) => $accentColor};
   padding: ${({ theme }) => theme.spacing.lg};
-  margin-top: ${({ theme }) => theme.spacing.md};
+  overflow: hidden;
+  animation: ${slideDown} 0.2s ease-out;
 `;
 
 const Title = styled.h3`
@@ -60,10 +68,11 @@ const DataBlock = styled.pre`
 
 interface Props {
   eventId: number;
+  accentColor?: string;
   onClose: () => void;
 }
 
-export function ProofViewer({ eventId, onClose }: Props) {
+export function ProofViewer({ eventId, accentColor = "#78909C", onClose }: Props) {
   const { data, isLoading, error } = useQuery({
     queryKey: ["proof", eventId],
     queryFn: () => getEventProof(eventId),
@@ -73,7 +82,7 @@ export function ProofViewer({ eventId, onClose }: Props) {
   if (error || !data) return null;
 
   return (
-    <Wrapper>
+    <Wrapper $accentColor={accentColor}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <Title>On-Chain Proof</Title>
         <button
