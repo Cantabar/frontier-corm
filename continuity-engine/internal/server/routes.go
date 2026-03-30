@@ -26,7 +26,9 @@ type GameHandlers struct {
 }
 
 // NewRouter builds the HTTP mux with all routes registered.
-func NewRouter(gh GameHandlers, store *puzzle.SessionStore, staticFS embed.FS) http.Handler {
+// secureCookies controls the session cookie's SameSite/Secure flags
+// (true for HTTPS production, false for local HTTP dev).
+func NewRouter(gh GameHandlers, store *puzzle.SessionStore, staticFS embed.FS, secureCookies bool) http.Handler {
 	mux := http.NewServeMux()
 
 	// Static files
@@ -40,7 +42,7 @@ func NewRouter(gh GameHandlers, store *puzzle.SessionStore, staticFS embed.FS) h
 	registerGameRoutes(mux, gh, "")
 	registerGameRoutes(mux, gh, "/ssu/{entity_id}")
 
-	return CORSMiddleware(SessionMiddleware(store)(mux))
+	return CORSMiddleware(SessionMiddleware(store, secureCookies)(mux))
 }
 
 // registerGameRoutes registers Phase 0, puzzle, stream, status, and contracts routes

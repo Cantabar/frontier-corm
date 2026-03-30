@@ -25,6 +25,10 @@ type Config struct {
 	// HTTP listen port
 	Port string
 
+	// Secure cookies: SameSite=None + Secure flag. Required for cross-origin
+	// iframe embedding (production). Disabled for local HTTP dev.
+	SecureCookies bool
+
 	// Event coalescing window (debounce). Events arriving within this window
 	// are grouped by session and processed as a single batch.
 	EventCoalesceWindow time.Duration
@@ -58,6 +62,7 @@ type Config struct {
 func Load() Config {
 	cfg := Config{
 		Port:                       envOrDefault("PORT", "3300"),
+		SecureCookies:              envBool("SECURE_COOKIES", false),
 		EventCoalesceWindow:        envDurationMs("EVENT_COALESCE_MS", 300),
 		EventBatchMax:              envInt("EVENT_BATCH_MAX", 20),
 		ItemRegistryPath:           envOrDefault("ITEM_REGISTRY_PATH", "./static-data/data/phobos/fsd_built"),

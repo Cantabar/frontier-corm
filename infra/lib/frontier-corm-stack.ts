@@ -357,6 +357,7 @@ export class FrontierCormStack extends cdk.Stack {
         SEED_CHAIN_DATA: cormStatePackageId ? "false" : "true",
         ITEM_REGISTRY_PATH: "/data/registry",
         ITEM_VALUES_PATH: "/data/item-values.json",
+        SECURE_COOKIES: "true",
       },
       secrets: {
         SUI_RPC_URL: ecs.Secret.fromSecretsManager(suiSecret, "SUI_RPC_URL"),

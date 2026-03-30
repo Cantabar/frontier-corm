@@ -9,7 +9,12 @@ import (
 )
 
 // SessionMiddleware looks up or creates a session based on cookie.
-func SessionMiddleware(store *puzzle.SessionStore) func(http.Handler) http.Handler {
+//
+// The cookie uses SameSite=None + Secure so it persists inside cross-origin
+// iframes (the continuity-engine is embedded from api.ef-corm.com inside the
+// SPA at ef-corm.com). When secureCookies is false (local HTTP dev), it falls
+// back to SameSite=Lax without the Secure flag.
+func SessionMiddleware(store *puzzle.SessionStore, secureCookies bool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			var sess *puzzle.Session
@@ -33,14 +38,21 @@ func SessionMiddleware(store *puzzle.SessionStore) func(http.Handler) http.Handl
 				sess = puzzle.NewSession(playerAddr, ctx)
 				store.Put(sess)
 
-				http.SetCookie(w, &http.Cookie{
+				c := &http.Cookie{
 					Name:     "puzzle_session",
 					Value:    sess.ID,
 					Path:     "/",
 					HttpOnly: true,
-					SameSite: http.SameSiteLaxMode,
 					MaxAge:   86400, // 24 hours
-				})
+				}
+				if secureCookies {
+					// Cross-origin iframe: browser requires SameSite=None + Secure
+					c.SameSite = http.SameSiteNoneMode
+					c.Secure = true
+				} else {
+					c.SameSite = http.SameSiteLaxMode
+				}
+				http.SetCookie(w, c)
 			}
 
 			ctx := context.WithValue(r.Context(), puzzle.SessionContextKey, sess)

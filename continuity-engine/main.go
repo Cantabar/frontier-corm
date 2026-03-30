@@ -100,7 +100,7 @@ func main() {
 		Status:           h.Status,
 		ContractsPage:    h.ContractsPage,
 	}
-	mux := server.NewRouter(gh, sessionStore, staticFS)
+	mux := server.NewRouter(gh, sessionStore, staticFS, cfg.SecureCookies)
 
 	// --- Start goroutines ---
 	var wg sync.WaitGroup

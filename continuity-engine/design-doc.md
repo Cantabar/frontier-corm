@@ -95,6 +95,7 @@ All via environment variables:
 - `ITEM_REGISTRY_PATH`, `ITEM_VALUES_PATH` — item data paths
 - `CORM_PER_LUX`, `CORM_FLOOR_PER_UNIT` — pricing config
 - `CONTRACT_GENERATION_COOLDOWN_MS` — min time between contract generation per corm
+- `SECURE_COOKIES` — when `true`, session cookies use `SameSite=None; Secure` for cross-origin iframe embedding (default: false)
 
 ## Project Structure
 
@@ -171,3 +172,4 @@ Only `types.json` and `groups.json` are copied from `fsd_built/` — the rest of
 - Multi-environment support via per-environment chain clients
 - HTMX server-rendered UI with SSE log streaming
 - In-game SSU iframe embedding support (`/ssu/{entity_id}/` routes)
+- Cross-origin iframe cookie support (`SameSite=None; Secure` via `SECURE_COOKIES=true`)
