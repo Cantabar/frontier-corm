@@ -29,7 +29,8 @@
         deploy-utopia deploy-stillness \
         publish-contracts publish-utopia publish-stillness \
         build clean enrich-items seed-ores zk-build zk-clean \
-        test test-go test-contracts help
+        test test-go test-contracts \
+        logs-indexer logs-continuity dashboard help
 
 SHELL := /bin/bash
 AWS_REGION ?= us-east-1
@@ -214,7 +215,18 @@ zk-clean: ## Remove generated ZK artifacts
 	rm -rf indexer/circuits/artifacts/*
 	touch indexer/circuits/artifacts/.gitkeep
 
-# ── Help ───────────────────────────────────────────────────────────
+# ── Observability ──────────────────────────────────────────────────────────
+
+logs-indexer: ## Tail indexer logs for ENV
+	aws logs tail /ecs/fc-$(ENV) --filter-pattern indexer --follow --region $(AWS_REGION)
+
+logs-continuity: ## Tail continuity-engine logs for ENV
+	aws logs tail /ecs/fc-$(ENV) --filter-pattern continuity-engine --follow --region $(AWS_REGION)
+
+dashboard: ## Open CloudWatch dashboard for ENV
+	@echo "https://$(AWS_REGION).console.aws.amazon.com/cloudwatch/home?region=$(AWS_REGION)#dashboards/dashboard/fc-$(ENV)-overview"
+
+# ── Help ─────────────────────────────────────────────────────────────────
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \

@@ -69,7 +69,10 @@ All resources are prefixed with `fc-{env}` (e.g. `fc-utopia`, `fc-stillness`). C
 - **TLS:** ACM (ef-corm.com + *.ef-corm.com, DNS validation)
 - **Registry:** ECR (`fc-{env}-indexer`, `fc-{env}-continuity-engine`)
 - **Secrets:** Secrets Manager (DB credentials with auto-generated password, Sui RPC config, Sui signer keypair)
-- **Logging:** CloudWatch Logs (`/ecs/fc-{env}`, 2-week retention)
+- **Logging:** CloudWatch Logs (`/ecs/fc-{env}`, 2-week retention), structured JSON (pino for indexer, slog for continuity-engine)
+- **Observability:** CloudWatch Dashboard (`fc-{env}-overview`), Container Insights, CloudWatch Alarms + SNS
+- **Access Logs:** ALB access logs to S3 (`fc-{env}-alb-logs-*`, 30-day lifecycle), CloudFront standard logs to S3 (`fc-{env}-cf-logs-*`, 30-day lifecycle)
+- **DB Monitoring:** RDS Performance Insights (7-day free tier), slow query log (>1s) exported to CloudWatch
 
 ## Configuration
 
@@ -89,6 +92,9 @@ All resources are prefixed with `fc-{env}` (e.g. `fc-utopia`, `fc-stillness`). C
 - `make deploy-frontend ENV=utopia` — build frontend + S3 sync + CloudFront invalidation
 - `make deploy-env ENV=utopia` — deploy everything (infra + images + frontend)
 - `make teardown ENV=utopia` — destroy all AWS resources for an environment
+- `make logs-indexer ENV=utopia` — tail indexer CloudWatch logs
+- `make logs-continuity ENV=utopia` — tail continuity-engine CloudWatch logs
+- `make dashboard ENV=utopia` — print CloudWatch dashboard URL
 
 ### Stack Outputs
 
@@ -101,6 +107,7 @@ All resources are prefixed with `fc-{env}` (e.g. `fc-utopia`, `fc-stillness`). C
 - `SiteUrl` — public frontend URL (e.g. `https://ef-corm.com` or `https://utopia.ef-corm.com`)
 - `ApiUrl` — public API URL (e.g. `https://api.ef-corm.com` or `https://api.utopia.ef-corm.com`)
 - `ContinuityEngineUrl` — continuity-engine URL (e.g. `https://continuity-engine.ef-corm.com` or `https://continuity-engine.utopia.ef-corm.com`)
+- `DashboardUrl` — CloudWatch observability dashboard URL
 
 ## Data Model
 
@@ -127,9 +134,16 @@ No application data — this service provisions infrastructure only. Database sc
 - ALB sticky sessions on continuity-engine target group (1-day TTL) — required because the service uses an in-memory session store
 - ECR container registry per service per environment
 - Secrets Manager for DB credentials and Sui RPC config
-- CloudWatch Logs with 2-week retention
+- CloudWatch Logs with 2-week retention, structured JSON output
 - Makefile-driven deployment: infra, images, frontend, teardown
 - CDK stack outputs for ECR URI, S3 bucket, CloudFront URL, ALB DNS
+- CloudWatch Dashboard (`fc-{env}-overview`) with ECS CPU/memory, ALB requests/latency, RDS CPU/storage/connections, CloudFront requests/errors, healthy host counts, and Logs Insights error query widgets
+- CloudWatch Alarms: indexer/continuity-engine unhealthy (no healthy ALB targets), ALB 5xx count >10 in 5min, ALB p99 latency >5s, RDS CPU >80% for 10min, RDS free storage <2GB. All alarm to SNS topic `fc-{env}-alerts`.
+- ECS Container Insights for per-task CPU, memory, and network metrics
+- ALB access logs to S3 with 30-day lifecycle
+- CloudFront standard logging to S3 with 30-day lifecycle
+- RDS Performance Insights (7-day free tier) and slow query log (queries >1s) exported to CloudWatch Logs
+- RDS parameter group: `log_min_duration_statement=1000`, `log_statement=ddl`
 
 ## Open Questions / Future Work
 
@@ -137,3 +151,4 @@ No application data — this service provisions infrastructure only. Database sc
 - Multi-AZ RDS for production reliability
 - WAF integration for CloudFront/ALB
 - Cost optimization: review NAT gateway usage, consider VPC endpoints
+- Slack/PagerDuty integration for alarm notifications (currently email-only via SNS)
