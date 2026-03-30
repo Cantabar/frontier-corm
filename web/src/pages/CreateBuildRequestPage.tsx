@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import styled from "styled-components";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useSignAndExecuteTransaction, useSuiClient } from "@mysten/dapp-kit";
 import { useIdentity } from "../hooks/useIdentity";
 import { useActiveBuildRequests } from "../hooks/useBuildRequests";
@@ -9,9 +9,12 @@ import type { AssemblyGroup } from "../lib/types";
 import { buildCreateBuildRequest } from "../lib/sui";
 import { toBaseUnits } from "../lib/coinUtils";
 import { useEscrowCoinDecimals } from "../hooks/useCoinDecimals";
+import { useMyStructures } from "../hooks/useStructures";
+import { useStructureLocationIds } from "../hooks/useStructureLocationIds";
 import { CharacterPickerField } from "../components/shared/CharacterPickerField";
 import { TribePickerField } from "../components/shared/TribePickerField";
 import { PrimaryButton, SecondaryButton } from "../components/shared/Button";
+import { truncateAddress } from "../lib/format";
 
 // ---------------------------------------------------------------------------
 // Layout
@@ -203,6 +206,21 @@ const DescriptionText = styled.p`
   margin: 0;
 `;
 
+const WarningBanner = styled.div`
+  background: ${({ theme }) => theme.colors.warning ?? "#f5a62320"};
+  border: 1px solid ${({ theme }) => theme.colors.warning ?? "#f5a623"};
+  border-radius: ${({ theme }) => theme.radii.sm};
+  padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.md};
+  color: ${({ theme }) => theme.colors.text.primary};
+  font-size: 13px;
+  margin-bottom: ${({ theme }) => theme.spacing.md};
+
+  a {
+    color: ${({ theme }) => theme.colors.primary.main};
+    font-weight: 500;
+  }
+`;
+
 const ChecklistList = styled.ul`
   list-style: none;
   padding: 0;
@@ -259,11 +277,15 @@ const STRUCTURE_OPTIONS: StructureOption[] = Object.entries(ASSEMBLY_TYPES)
 
 export function CreateBuildRequestPage() {
   const navigate = useNavigate();
-  const { characterId } = useIdentity();
+  const { characterId, tribeCaps } = useIdentity();
   const { mutateAsync: signAndExecute } = useSignAndExecuteTransaction();
   const suiClient = useSuiClient();
   const { refetch: refetchBuildRequests } = useActiveBuildRequests();
   const { decimals: ceDecimals, symbol: ceSymbol } = useEscrowCoinDecimals();
+  const { structures: myStructures } = useMyStructures();
+  const { locationIds } = useStructureLocationIds();
+
+  const posterTribeId = tribeCaps[0]?.inGameTribeId ?? null;
 
   // Form state
   const [requestedTypeId, setRequestedTypeId] = useState("");
@@ -273,22 +295,40 @@ export function CreateBuildRequestPage() {
   const [allowedCharacters, setAllowedCharacters] = useState<string[]>([]);
   const [allowedTribes, setAllowedTribes] = useState<number[]>([]);
 
+  // Proximity state
+  const [proximityEnabled, setProximityEnabled] = useState(false);
+  const [referenceStructureId, setReferenceStructureId] = useState("");
+  const [maxDistance, setMaxDistance] = useState("");
+
   // UI state
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [isBusy, setIsBusy] = useState(false);
 
   const isValidAmount = bountyAmount !== "" && !isNaN(Number(bountyAmount)) && Number(bountyAmount) > 0;
+  const isValidDistance = !proximityEnabled || (maxDistance !== "" && Number(maxDistance) > 0);
+  const refHasLocation = !referenceStructureId || locationIds.has(referenceStructureId);
+  const proximityValid = !proximityEnabled || (!!referenceStructureId && isValidDistance && refHasLocation && !!posterTribeId);
 
-  const isValid = !!characterId && !!requestedTypeId && isValidAmount;
+  const isValid = !!characterId && !!requestedTypeId && isValidAmount && proximityValid;
 
   const selectedType = ASSEMBLY_TYPES[Number(requestedTypeId)];
 
-  const checklist = useMemo(() => [
-    { label: "Select structure type", done: !!requestedTypeId },
-    { label: "Set bounty amount", done: isValidAmount },
-    { label: "Set deadline", done: Number(deadlineHours) > 0 },
-  ], [requestedTypeId, isValidAmount, deadlineHours]);
+  const checklist = useMemo(() => {
+    const items = [
+      { label: "Select structure type", done: !!requestedTypeId },
+      { label: "Set bounty amount", done: isValidAmount },
+      { label: "Set deadline", done: Number(deadlineHours) > 0 },
+    ];
+    if (proximityEnabled) {
+      items.push(
+        { label: "Select reference structure", done: !!referenceStructureId },
+        { label: "Reference has location POD", done: refHasLocation },
+        { label: "Set max distance", done: isValidDistance },
+      );
+    }
+    return items;
+  }, [requestedTypeId, isValidAmount, deadlineHours, proximityEnabled, referenceStructureId, refHasLocation, isValidDistance]);
 
   async function handleCreate() {
     setSubmitted(true);
@@ -305,8 +345,15 @@ export function CreateBuildRequestPage() {
         requestedTypeId: Number(requestedTypeId),
         requireCormAuth,
         deadlineMs,
-        allowedCharacters,
-        allowedTribes,
+        allowedCharacters: proximityEnabled ? [] : allowedCharacters,
+        allowedTribes: proximityEnabled && posterTribeId != null ? [posterTribeId] : allowedTribes,
+        ...(proximityEnabled && referenceStructureId && posterTribeId != null
+          ? {
+              referenceStructureId,
+              maxDistance: Number(maxDistance),
+              proximityTribeId: posterTribeId,
+            }
+          : {}),
       });
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -396,11 +443,83 @@ export function CreateBuildRequestPage() {
               <div />
             </Row>
 
-            <Label>Allowed Characters (optional)</Label>
-            <CharacterPickerField value={allowedCharacters} onChange={setAllowedCharacters} />
+            {!proximityEnabled && (
+              <>
+                <Label>Allowed Characters (optional)</Label>
+                <CharacterPickerField value={allowedCharacters} onChange={setAllowedCharacters} />
 
-            <Label>Allowed Tribes (optional)</Label>
-            <TribePickerField value={allowedTribes} onChange={setAllowedTribes} />
+                <Label>Allowed Tribes (optional)</Label>
+                <TribePickerField value={allowedTribes} onChange={setAllowedTribes} />
+              </>
+            )}
+          </Section>
+
+          <Separator />
+
+          <Section>
+            <SectionTitle>Proximity</SectionTitle>
+            <CheckboxRow>
+              <input
+                type="checkbox"
+                checked={proximityEnabled}
+                onChange={(e) => {
+                  setProximityEnabled(e.target.checked);
+                  if (!e.target.checked) {
+                    setReferenceStructureId("");
+                    setMaxDistance("");
+                  }
+                }}
+              />
+              Require proximity to an existing structure
+            </CheckboxRow>
+            <Hint>
+              When enabled, the new structure must be built within a specified distance of a
+              reference structure you own. This restricts the contract to your tribe.
+            </Hint>
+
+            {proximityEnabled && (
+              <>
+                {!posterTribeId && (
+                  <WarningBanner>
+                    You must be in a tribe to create a proximity-gated contract.
+                  </WarningBanner>
+                )}
+
+                <Label>Reference Structure</Label>
+                <Select
+                  value={referenceStructureId}
+                  onChange={(e) => setReferenceStructureId(e.target.value)}
+                >
+                  <option value="">Select a structure…</option>
+                  {myStructures.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name || ASSEMBLY_TYPES[s.typeId]?.label || `Structure`} ({truncateAddress(s.id, 8, 6)})
+                    </option>
+                  ))}
+                </Select>
+                {submitted && proximityEnabled && !referenceStructureId && (
+                  <FieldError>Select a reference structure</FieldError>
+                )}
+
+                {referenceStructureId && !refHasLocation && (
+                  <WarningBanner>
+                    This structure does not have a registered location POD.
+                    <Link to="/locations"> Register a location</Link> before creating this contract.
+                  </WarningBanner>
+                )}
+
+                <Label>Max Distance (ly)</Label>
+                <Input
+                  type="number"
+                  placeholder="e.g. 10"
+                  value={maxDistance}
+                  onChange={(e) => setMaxDistance(e.target.value)}
+                />
+                {submitted && proximityEnabled && !isValidDistance && (
+                  <FieldError>Enter a valid distance greater than 0</FieldError>
+                )}
+              </>
+            )}
           </Section>
 
           {error && <ErrorBanner>{error}</ErrorBanner>}

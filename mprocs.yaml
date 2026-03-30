@@ -95,65 +95,13 @@ procs:
       npm --prefix web run dev
     stop: "SIGTERM"
 
-  # ── Puzzle Service (Go + HTMX on :3300) ──────────────────────────────────
-  puzzle-service:
-    shell: |
-      cd puzzle-service
-      air
-    env:
-      PUZZLE_PORT: "3300"
-    stop: "SIGTERM"
-
-  # ── Giveitem Helper (Vite dev UI) ───────────────────────────────────────
-  giveitem-helper:
-    shell: |
-      trap 'kill 0' EXIT
-      npm --prefix dev-tools/giveitem-helper run dev -- --port 5175 &
-      wait
-    stop: "SIGINT"
-
-  # ── DGX Spark — Setup (one-shot, syncs configs + pulls image) ──────────
-  dgx-setup:
-    shell: "bash scripts/dgx-setup.sh"
-    autostart: false
-
-  # ── DGX Spark — Nemotron 3 Super (TRT-LLM, port 8000) ─────────────────
-  dgx-super:
-    shell: "bash scripts/dgx-super.sh"
-    stop: "SIGTERM"
-
-  # ── DGX Spark — Nemotron 3 Nano (TRT-LLM, port 8001) ──────────────────
-  dgx-nano:
-    shell: "bash scripts/dgx-nano.sh"
-    stop: "SIGTERM"
-
-  # ── DGX Spark — SSH Tunnel (forwards model ports to localhost) ─────────
-  dgx-tunnel:
-    shell: "bash scripts/dgx-tunnel.sh"
-    stop: "SIGTERM"
-
-  # ── Corm Brain (local Go binary, connects to tunnelled DGX models) ─────
-  corm-brain:
+  # ── Continuity Engine (Go + HTMX on :3300) ──────────────────────────────
+  continuity-engine:
     shell: |
       echo "Waiting for postgres..."
       until docker exec frontier-corm-postgres-1 pg_isready -U corm -d frontier_corm -q 2>/dev/null; do
         sleep 1
       done
-      echo "Waiting for TRT-LLM tunnel (Nano on :8001)..."
-      until curl -sf http://localhost:8001/health >/dev/null 2>&1; do
-        sleep 3
-      done
-      echo "Checking TRT-LLM tunnel (Super on :8000)..."
-      SUPER_TRIES=0
-      while [ $SUPER_TRIES -lt 10 ] && ! curl -sf http://localhost:8000/health >/dev/null 2>&1; do
-        SUPER_TRIES=$((SUPER_TRIES + 1))
-        sleep 3
-      done
-      if curl -sf http://localhost:8000/health >/dev/null 2>&1; then
-        echo "Super is healthy."
-      else
-        echo "WARN: Super not available — corm-brain will use Nano only."
-      fi
       echo "Waiting for corm_state contract in .env.localnet..."
       until grep -q '^CORM_STATE_PACKAGE_ID=0x' .env.localnet 2>/dev/null; do
         sleep 2
@@ -166,19 +114,22 @@ procs:
         export SUI_PRIVATE_KEY
         echo "Derived SUI_PRIVATE_KEY from active SUI address"
       fi
-      echo "Dependencies ready — starting corm-brain (air live-reload)"
-      cd corm-brain
+      echo "Dependencies ready — starting continuity-engine (air live-reload)"
+      cd continuity-engine
       air
     env:
-      LLM_SUPER_URL: "http://localhost:8000"
-      LLM_FAST_URL: "http://localhost:8001"
-      EMBED_MODEL_PATH: "../models/nomic-embed"
+      PORT: "3300"
       DATABASE_URL: "postgresql://corm:corm@localhost:5432/frontier_corm"
-      PUZZLE_SERVICE_URL: "http://localhost:3300"
       SUI_RPC_URL: "http://127.0.0.1:9000"
-      CONSOLIDATION_INTERVAL_MS: "60000"
-      MEMORY_CAP_PER_CORM: "500"
-      EVENT_COALESCE_MS: "50"
-      WS_RECONNECT_MAX_MS: "30000"
-      FALLBACK_POLL_INTERVAL_MS: "2000"
+      EVENT_COALESCE_MS: "300"
+      SEED_CHAIN_DATA: "true"
     stop: "SIGTERM"
+
+  # ── Giveitem Helper (Vite dev UI) ───────────────────────────────────────
+  giveitem-helper:
+    shell: |
+      trap 'kill 0' EXIT
+      npm --prefix dev-tools/giveitem-helper run dev -- --port 5175 &
+      wait
+    stop: "SIGINT"
+

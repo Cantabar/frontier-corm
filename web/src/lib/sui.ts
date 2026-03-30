@@ -1597,10 +1597,23 @@ export function buildCreateBuildRequest(params: {
   deadlineMs: number;
   allowedCharacters: string[];
   allowedTribes: number[];
+  referenceStructureId?: string;
+  maxDistance?: number;
+  proximityTribeId?: number;
   coinType?: string;
 }): Transaction {
   const tx = new Transaction();
   const [bounty] = tx.splitCoins(tx.gas, [params.bountyAmount]);
+
+  // Proximity fields: encode as Move Option (vector of 0 or 1 elements)
+  const refStructOpt: string[] = params.referenceStructureId
+    ? [params.referenceStructureId]
+    : [];
+  const maxDistOpt: number[] = params.maxDistance != null ? [params.maxDistance] : [];
+  const proxTribeOpt: number[] = params.proximityTribeId != null
+    ? [params.proximityTribeId]
+    : [];
+
   tx.moveCall({
     target: wcTarget("create"),
     typeArguments: [ct(params.coinType)],
@@ -1613,6 +1626,9 @@ export function buildCreateBuildRequest(params: {
       tx.pure.u64(params.deadlineMs),
       tx.pure("vector<address>", params.allowedCharacters),
       tx.pure("vector<u32>", params.allowedTribes),
+      tx.pure("vector<address>", refStructOpt),   // Option<ID>
+      tx.pure("vector<u64>", maxDistOpt),          // Option<u64>
+      tx.pure("vector<u32>", proxTribeOpt),        // Option<u32>
       tx.object(SUI_CLOCK),
     ],
   });

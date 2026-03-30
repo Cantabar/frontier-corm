@@ -83,6 +83,7 @@ All contract types emit creation, fill, completion, cancellation, and expiration
 **Purpose:** Bounty contracts fulfilled by off-chain witness attestation rather than direct on-chain interaction.
 
 - **build_request** — poster escrows a bounty coin for building a specific structure type (optionally requiring CormAuth extension). Fulfillment is verified cryptographically: the CORM indexer signs a `BuildAttestation` (Ed25519), and anyone can submit it to `fulfill`, which verifies the signature against the `WitnessRegistry`.
+  - **Proximity gating (v2):** poster can optionally specify a `reference_structure_id`, `max_distance` (ly), and `proximity_tribe_id`. All three must be set or all three must be none (enforced on-chain via `EProximityMissingFields`). When set, the witness service only fulfills the contract if a verified mutual proximity proof exists in the location database linking the new structure to the reference within the specified distance. This implicitly restricts the contract to the poster's tribe, since location PODs and proximity proofs are tribe-scoped. The web UI prompts the poster to register a location POD for the reference structure if one does not yet exist.
 - `witness_utils` — shared attestation verification: unpacks and verifies Ed25519 signatures, checks attestation fields (contract ID, structure type, builder, CormAuth status).
 - Events: `BuildRequestCreatedEvent`, `BuildRequestFulfilledEvent`, `BuildRequestCancelledEvent`, `BuildRequestExpiredEvent`.
 

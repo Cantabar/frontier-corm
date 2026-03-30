@@ -107,6 +107,12 @@ export class FrontierCormStack extends cdk.Stack {
       emptyOnDelete: true,
     });
 
+    const continuityRepo = new ecr.Repository(this, "ContinuityRepo", {
+      repositoryName: `${prefix}-continuity-engine`,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      emptyOnDelete: true,
+    });
+
     // ================================================================
     // RDS Postgres
     // ================================================================
@@ -281,6 +287,57 @@ export class FrontierCormStack extends cdk.Stack {
     });
 
     // ================================================================
+    // ECS — Continuity Engine Service (port 3300)
+    // ================================================================
+    const continuityTaskDef = new ecs.FargateTaskDefinition(
+      this,
+      "ContinuityTaskDef",
+      { cpu: 512, memoryLimitMiB: 1024 }
+    );
+
+    continuityTaskDef.addContainer("continuity-engine", {
+      image: ecs.ContainerImage.fromEcrRepository(continuityRepo, "latest"),
+      portMappings: [{ containerPort: 3300 }],
+      environment: {
+        PORT: "3300",
+        DB_HOST: db.dbInstanceEndpointAddress,
+        DB_PORT: db.dbInstanceEndpointPort,
+        DB_NAME: "frontier_corm",
+        SEED_CHAIN_DATA: "true",
+      },
+      secrets: {
+        SUI_RPC_URL: ecs.Secret.fromSecretsManager(suiSecret, "SUI_RPC_URL"),
+        DB_USERNAME: ecs.Secret.fromSecretsManager(dbCredentials, "username"),
+        DB_PASSWORD: ecs.Secret.fromSecretsManager(dbCredentials, "password"),
+      },
+      logging: ecs.LogDrivers.awsLogs({
+        logGroup,
+        streamPrefix: "continuity-engine",
+      }),
+      healthCheck: {
+        command: [
+          "CMD-SHELL",
+          "wget -qO- http://localhost:3300/health || exit 1",
+        ],
+        interval: cdk.Duration.seconds(15),
+        timeout: cdk.Duration.seconds(5),
+        retries: 3,
+      },
+    });
+
+    dbCredentials.grantRead(continuityTaskDef.taskRole);
+    suiSecret.grantRead(continuityTaskDef.taskRole);
+
+    const continuityService = new ecs.FargateService(this, "ContinuityService", {
+      cluster,
+      taskDefinition: continuityTaskDef,
+      desiredCount: 1,
+      securityGroups: [ecsSg],
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      assignPublicIp: false,
+    });
+
+    // ================================================================
     // ALB Target Groups + Routing
     // ================================================================
     const indexerTg = httpsListener.addTargets("IndexerTarget", {
@@ -289,6 +346,14 @@ export class FrontierCormStack extends cdk.Stack {
       healthCheck: { path: "/health", interval: cdk.Duration.seconds(30) },
       conditions: [elbv2.ListenerCondition.pathPatterns(["/api/indexer/*"])],
       priority: 10,
+    });
+
+    const continuityTg = httpsListener.addTargets("ContinuityTarget", {
+      port: 3300,
+      targets: [continuityService],
+      healthCheck: { path: "/health", interval: cdk.Duration.seconds(30) },
+      conditions: [elbv2.ListenerCondition.pathPatterns(["/api/continuity/*", "/phase0", "/phase0/*", "/puzzle", "/puzzle/*", "/phase2", "/phase2/*", "/stream", "/status", "/contracts", "/ssu/*"])],
+      priority: 20,
     });
 
     // Default action
@@ -343,6 +408,11 @@ export class FrontierCormStack extends cdk.Stack {
     new cdk.CfnOutput(this, "IndexerEcrUri", {
       value: indexerRepo.repositoryUri,
       description: "ECR repo for indexer image",
+    });
+
+    new cdk.CfnOutput(this, "ContinuityEcrUri", {
+      value: continuityRepo.repositoryUri,
+      description: "ECR repo for continuity-engine image",
     });
 
     new cdk.CfnOutput(this, "DbEndpoint", {

@@ -34,6 +34,9 @@ fun test_create_and_cancel() {
             test_helpers::far_future_ms(),
             vector[],
             vector[],
+            option::none(),
+            option::none(),
+            option::none(),
             &clock,
             ts.ctx(),
         );
@@ -80,6 +83,9 @@ fun test_cancel_wrong_poster() {
             test_helpers::far_future_ms(),
             vector[],
             vector[],
+            option::none(),
+            option::none(),
+            option::none(),
             &clock,
             ts.ctx(),
         );
@@ -117,6 +123,9 @@ fun test_expire_after_deadline() {
             100, // short deadline
             vector[],
             vector[],
+            option::none(),
+            option::none(),
+            option::none(),
             &clock,
             ts.ctx(),
         );
@@ -166,6 +175,9 @@ fun test_expire_before_deadline_fails() {
             test_helpers::far_future_ms(),
             vector[],
             vector[],
+            option::none(),
+            option::none(),
+            option::none(),
             &clock,
             ts.ctx(),
         );
@@ -206,6 +218,9 @@ fun test_create_deadline_in_past() {
             100, // in the past
             vector[],
             vector[],
+            option::none(),
+            option::none(),
+            option::none(),
             &clock,
             ts.ctx(),
         );
@@ -237,6 +252,9 @@ fun test_create_zero_bounty() {
             test_helpers::far_future_ms(),
             vector[],
             vector[],
+            option::none(),
+            option::none(),
+            option::none(),
             &clock,
             ts.ctx(),
         );
@@ -267,6 +285,9 @@ fun test_view_functions() {
             test_helpers::far_future_ms(),
             vector[],
             vector[],
+            option::none(),
+            option::none(),
+            option::none(),
             &clock,
             ts.ctx(),
         );
@@ -285,9 +306,91 @@ fun test_view_functions() {
         assert!(build_request::deadline_ms(&contract) == test_helpers::far_future_ms());
         assert!(build_request::builder_address(&contract).is_none());
         assert!(build_request::structure_id(&contract).is_none());
-        assert!(build_request::contract_version(&contract) == 1);
+        assert!(build_request::contract_version(&contract) == 2);
+        assert!(build_request::reference_structure_id(&contract).is_none());
+        assert!(build_request::max_distance(&contract).is_none());
+        assert!(build_request::proximity_tribe_id(&contract).is_none());
 
         build_request::destroy_for_testing(contract);
+    };
+
+    ts::end(ts);
+}
+
+// =========================================================================
+// Create with proximity fields
+// =========================================================================
+
+#[test]
+fun test_create_with_proximity() {
+    let mut ts = ts::begin(@0x0);
+
+    let ref_id = object::id_from_address(@0xE);
+    ts::next_tx(&mut ts, test_helpers::poster());
+    {
+        let bounty = coin::mint_for_testing<BOUNTY>(test_helpers::bounty_amount(), ts.ctx());
+        let clock = clock::create_for_testing(ts.ctx());
+        build_request::create(
+            test_helpers::poster_id(),
+            test_helpers::poster(),
+            bounty,
+            test_helpers::requested_type_id(),
+            true,
+            test_helpers::far_future_ms(),
+            vector[],
+            vector[],
+            option::some(ref_id),
+            option::some(50),
+            option::some(42),
+            &clock,
+            ts.ctx(),
+        );
+        clock.destroy_for_testing();
+    };
+
+    ts::next_tx(&mut ts, test_helpers::poster());
+    {
+        let contract = ts::take_shared<BuildRequestContract<BOUNTY>>(&ts);
+        assert!(build_request::reference_structure_id(&contract) == option::some(ref_id));
+        assert!(build_request::max_distance(&contract) == option::some(50));
+        assert!(build_request::proximity_tribe_id(&contract) == option::some(42));
+
+        build_request::destroy_for_testing(contract);
+    };
+
+    ts::end(ts);
+}
+
+// =========================================================================
+// Partial proximity fields rejected
+// =========================================================================
+
+#[test]
+#[expected_failure(abort_code = build_request::EProximityMissingFields)]
+fun test_create_partial_proximity_fails() {
+    let mut ts = ts::begin(@0x0);
+
+    ts::next_tx(&mut ts, test_helpers::poster());
+    {
+        let bounty = coin::mint_for_testing<BOUNTY>(test_helpers::bounty_amount(), ts.ctx());
+        let clock = clock::create_for_testing(ts.ctx());
+        // reference_structure_id set, but max_distance and proximity_tribe_id are none
+        build_request::create(
+            test_helpers::poster_id(),
+            test_helpers::poster(),
+            bounty,
+            test_helpers::requested_type_id(),
+            false,
+            test_helpers::far_future_ms(),
+            vector[],
+            vector[],
+            option::some(object::id_from_address(@0xE)),
+            option::none(),
+            option::none(),
+            &clock,
+            ts.ctx(),
+        );
+        clock.destroy_for_testing();
     };
 
     ts::end(ts);

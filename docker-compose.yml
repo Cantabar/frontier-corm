@@ -54,15 +54,22 @@ services:
       timeout: 3s
       retries: 5
 
-  # ── Puzzle Service (Go + HTMX on port 3300) ────────────────────
-  puzzle-service:
+  # ── Continuity Engine (Go + HTMX on port 3300) ─────────────────
+  continuity-engine:
     build:
-      context: ./puzzle-service
+      context: ./continuity-engine
       dockerfile: Dockerfile
     ports:
       - "3300:3300"
+    env_file: .env
     environment:
-      - PUZZLE_PORT=3300
+      - PORT=3300
+      - DATABASE_URL=postgresql://corm:corm@postgres:5432/frontier_corm
+      - EVENT_COALESCE_MS=300
+      - SEED_CHAIN_DATA=true
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3300/health"]

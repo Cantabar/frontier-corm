@@ -20,7 +20,7 @@ use corm_auth::corm_auth::WitnessRegistry;
 use witnessed_contracts::witness_utils;
 
 // === Version ===
-const CURRENT_VERSION: u64 = 1;
+const CURRENT_VERSION: u64 = 2;
 
 // === Errors ===
 
@@ -37,6 +37,7 @@ const ETypeMismatch: u64 = 100;
 const ECormAuthNotAttested: u64 = 101;
 const EContractIdMismatch: u64 = 102;
 const EFillerNotAuthorized: u64 = 103;
+const EProximityMissingFields: u64 = 104;
 
 // === Status enum ===
 
@@ -62,6 +63,9 @@ public struct BuildRequestContract<phantom C> has key {
     status: ContractStatus,
     allowed_characters: vector<ID>,
     allowed_tribes: vector<u32>,
+    reference_structure_id: Option<ID>,
+    max_distance: Option<u64>,
+    proximity_tribe_id: Option<u32>,
 }
 
 // === Events ===
@@ -75,6 +79,9 @@ public struct BuildRequestCreatedEvent has copy, drop {
     deadline_ms: u64,
     allowed_characters: vector<ID>,
     allowed_tribes: vector<u32>,
+    reference_structure_id: Option<ID>,
+    max_distance: Option<u64>,
+    proximity_tribe_id: Option<u32>,
 }
 
 public struct BuildRequestFulfilledEvent has copy, drop {
@@ -109,11 +116,23 @@ public fun create<C>(
     deadline_ms: u64,
     allowed_characters: vector<ID>,
     allowed_tribes: vector<u32>,
+    reference_structure_id: Option<ID>,
+    max_distance: Option<u64>,
+    proximity_tribe_id: Option<u32>,
     clock: &Clock,
     ctx: &mut TxContext,
 ) {
     assert!(deadline_ms > clock.timestamp_ms(), EDeadlineInPast);
     assert!(bounty_coin.value() > 0, EZeroBounty);
+
+    // Proximity fields must be all-or-none
+    let has_ref = reference_structure_id.is_some();
+    let has_dist = max_distance.is_some();
+    let has_tribe = proximity_tribe_id.is_some();
+    assert!(
+        (has_ref && has_dist && has_tribe) || (!has_ref && !has_dist && !has_tribe),
+        EProximityMissingFields,
+    );
 
     let bounty_amount = bounty_coin.value();
 
@@ -132,6 +151,9 @@ public fun create<C>(
         status: ContractStatus::Open,
         allowed_characters,
         allowed_tribes,
+        reference_structure_id,
+        max_distance,
+        proximity_tribe_id,
     };
 
     let contract_id = object::id(&contract);
@@ -144,6 +166,9 @@ public fun create<C>(
         deadline_ms,
         allowed_characters: contract.allowed_characters,
         allowed_tribes: contract.allowed_tribes,
+        reference_structure_id: contract.reference_structure_id,
+        max_distance: contract.max_distance,
+        proximity_tribe_id: contract.proximity_tribe_id,
     });
 
     transfer::share_object(contract);
@@ -312,6 +337,9 @@ public fun deadline_ms<C>(c: &BuildRequestContract<C>): u64 { c.deadline_ms }
 public fun status<C>(c: &BuildRequestContract<C>): ContractStatus { c.status }
 public fun allowed_characters<C>(c: &BuildRequestContract<C>): vector<ID> { c.allowed_characters }
 public fun allowed_tribes<C>(c: &BuildRequestContract<C>): vector<u32> { c.allowed_tribes }
+public fun reference_structure_id<C>(c: &BuildRequestContract<C>): Option<ID> { c.reference_structure_id }
+public fun max_distance<C>(c: &BuildRequestContract<C>): Option<u64> { c.max_distance }
+public fun proximity_tribe_id<C>(c: &BuildRequestContract<C>): Option<u32> { c.proximity_tribe_id }
 
 // === Private helpers ===
 

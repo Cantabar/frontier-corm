@@ -259,6 +259,9 @@ export interface BuildRequestCreatedEvent {
   deadline_ms: string;
   allowed_characters: string[];
   allowed_tribes: number[];
+  reference_structure_id?: string;
+  max_distance?: string;
+  proximity_tribe_id?: number;
 }
 
 export interface BuildRequestFulfilledEvent {
