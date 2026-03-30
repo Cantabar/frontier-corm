@@ -420,12 +420,12 @@ const output = JSON.stringify(results, null, 2) + "\n";
 const dest = resolve(ROOT, "web/public/item-values.json");
 writeFileSync(dest, output);
 
-// Write a local copy for corm-brain so it can load item valuations at
+// Write a local copy for continuity-engine so it can load item valuations at
 // boot without making an HTTP request to the hosted web service.
-const cormBrainDir = resolve(ROOT, "corm-brain/data");
-mkdirSync(cormBrainDir, { recursive: true });
-const cormBrainDest = resolve(cormBrainDir, "item-values.json");
-writeFileSync(cormBrainDest, output);
+const continuityEngineDir = resolve(ROOT, "continuity-engine/data");
+mkdirSync(continuityEngineDir, { recursive: true });
+const continuityEngineDest = resolve(continuityEngineDir, "item-values.json");
+writeFileSync(continuityEngineDest, output);
 
 // ── Summary ───────────────────────────────────────────────────────
 
@@ -436,7 +436,7 @@ const crafted = valued.filter((r) => r.source === "crafted");
 const found = valued.filter((r) => r.source === "found");
 
 console.log(`  ✓ ${dest.replace(ROOT + "/", "")} (${results.length} items)`);
-console.log(`  ✓ ${cormBrainDest.replace(ROOT + "/", "")} (local copy for corm-brain)`);
+console.log(`  ✓ ${continuityEngineDest.replace(ROOT + "/", "")} (local copy for continuity-engine)`);
 console.log(`    ${valued.length} valued, ${unknown.length} unknown`);
 console.log(
   `    ${mining.length} mining, ${crafted.length} crafted, ${found.length} found`
