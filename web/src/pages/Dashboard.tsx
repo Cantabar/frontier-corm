@@ -11,7 +11,22 @@ import { useNotifications } from "../hooks/useNotifications";
 import { useQuickActions } from "../hooks/useQuickActions";
 import { useInitializeTribe } from "../hooks/useInitializeTribe";
 import { useInstallCorm } from "../hooks/useInstallCorm";
+import { useCormState } from "../continuity-engine/useCormState";
 import { truncateAddress } from "../lib/format";
+
+const PHASE_LABELS: Record<number, string> = {
+  0: "Dormant",
+  1: "Interpretation",
+  2: "Contracts",
+  3: "Stabilization",
+  4: "Integration",
+  5: "Outpost",
+  6: "Continuity",
+};
+
+function phaseLabel(phase: number): string {
+  return PHASE_LABELS[phase] ?? `Phase ${phase}`;
+}
 
 const Page = styled.div``;
 
@@ -157,6 +172,23 @@ const Meta = styled.span`
   font-size: 12px;
 `;
 
+const StatusDetail = styled.div`
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: ${({ theme }) => theme.colors.text.secondary};
+  margin-top: ${({ theme }) => theme.spacing.xs};
+`;
+
+const StatusLabel = styled.span`
+  color: ${({ theme }) => theme.colors.text.muted};
+`;
+
+const StatusValue = styled.span`
+  color: ${({ theme }) => theme.colors.text.primary};
+  font-weight: 600;
+`;
+
 const WarningBanner = styled.div`
   display: flex;
   align-items: center;
@@ -239,6 +271,7 @@ export function Dashboard() {
   const { enabled: quickActions, toggle: toggleAction, reset: resetActions, allVariants, variantLabels, variantDescriptions } = useQuickActions();
   const { needsInit, inGameTribeId, suggestedName, isInitializing, initialize } = useInitializeTribe();
   const { networkNodes, canInstall, isConfigured, isInstalling, installCorm } = useInstallCorm();
+  const { cormState } = useCormState();
   const [customizing, setCustomizing] = useState(false);
   const [initName, setInitName] = useState("");
   const [selectedNodeId, setSelectedNodeId] = useState("");
@@ -335,6 +368,14 @@ export function Dashboard() {
           <CardLabel>Total Events</CardLabel>
           <CardValue>{stats?.total_events?.toLocaleString() ?? "—"}</CardValue>
         </ClickableCard>
+        <ClickableCard to="/locations">
+          <CardLabel>Locations</CardLabel>
+          <CardValue style={{ fontSize: 14 }}>Manage</CardValue>
+        </ClickableCard>
+      </OverviewGrid>
+
+      <SectionLabel>Continuity Engine</SectionLabel>
+      <OverviewGrid>
         <OverviewCard>
           <CardLabel>Install Corm</CardLabel>
           <NodeSelect
@@ -377,6 +418,37 @@ export function Dashboard() {
             <Meta>{installDisabledReason}</Meta>
           </PortalTooltip>
         </OverviewCard>
+        {cormState && (
+          <ClickableCard to="/continuity">
+            <CardLabel>Continuity Engine</CardLabel>
+            <CardValue style={{ fontSize: 14 }}>
+              Phase {cormState.phase} — {phaseLabel(cormState.phase)}
+            </CardValue>
+          </ClickableCard>
+        )}
+        {cormState && (
+          <OverviewCard>
+            <CardLabel>Corm Status</CardLabel>
+            <StatusDetail>
+              <StatusLabel>Phase</StatusLabel>
+              <StatusValue>{phaseLabel(cormState.phase)}</StatusValue>
+            </StatusDetail>
+            <StatusDetail>
+              <StatusLabel>Stability</StatusLabel>
+              <StatusValue>{cormState.stability} / 100</StatusValue>
+            </StatusDetail>
+            <StatusDetail>
+              <StatusLabel>Corruption</StatusLabel>
+              <StatusValue>{cormState.corruption} / 100</StatusValue>
+            </StatusDetail>
+            <StatusDetail>
+              <StatusLabel>Network Node</StatusLabel>
+              <StatusValue title={cormState.networkNodeId}>
+                {truncateAddress(cormState.networkNodeId)}
+              </StatusValue>
+            </StatusDetail>
+          </OverviewCard>
+        )}
       </OverviewGrid>
 
       <SectionHeader>

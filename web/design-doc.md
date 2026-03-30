@@ -69,7 +69,7 @@ Client-side privacy-preserving location sharing with ZK proof generation. The se
 
 ### Page Routes
 
-- `/` — Dashboard (overview cards, corm install, configurable quick actions for contract creation)
+- `/` — Dashboard (overview cards with Tribe/Events/Locations, Continuity Engine section with Install Corm/CE link/Corm Status, configurable quick actions for contract creation)
 - `/tribe/:tribeId` — Tribe detail (members, reputation leaderboard)
 - `/contracts` — Contracts list (trustless + build requests)
 - `/contracts/create` — Create new trustless contract
@@ -151,7 +151,9 @@ Per-environment defaults are defined in `config.ts` and overridden by explicit `
 - Payout and item pickup notification watcher
 - Auto-join tribe detection and one-click self_join
 - Initialize tribe banner for unclaimed in-game tribes
-- Install Corm: inline overview card (alongside Tribe and Events) for installing a corm on a player-owned Network Node (permissionless on-chain `corm_state::install`)
+- Dashboard Locations card: `ClickableCard` linking to `/locations` for quick access to tribe location management
+- Continuity Engine dashboard section: dedicated section below the overview grid containing Install Corm card, conditional Continuity Engine link card (visible when corm is installed, shows current phase), and conditional Corm Status card (phase, stability, corruption, network node from on-chain `useCormState`)
+- Install Corm: card under the Continuity Engine section for installing a corm on a player-owned Network Node (permissionless on-chain `corm_state::install`)
 - Event Explorer with type/tribe/character filtering, pagination, and "World" module category for structure lifecycle events. Clicking an event row expands an inline drawer directly below it showing on-chain proof details (tx digest, event sequence, checkpoint, timestamp, verification note, raw event data) with a module-colored left accent and slide-down animation.
 - Descriptive event display names: `StatusChangedEvent` renders as "Structure Anchored", "Structure Unanchored", etc. based on the event's `action` field, via centralized `eventDisplayName()` formatter
 - Structure browser with aggregated SSU inventory
