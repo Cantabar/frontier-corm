@@ -126,10 +126,10 @@ Sessions are keyed by a server-generated UUID, set as an HTTP cookie on first `G
 
 The entry point determines the session context:
 
-- **Browser**: `puzzle.ef-corm.com/?player=0x...` — context is `browser`
-- **SSU (in-game)**: `puzzle.ef-corm.com/ssu/:entity_id?player=0x...` — context is `ssu:<entity_id>`, extracted from the path
+- **Browser**: `continuity-engine.ef-corm.com/?player=0x...` — context is `browser`
+- **SSU (in-game)**: `continuity-engine.ef-corm.com/ssu/:entity_id?player=0x...` — context is `ssu:<entity_id>`, extracted from the path
 
-When configuring an SSU extension on-chain, the dapp URL is set to `https://puzzle.ef-corm.com/ssu/<entity_id>`. The `player_address` is appended as a query param by the game client at load time.
+When configuring an SSU extension on-chain, the dapp URL is set to `https://continuity-engine.ef-corm.com/ssu/<entity_id>`. The `player_address` is appended as a query param by the game client at load time.
 
 All subsequent routes are context-aware — Phase 0, puzzle, and contracts URLs are prefixed with the SSU path when applicable (e.g., `/ssu/:entity_id/phase0/interact`, `/ssu/:entity_id/puzzle/decrypt`). The Go router extracts `:entity_id` via path parameter and attaches it to the session.
 
@@ -174,7 +174,7 @@ The corm-brain runs **on-premise** and is not reachable from external services. 
 
 ### WebSocket Live Relay (`/corm/ws`)
 
-Corm-brain opens a single outbound WebSocket to `wss://puzzle.ef-corm.com/corm/ws`. This connection carries all traffic in both directions:
+Corm-brain opens a single outbound WebSocket to `wss://continuity-engine.ef-corm.com/corm/ws`. This connection carries all traffic in both directions:
 
 **Puzzle-service → corm-brain (player events):**
 When a player acts, the puzzle handler processes the action, responds to the client immediately, and writes the event as a JSON WebSocket message to all connected corm-brain clients. Message format: `{"type": "event", "seq": N, "session_id": "...", "player_address": "0x...", "context": "ssu:...", "event_type": "decrypt", "payload": {...}, "timestamp": "..."}`.
@@ -290,5 +290,5 @@ A build-time script (can remain in TypeScript or be rewritten in Go) extracts wo
 ## Resolved Decisions
 
 - **Session persistence**: Sessions are ephemeral and in-memory only. A browser reload creates a fresh session. Corm-brain tracks long-lived player state (solve history, difficulty progression, CORM balance) keyed by `player_address` across sessions. The puzzle service is stateless across restarts.
-- **Embedding approach**: All services share a root domain (`ef-corm.com`) with subdomains (e.g., `puzzle.ef-corm.com`, `app.ef-corm.com`). Same root domain avoids cross-origin issues with cookies and `postMessage`. No iframe sandboxing needed.
+- **Embedding approach**: All services share a root domain (`ef-corm.com`) with subdomains (e.g., `continuity-engine.ef-corm.com`, `app.ef-corm.com`). Same root domain avoids cross-origin issues with cookies and `postMessage`. No iframe sandboxing needed.
 - **On-chain state for difficulty calibration**: Corm-brain pushes CormState values (phase, stability, corruption) via `POST /corm/actions` with a `state_sync` action type. The puzzle service stores these on the session and uses them to influence puzzle generation.

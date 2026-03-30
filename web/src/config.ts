@@ -101,8 +101,8 @@ export const config = {
   /** World API base URL (for tribe name backfill) */
   worldApiUrl: import.meta.env.VITE_WORLD_API_URL ?? defaults.worldApiUrl,
 
-  /** Puzzle service URL (for Continuity Engine iframe) */
-  puzzleServiceUrl: import.meta.env.VITE_PUZZLE_SERVICE_URL ?? "http://localhost:3300",
+  /** Continuity Engine URL (Go + HTMX service iframe) */
+  continuityEngineUrl: import.meta.env.VITE_CONTINUITY_ENGINE_URL ?? "http://localhost:3300",
 
   /** Sui RPC proxy URL (same-origin CloudFront proxy). Empty = use SDK default. */
   suiRpcUrl: (import.meta.env.VITE_SUI_RPC_URL as string) ?? defaults.suiRpcUrl,

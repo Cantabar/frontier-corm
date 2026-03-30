@@ -1,9 +1,9 @@
 /**
- * Continuity Engine — iframe wrapper for the puzzle-service.
+ * Continuity Engine — iframe wrapper for the continuity-engine service.
  *
- * Embeds the Go/HTMX puzzle service as a full-height iframe, passing the
- * connected wallet's address as the `player` query param so the puzzle
- * service can identify the player.
+ * Embeds the Go/HTMX continuity-engine service as a full-height iframe,
+ * passing the connected wallet's address as the `player` query param so
+ * the service can identify the player.
  *
  * Renders a `CormStateBar` above the iframe showing canonical on-chain
  * corm state (phase, stability, corruption). A postMessage bridge
@@ -47,7 +47,7 @@ export function ContinuityEngine() {
   const { address, isLoading } = useIdentity();
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
-  // Bridge on-chain state into the puzzle-service iframe
+  // Bridge on-chain state into the continuity-engine iframe
   useCormStateBridge(iframeRef);
 
   if (isLoading) {
@@ -66,7 +66,7 @@ export function ContinuityEngine() {
     );
   }
 
-  const puzzleUrl = `${config.puzzleServiceUrl}?player=${encodeURIComponent(address)}`;
+  const puzzleUrl = `${config.continuityEngineUrl}?player=${encodeURIComponent(address)}`;
 
   return (
     <Wrapper>
@@ -84,7 +84,7 @@ export function ContinuityEngineDapp({ entityId }: { entityId?: string }) {
   const { address, isLoading } = useIdentity();
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
-  // Bridge on-chain state into the puzzle-service iframe
+  // Bridge on-chain state into the continuity-engine iframe
   useCormStateBridge(iframeRef);
 
   if (isLoading) {
@@ -104,7 +104,7 @@ export function ContinuityEngineDapp({ entityId }: { entityId?: string }) {
   }
 
   const basePath = entityId ? `/ssu/${entityId}` : "";
-  const puzzleUrl = `${config.puzzleServiceUrl}${basePath}?player=${encodeURIComponent(address)}`;
+  const puzzleUrl = `${config.continuityEngineUrl}${basePath}?player=${encodeURIComponent(address)}`;
 
   return (
     <Wrapper>

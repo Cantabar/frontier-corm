@@ -14,12 +14,15 @@ Route 53 (ef-corm.com)
     ├─ {env}.ef-corm.com ──► CloudFront ──► S3 (static frontend)
     │   (stillness = apex ef-corm.com)  └─► /sui-rpc ──► fullnode.{net}.sui.io
     │
-    └─ api.{env}.ef-corm.com ──► ALB (HTTPS :443)
-                                    │
-                                    ▼
-                              ECS Fargate Cluster
-                                ├─ Indexer Service (port 3100)
-                                └─ Continuity Engine Service (port 3300)
+    ├─ api.{env}.ef-corm.com ──► ALB (HTTPS :443)
+    │                               │
+    │                               ▼
+    │                         ECS Fargate Cluster
+    │                           ├─ Indexer Service (port 3100)
+    │                           └─ Continuity Engine Service (port 3300)
+    │
+    └─ continuity-engine.{env}.ef-corm.com ──► ALB (same, HTTPS :443)
+                                                └─ Continuity Engine Service
                                     │
                                     ▼
                               RDS Postgres 16 (private subnet)
@@ -35,8 +38,9 @@ ACM Certificate: ef-corm.com + *.ef-corm.com (DNS-validated via Route 53)
 ### Domain Strategy
 
 - **Root domain:** `ef-corm.com` (purchased in AWS Route 53)
-- **Stillness (production):** apex `ef-corm.com` + `api.ef-corm.com`
-- **Other environments:** `{env}.ef-corm.com` + `api.{env}.ef-corm.com` (e.g. `utopia.ef-corm.com`)
+- **Stillness (production):** apex `ef-corm.com` + `api.ef-corm.com` + `continuity-engine.ef-corm.com`
+- **Other environments:** `{env}.ef-corm.com` + `api.{env}.ef-corm.com` + `continuity-engine.{env}.ef-corm.com`
+- **Continuity Engine subdomain:** dedicated `continuity-engine.{env}.ef-corm.com` A record → ALB. Used by corm-brain WebSocket connections and direct browser access. Routes through the same ALB path rules as `api.{env}.ef-corm.com`.
 - **ACM certificate:** covers `ef-corm.com` + `*.ef-corm.com`, DNS-validated via Route 53
 
 ### Resource Naming
@@ -95,6 +99,7 @@ All resources are prefixed with `fc-{env}` (e.g. `fc-utopia`, `fc-stillness`). C
 - `DbEndpoint` — RDS Postgres endpoint address
 - `SiteUrl` — public frontend URL (e.g. `https://ef-corm.com` or `https://utopia.ef-corm.com`)
 - `ApiUrl` — public API URL (e.g. `https://api.ef-corm.com` or `https://api.utopia.ef-corm.com`)
+- `ContinuityEngineUrl` — continuity-engine URL (e.g. `https://continuity-engine.ef-corm.com` or `https://continuity-engine.utopia.ef-corm.com`)
 
 ## Data Model
 

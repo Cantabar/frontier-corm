@@ -40,6 +40,9 @@ export class FrontierCormStack extends cdk.Stack {
     const apiDomain = isApex
       ? `api.${rootDomain}`
       : `api.${appEnv}.${rootDomain}`;
+    const continuityDomain = isApex
+      ? `continuity-engine.${rootDomain}`
+      : `continuity-engine.${appEnv}.${rootDomain}`;
 
     // ================================================================
     // Route 53 — look up existing hosted zone
@@ -456,6 +459,14 @@ export class FrontierCormStack extends cdk.Stack {
       ),
     });
 
+    new route53.ARecord(this, "ContinuityAliasRecord", {
+      zone,
+      recordName: continuityDomain,
+      target: route53.RecordTarget.fromAlias(
+        new route53Targets.LoadBalancerTarget(alb)
+      ),
+    });
+
     // ================================================================
     // Outputs
     // ================================================================
@@ -472,6 +483,11 @@ export class FrontierCormStack extends cdk.Stack {
     new cdk.CfnOutput(this, "ApiUrl", {
       value: `https://${apiDomain}`,
       description: "API URL",
+    });
+
+    new cdk.CfnOutput(this, "ContinuityEngineUrl", {
+      value: `https://${continuityDomain}`,
+      description: "Continuity Engine URL",
     });
 
     new cdk.CfnOutput(this, "UiBucketName", {

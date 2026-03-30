@@ -89,7 +89,7 @@ AWS
 ### Network Topology
 
 All communication is initiated **outbound from the DGX Spark**:
-- `corm-brain → puzzle-service` — persistent outbound WebSocket to `wss://puzzle.ef-corm.com/corm/ws` (over 10 GbE or WiFi 7). Bidirectional: receives player events, streams token deltas and actions back. Falls back to HTTPS polling `GET /corm/events` + push `POST /corm/actions` if WebSocket is unavailable.
+- `corm-brain → puzzle-service` — persistent outbound WebSocket to `wss://continuity-engine.ef-corm.com/corm/ws` (over 10 GbE or WiFi 7). Bidirectional: receives player events, streams token deltas and actions back. Falls back to HTTPS polling `GET /corm/events` + push `POST /corm/actions` if WebSocket is unavailable.
 - `corm-brain → SUI RPC` — local SUI node or remote RPC endpoint for on-chain transactions
 - `corm-brain → localhost:8000/8001` — local TRT-LLM inference with `"stream": true` (loopback, zero network latency)
 
@@ -417,7 +417,7 @@ Both TRT-LLM instances expose OpenAI-compatible streaming APIs. The client route
 The corm-brain runs three concurrent goroutines from `main.go`:
 
 **WebSocket listener** goroutine (persistent, event-driven):
-- Maintains persistent outbound WebSocket to `wss://{PUZZLE_SERVICE_URL}/corm/ws` (via `transport/ws.go`)
+- Maintains persistent outbound WebSocket to `wss://{CONTINUITY_ENGINE_URL}/corm/ws` (via `transport/ws.go`)
 - On receiving a player event message, writes it to an internal Go channel (`eventChan`)
 - Handles reconnection with exponential backoff (1s → 2s → 4s → ... → 30s cap)
 - On disconnect, automatically switches to HTTP fallback polling until reconnected
@@ -672,7 +672,7 @@ services:
       - LLM_SUPER_URL=http://trtllm-super:8000
       - LLM_FAST_URL=http://trtllm-nano:8001
       - EMBED_MODEL_PATH=/models/nomic-embed
-      - PUZZLE_SERVICE_URL=${PUZZLE_SERVICE_URL}
+      - CONTINUITY_ENGINE_URL=${CONTINUITY_ENGINE_URL}
       - WS_RECONNECT_MAX_MS=30000
       - FALLBACK_POLL_INTERVAL_MS=2000
       - EVENT_COALESCE_MS=50
@@ -712,7 +712,7 @@ Stack: two TRT-LLM containers (Super + Nano), one Go binary (with in-process ONN
 - `LLM_SUPER_URL` — TRT-LLM server for deep reasoning (default: `http://localhost:8000`)
 - `LLM_FAST_URL` — TRT-LLM server for fast responses (default: `http://localhost:8001`)
 - `EMBED_MODEL_PATH` — path to nomic-embed-text ONNX model directory (default: `./models/nomic-embed`)
-- `PUZZLE_SERVICE_URL` — cloud puzzle-service base URL (e.g. `https://puzzle.ef-corm.com`). WebSocket connects to `wss://` equivalent at `/corm/ws`.
+- `CONTINUITY_ENGINE_URL` — cloud continuity-engine base URL (e.g. `https://continuity-engine.ef-corm.com`). WebSocket connects to `wss://` equivalent at `/corm/ws`.
 - `WS_RECONNECT_MAX_MS` — max WebSocket reconnect backoff interval (default: 30000)
 - `FALLBACK_POLL_INTERVAL_MS` — HTTP fallback polling interval when WebSocket is down (default: 2000)
 - `EVENT_COALESCE_MS` — brief coalescing window for batching rapid events per corm (default: 50)
@@ -759,6 +759,6 @@ The bottleneck for many corms would be Super inference time (3.3s per deep-reaso
 3. **Download embedding model**: `hf download nomic-ai/nomic-embed-text-v1.5-onnx --local-dir ./models/nomic-embed`
 4. **Write TRT-LLM config files**: `corm-brain/configs/trtllm-spark.yaml` + `trtllm-spark-nano.yaml`
 5. **Start services**: `docker compose -f docker-compose.dgx.yml up -d`
-6. **Configure**: Set `PUZZLE_SERVICE_URL` pointing to the cloud puzzle-service
+6. **Configure**: Set `CONTINUITY_ENGINE_URL` pointing to the cloud continuity-engine service
 7. **Monitor**: DGX Dashboard for GPU/memory, `docker compose logs -f corm-brain` for service logs
 8. **MTP speedup** (optional): Once TRT-LLM stabilizes MTP on DGX Spark, add speculative decoding config for up to 3x faster structured output generation from Super

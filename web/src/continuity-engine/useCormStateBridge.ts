@@ -1,5 +1,5 @@
 /**
- * useCormStateBridge — bridges on-chain CormState to the puzzle-service iframe.
+ * useCormStateBridge — bridges on-chain CormState to the continuity-engine iframe.
  *
  * Watches values from `useCormState` and posts `corm-state-sync` messages
  * to the iframe whenever phase, stability, or corruption change.
@@ -33,10 +33,10 @@ export function useCormStateBridge(
     const iframe = iframeRef.current;
     if (!iframe?.contentWindow) return;
 
-    // Derive the target origin from the puzzle-service URL
+    // Derive the target origin from the continuity-engine URL
     let targetOrigin: string;
     try {
-      targetOrigin = new URL(config.puzzleServiceUrl).origin;
+      targetOrigin = new URL(config.continuityEngineUrl).origin;
     } catch {
       targetOrigin = "*";
     }

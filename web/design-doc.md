@@ -117,7 +117,7 @@ All via Vite environment variables (`VITE_*`), resolved in `src/config.ts`:
 - `VITE_INDEXER_URL` — indexer API base URL (default: `/api/v1`)
 - `VITE_WEB_UI_HOST` — public web UI host (for SSU dApp URLs)
 - `VITE_WORLD_API_URL` — Eve Frontier world API (tribe name backfill)
-- `VITE_PUZZLE_SERVICE_URL` — puzzle service URL (Continuity Engine iframe)
+- `VITE_CONTINUITY_ENGINE_URL` — continuity-engine service URL (Continuity Engine iframe)
 - `VITE_SUI_RPC_URL` — Sui RPC proxy URL override (default: `/sui-rpc` for deployed envs, SDK default for local)
 - `VITE_CORM_STATE_ID` — CormState shared object ID
 - `VITE_CORM_CONFIG_ID` — CormConfig shared object ID (for permissionless corm installation)

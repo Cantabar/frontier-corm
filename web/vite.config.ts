@@ -15,7 +15,7 @@ export default defineConfig({
         changeOrigin: true,
       },
       "/puzzle": {
-        target: process.env.PUZZLE_SERVICE_URL ?? "http://localhost:3300",
+        target: process.env.CONTINUITY_ENGINE_URL ?? "http://localhost:3300",
         changeOrigin: true,
       },
     },
