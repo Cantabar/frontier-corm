@@ -130,6 +130,24 @@ continuity-engine/
 - **Production (utopia/stillness):** Dockerfile for containerized deployment on AWS ECS/Fargate; `entrypoint.sh` assembles `DATABASE_URL` from `DB_HOST`/`DB_PORT`/`DB_NAME`/`DB_USERNAME`/`DB_PASSWORD` injected by ECS from AWS Secrets Manager (`{prefix}/db-credentials`)
 - Requires: running Postgres, Sui RPC access, funded Sui keypair
 
+### Docker Image Data Files
+
+The item registry (`internal/chain/registry.go`) reads three files from disk at runtime. The Dockerfile's build context is the repo root (set in `docker-compose.yml`) so these files can be copied into the final image.
+
+The final Alpine image layout:
+
+```
+/usr/local/bin/continuity-engine          # Go binary
+/app/                                      # WORKDIR
+  static-data/data/phobos/fsd_built/
+    types.json                             # item type definitions (~19 MB)
+    groups.json                            # item group names
+  continuity-engine/data/
+    item-values.json                       # LUX valuations (~62 KB)
+```
+
+Only `types.json` and `groups.json` are copied from `fsd_built/` — the rest of that directory (~150 MB+) is not needed at runtime. The `WORKDIR /app` ensures the default relative config paths (`ITEM_REGISTRY_PATH`, `ITEM_VALUES_PATH`) resolve correctly without env var overrides.
+
 ## Features
 
 - Three-phase game progression: awakening (Phase 0), contract discovery puzzles (Phase 1), trustless contract execution (Phase 2)

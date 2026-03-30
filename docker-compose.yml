@@ -57,8 +57,8 @@ services:
   # ── Continuity Engine (Go + HTMX on port 3300) ─────────────────
   continuity-engine:
     build:
-      context: ./continuity-engine
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: continuity-engine/Dockerfile
     ports:
       - "3300:3300"
     env_file: .env
