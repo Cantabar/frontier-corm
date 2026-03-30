@@ -191,6 +191,54 @@ func NewSession(playerAddress, sessionContext string) *Session {
 	return s
 }
 
+// Phase2Snapshot holds a consistent snapshot of session state for Phase 2
+// template rendering.  All fields are read under a single mutex acquisition
+// to prevent races with the SSE goroutine's ActionStateSync.
+type Phase2Snapshot struct {
+	Phase             Phase
+	Stability         int
+	Corruption        int
+	ActiveContracts   []AIContract
+	CompletedPatterns int
+	NetworkNodeID     string
+}
+
+// SnapshotPhase2 returns a consistent point-in-time read of all fields
+// needed by the Phase 2 template.
+func (s *Session) SnapshotPhase2() Phase2Snapshot {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	var active []AIContract
+	for _, c := range s.AIContracts {
+		if c.Status == "active" {
+			active = append(active, c)
+		}
+	}
+
+	return Phase2Snapshot{
+		Phase:             s.Phase,
+		Stability:         s.Stability,
+		Corruption:        s.Corruption,
+		ActiveContracts:   active,
+		CompletedPatterns: s.CompletedPatterns,
+		NetworkNodeID:     s.NetworkNodeID,
+	}
+}
+
+// SetStateSync atomically updates Phase, Stability, and Corruption from a
+// state_sync action.  Returns the previous Phase so the caller can detect
+// transitions.
+func (s *Session) SetStateSync(phase Phase, stability, corruption int) Phase {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	prev := s.Phase
+	s.Phase = phase
+	s.Stability = stability
+	s.Corruption = corruption
+	return prev
+}
+
 // SetNetworkNodeID binds a network node to this session.
 func (s *Session) SetNetworkNodeID(nodeID string) {
 	s.mu.Lock()

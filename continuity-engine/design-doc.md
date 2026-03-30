@@ -59,6 +59,14 @@ All communication is in-process via Go channels. No WebSocket, no HTTP relay.
 1. **HTTP Server** — standard `http.ListenAndServe` serving all game routes and SSE.
 2. **Event Processor** — reads from the dispatcher's event channel, debounces events into per-session batches, dispatches to the reasoning handler.
 
+### Concurrency Safety
+
+Session fields are accessed by multiple goroutines (HTTP handlers, SSE stream goroutine, event processor). Two patterns keep this safe:
+
+- **Buffered template rendering** — `renderTemplate` and `renderPartial` render into a `bytes.Buffer` before writing to the `ResponseWriter`. If template execution fails, the client receives a clean 500 instead of partial HTML. Errors are logged with the template name.
+- **Session snapshots** — Page handlers that read multiple session fields use snapshot methods (e.g. `SnapshotPhase2()`) that acquire the session mutex once and return a value struct. This prevents TOCTOU races where the SSE handler's `ActionStateSync` could mutate `Phase` between a redirect check and data construction.
+- **`SetStateSync`** — The SSE handler's `ActionStateSync` uses `sess.SetStateSync()` to atomically update `Phase`, `Stability`, and `Corruption` under the session mutex.
+
 ## Tech Stack
 
 - **Language:** Go

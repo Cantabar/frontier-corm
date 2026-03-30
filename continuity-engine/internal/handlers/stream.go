@@ -162,10 +162,7 @@ func writeSSEAction(w http.ResponseWriter, flusher http.Flusher, action types.Co
 	case types.ActionStateSync:
 		var p types.StateSyncPayload
 		json.Unmarshal(action.Payload, &p)
-		prevPhase := sess.Phase
-		sess.Phase = puzzle.Phase(p.Phase)
-		sess.Stability = p.Stability
-		sess.Corruption = p.Corruption
+		prevPhase := sess.SetStateSync(puzzle.Phase(p.Phase), p.Stability, p.Corruption)
 
 		// Resolve network node binding from corm-brain's persistent state.
 		if p.NetworkNodeID != "" && sess.GetNetworkNodeID() == "" {

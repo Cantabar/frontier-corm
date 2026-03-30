@@ -47,9 +47,13 @@ func (h *Handlers) Phase2Page(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// If not in Phase 2 yet, redirect to the appropriate phase
-	if sess.Phase < puzzle.PhaseContracts {
-		if sess.Phase == puzzle.PhaseAwakening {
+	// Atomically snapshot session state to avoid races with the SSE
+	// goroutine's ActionStateSync, which can mutate Phase concurrently.
+	snap := sess.SnapshotPhase2()
+
+	// If not in Phase 2 yet, redirect to the appropriate phase.
+	if snap.Phase < puzzle.PhaseContracts {
+		if snap.Phase == puzzle.PhaseAwakening {
 			http.Redirect(w, r, "/phase0", http.StatusFound)
 		} else {
 			http.Redirect(w, r, "/puzzle", http.StatusFound)
@@ -57,33 +61,31 @@ func (h *Handlers) Phase2Page(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	active := sess.ActiveAIContracts()
 	data := Phase2Data{
-		Phase:             int(sess.Phase),
+		Phase:             int(snap.Phase),
 		SessionID:         sess.ID,
-		Stability:         sess.Stability,
-		Corruption:        sess.Corruption,
-		Contracts:         active,
-		ActiveCount:       len(active),
-		CompletedPatterns: sess.CompletedPatterns,
-		MetersHidden:      sess.Stability == 0 && sess.Corruption == 0,
-		NetworkNodeID:     sess.GetNetworkNodeID(),
+		Stability:         snap.Stability,
+		Corruption:        snap.Corruption,
+		Contracts:         snap.ActiveContracts,
+		ActiveCount:       len(snap.ActiveContracts),
+		CompletedPatterns: snap.CompletedPatterns,
+		MetersHidden:      snap.Stability == 0 && snap.Corruption == 0,
+		NetworkNodeID:     snap.NetworkNodeID,
 	}
 
 	if r.URL.Query().Get("transition") == "1" {
 		data.ShowEntrance = true
 	}
 
-	// HTMX partial request — return just the content
+	// HTMX partial request — return just the content (buffered).
 	if r.Header.Get("HX-Request") != "" {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		h.templates.ExecuteTemplate(w, "phase2-content.html", data)
+		h.renderPartial(w, "phase2-content.html", data)
 	} else {
 		h.renderTemplate(w, "layout.html", data)
 	}
 
-	// Emit phase2_load so corm-brain sends back a state_sync with the
-	// network node (resolves the binding for returning players).
+	// Emit phase2_load so the reasoning engine sends back a state_sync
+	// with the network node (resolves the binding for returning players).
 	evt := buildEvent(sess, "phase2_load", nil)
 	sess.EventBuffer.Push(evt)
 	go h.dispatcher.EmitEvent(evt)

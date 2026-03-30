@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"bytes"
 	"embed"
 	"html/template"
+	"log"
 	"net/http"
 	"sync"
 	"time"
@@ -35,12 +37,31 @@ func (h *Handlers) SessionStore() *puzzle.SessionStore {
 	return h.sessions
 }
 
-// renderTemplate executes a named template and writes to the response.
+// renderTemplate executes a named template into a buffer and writes the
+// complete output to the response only on success.  This prevents partial
+// HTML from being flushed when template execution fails.
 func (h *Handlers) renderTemplate(w http.ResponseWriter, name string, data any) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := h.templates.ExecuteTemplate(w, name, data); err != nil {
-		http.Error(w, "template error", http.StatusInternalServerError)
+	var buf bytes.Buffer
+	if err := h.templates.ExecuteTemplate(&buf, name, data); err != nil {
+		log.Printf("renderTemplate %s: %v", name, err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
 	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	buf.WriteTo(w)
+}
+
+// renderPartial renders an HTMX partial (no layout wrapper) into a buffer.
+// On error it returns a 500 instead of sending partial HTML.
+func (h *Handlers) renderPartial(w http.ResponseWriter, name string, data any) {
+	var buf bytes.Buffer
+	if err := h.templates.ExecuteTemplate(&buf, name, data); err != nil {
+		log.Printf("renderPartial %s: %v", name, err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	buf.WriteTo(w)
 }
 
 // getSession extracts the session from the request context.
