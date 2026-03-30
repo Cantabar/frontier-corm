@@ -67,6 +67,8 @@ services:
       - DATABASE_URL=postgresql://corm:corm@postgres:5432/frontier_corm
       - EVENT_COALESCE_MS=300
       - SEED_CHAIN_DATA=true
+      - ITEM_REGISTRY_PATH=/data/registry
+      - ITEM_VALUES_PATH=/data/item-values.json
     depends_on:
       postgres:
         condition: service_healthy

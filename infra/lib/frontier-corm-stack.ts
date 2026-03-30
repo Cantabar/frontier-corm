@@ -313,8 +313,9 @@ export class FrontierCormStack extends cdk.Stack {
         DB_HOST: db.dbInstanceEndpointAddress,
         DB_PORT: db.dbInstanceEndpointPort,
         DB_NAME: "frontier_corm",
-        CORM_STATE_PACKAGE_ID: cormStatePackageId,
-        SEED_CHAIN_DATA: cormStatePackageId ? "false" : "true",
+        SEED_CHAIN_DATA: "true",
+        ITEM_REGISTRY_PATH: "/data/registry",
+        ITEM_VALUES_PATH: "/data/item-values.json",
       },
       secrets: {
         SUI_RPC_URL: ecs.Secret.fromSecretsManager(suiSecret, "SUI_RPC_URL"),

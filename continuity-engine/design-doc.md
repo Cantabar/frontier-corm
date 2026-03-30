@@ -133,21 +133,20 @@ continuity-engine/
 
 ### Docker Image Data Files
 
-The item registry (`internal/chain/registry.go`) reads three files from disk at runtime. The Dockerfile's build context is the repo root (set in `docker-compose.yml`) so these files can be copied into the final image.
+The item registry (`internal/chain/registry.go`) reads three files from disk at runtime. The Dockerfile's build context is the repo root (`docker build -f continuity-engine/Dockerfile .`) so these files can be copied into the final image.
 
 The final Alpine image layout:
 
 ```
-/usr/local/bin/continuity-engine          # Go binary
-/app/                                      # WORKDIR
-  static-data/data/phobos/fsd_built/
-    types.json                             # item type definitions (~19 MB)
-    groups.json                            # item group names
-  continuity-engine/data/
-    item-values.json                       # LUX valuations (~62 KB)
+/usr/local/bin/continuity-engine   # Go binary
+/data/
+  registry/
+    types.json                     # item type definitions
+    groups.json                    # item group names
+  item-values.json                 # LUX valuations
 ```
 
-Only `types.json` and `groups.json` are copied from `fsd_built/` — the rest of that directory (~150 MB+) is not needed at runtime. The `WORKDIR /app` ensures the default relative config paths (`ITEM_REGISTRY_PATH`, `ITEM_VALUES_PATH`) resolve correctly without env var overrides.
+Only `types.json` and `groups.json` are copied from `fsd_built/` — the rest of that directory (~150 MB+) is not needed at runtime. Both the ECS task definition and `docker-compose.yml` set `ITEM_REGISTRY_PATH=/data/registry` and `ITEM_VALUES_PATH=/data/item-values.json` to match. The config.go defaults (`./static-data/...`) remain unchanged for bare-metal local dev (running from the repo root without Docker).
 
 ## Features
 

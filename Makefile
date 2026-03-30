@@ -86,7 +86,7 @@ deploy-images: ## Build and push Docker images to ECR
 	docker build -t $(INDEXER_ECR):latest ./indexer
 	docker push $(INDEXER_ECR):latest
 	@echo "Building and pushing continuity-engine..."
-	docker build -t $(CONTINUITY_ECR):latest ./continuity-engine
+	docker build -f continuity-engine/Dockerfile -t $(CONTINUITY_ECR):latest .
 	docker push $(CONTINUITY_ECR):latest
 	@echo "Forcing ECS redeployment..."
 	aws ecs update-service --cluster fc-$(ENV)-cluster --service $(STACK_NAME)-IndexerServiceE6A6AFC3-* \
