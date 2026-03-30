@@ -376,7 +376,7 @@ export function Dashboard() {
 
       <SectionLabel>Continuity Engine</SectionLabel>
       <OverviewGrid>
-        <OverviewCard>
+        <OverviewCard style={{ maxWidth: 320 }}>
           <CardLabel>Install Corm</CardLabel>
           <NodeSelect
             value={selectedNodeId}

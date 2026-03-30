@@ -153,7 +153,7 @@ Per-environment defaults are defined in `config.ts` and overridden by explicit `
 - Initialize tribe banner for unclaimed in-game tribes
 - Dashboard Locations card: `ClickableCard` linking to `/locations` for quick access to tribe location management
 - Continuity Engine dashboard section: dedicated section below the overview grid containing Install Corm card, conditional Continuity Engine link card (visible when corm is installed, shows current phase), and conditional Corm Status card (phase, stability, corruption, network node from on-chain `useCormState`)
-- Install Corm: card under the Continuity Engine section for installing a corm on a player-owned Network Node (permissionless on-chain `corm_state::install`)
+- Install Corm: card under the Continuity Engine section for installing a corm on a player-owned Network Node (permissionless on-chain `corm_state::install`). Capped at 320px max-width to prevent the card from stretching across the full grid when it is the only item in the Continuity Engine section.
 - Event Explorer with type/tribe/character filtering, pagination, and "World" module category for structure lifecycle events. Clicking an event row expands an inline drawer directly below it showing on-chain proof details (tx digest, event sequence, checkpoint, timestamp, verification note, raw event data) with a module-colored left accent and slide-down animation.
 - Descriptive event display names: `StatusChangedEvent` renders as "Structure Anchored", "Structure Unanchored", etc. based on the event's `action` field, via centralized `eventDisplayName()` formatter
 - Structure browser with aggregated SSU inventory
