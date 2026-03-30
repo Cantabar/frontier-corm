@@ -7,7 +7,7 @@
  *   - training-data/keep/raw/*.md                    (lore markdown files)
  *
  * Outputs a deduplicated JSON array to:
- *   puzzle-service/internal/words/words.json
+ *   continuity-engine/internal/words/words.json
  */
 
 import { readFileSync, writeFileSync, readdirSync } from "fs";
@@ -16,7 +16,7 @@ import { join, resolve } from "path";
 const ROOT = resolve(import.meta.dirname, "..");
 const TYPES_PATH = join(ROOT, "static-data/data/phobos/fsd_built/types.json");
 const LORE_DIR = join(ROOT, "training-data/keep/raw");
-const OUTPUT = join(ROOT, "puzzle-service/internal/words/words.json");
+const OUTPUT = join(ROOT, "continuity-engine/internal/words/words.json");
 
 // Minimum word length for archive inclusion
 const MIN_LENGTH = 4;
