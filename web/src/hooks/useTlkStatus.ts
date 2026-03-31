@@ -39,6 +39,8 @@ export interface UseTlkStatusReturn {
   setUnwrappedTlk: (tlk: Uint8Array, version: number) => void;
   /** The base64-encoded wrapped key from the server (for client-side unwrap). */
   wrappedKey: string | null;
+  /** Clear all cached TLK state after a reset (marks as uninitialized). */
+  resetStatus: () => void;
 }
 
 // ============================================================
@@ -118,6 +120,16 @@ export function useTlkStatus(): UseTlkStatusReturn {
     forceUpdate((n) => n + 1);
   }, []);
 
+  const resetStatus = useCallback(() => {
+    tlkBytesRef.current = null;
+    setIsInitialized(false);
+    setHasWrappedKey(false);
+    setTlkVersion(null);
+    setWrappedKey(null);
+    setError(null);
+    forceUpdate((n) => n + 1);
+  }, []);
+
   return {
     tlkBytes: tlkBytesRef.current,
     tlkVersion,
@@ -129,5 +141,6 @@ export function useTlkStatus(): UseTlkStatusReturn {
     initialize,
     setUnwrappedTlk,
     wrappedKey,
+    resetStatus,
   };
 }

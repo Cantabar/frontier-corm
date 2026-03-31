@@ -95,6 +95,8 @@ export interface UseLocationPodsReturn {
   fetchWrappedTlk: (tribeId: string) => Promise<{ wrappedKey: string; tlkVersion: number } | null>;
   /** Get a fresh auth header (signs a challenge with the wallet) */
   getAuthHeader: () => Promise<string>;
+  /** Clear all cached pods (used after TLK reset). */
+  clearPods: () => void;
 }
 
 // ============================================================
@@ -408,6 +410,11 @@ export function useLocationPods(): UseLocationPodsReturn {
     [getAuthHeader],
   );
 
+  const clearPods = useCallback(() => {
+    setPods([]);
+    setError(null);
+  }, []);
+
   const fetchWrappedTlk = useCallback(
     async (tribeId: string): Promise<{ wrappedKey: string; tlkVersion: number } | null> => {
       try {
@@ -434,5 +441,6 @@ export function useLocationPods(): UseLocationPodsReturn {
     initializeSoloPlk,
     fetchWrappedTlk,
     getAuthHeader,
+    clearPods,
   };
 }

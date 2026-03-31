@@ -321,6 +321,16 @@ export function rotateTlk(authHeader: string, body: {
   );
 }
 
+export function resetTlk(authHeader: string, body: { tribeId: string }) {
+  return authedPost<{
+    tribe_id: string;
+    deleted_pods: number;
+    deleted_keys: number;
+    deleted_proofs: number;
+    deleted_tags: number;
+  }>("/locations/keys/reset", authHeader, body);
+}
+
 export function wrapTlkForMember(authHeader: string, body: {
   tribeId: string;
   newMemberAddress: string;

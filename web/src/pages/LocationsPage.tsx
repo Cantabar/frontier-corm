@@ -25,7 +25,7 @@ import { CopyableId } from "../components/shared/CopyableId";
 import { solarSystemName } from "../lib/solarSystems";
 import { truncateAddress, timeAgo } from "../lib/format";
 import { ASSEMBLY_TYPES } from "../lib/types";
-import { registerPublicKey, buildSoloTribeId } from "../lib/api";
+import { registerPublicKey, buildSoloTribeId, resetTlk } from "../lib/api";
 import {
   bytesToBase64,
   getOrCreateX25519Keypair,
@@ -214,6 +214,45 @@ const PendingAddress = styled.span`
   color: ${({ theme }) => theme.colors.text.muted};
 `;
 
+const ResetConfirmOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+`;
+
+const ResetConfirmBox = styled.div`
+  background: ${({ theme }) => theme.colors.surface.raised};
+  border: 1px solid ${({ theme }) => theme.colors.surface.border};
+  border-radius: ${({ theme }) => theme.radii.md};
+  padding: ${({ theme }) => theme.spacing.xl};
+  max-width: 420px;
+  width: 90%;
+`;
+
+const ResetConfirmTitle = styled.h3`
+  font-size: 16px;
+  font-weight: 700;
+  color: ${({ theme }) => theme.colors.danger};
+  margin-bottom: ${({ theme }) => theme.spacing.sm};
+`;
+
+const ResetConfirmText = styled.p`
+  font-size: 13px;
+  color: ${({ theme }) => theme.colors.text.secondary};
+  margin-bottom: ${({ theme }) => theme.spacing.lg};
+  line-height: 1.5;
+`;
+
+const ResetConfirmActions = styled.div`
+  display: flex;
+  gap: ${({ theme }) => theme.spacing.sm};
+  justify-content: flex-end;
+`;
+
 // ============================================================
 // Component
 // ============================================================
@@ -232,7 +271,7 @@ export function LocationsPage() {
   const isSoloMode = !rawTribeId && !!address;
   const tribeId = rawTribeId ?? (address ? buildSoloTribeId(address) : null);
 
-  const { pods, isLoading: podsLoading, error: podsError, fetchPods, deletePod, refreshNetworkNodePod, initializeSoloPlk, getAuthHeader } =
+  const { pods, isLoading: podsLoading, error: podsError, fetchPods, deletePod, refreshNetworkNodePod, initializeSoloPlk, getAuthHeader, clearPods } =
     useLocationPods();
   const tlk = useTlkStatus();
   const distribution = useTlkDistribution(tribeId, tlk.tlkBytes);
@@ -245,6 +284,9 @@ export function LocationsPage() {
   const [refreshingNodeId, setRefreshingNodeId] = useState<string | null>(null);
   const [unlockLoading, setUnlockLoading] = useState(false);
   const [unlockError, setUnlockError] = useState<string | null>(null);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
 
   // Fetch TLK status when tribe is known
   useEffect(() => {
@@ -340,6 +382,25 @@ export function LocationsPage() {
       handleRefresh();
     } finally {
       setRefreshingNodeId(null);
+    }
+  }
+
+  async function handleResetTlk() {
+    if (!tribeId) return;
+    setResetLoading(true);
+    setResetError(null);
+    try {
+      const authHeader = await getAuthHeader();
+      await resetTlk(authHeader, { tribeId });
+      // Clear local state
+      tlk.resetStatus();
+      clearPods();
+      setShowResetConfirm(false);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to reset TLK";
+      setResetError(msg);
+    } finally {
+      setResetLoading(false);
     }
   }
 
@@ -461,6 +522,14 @@ export function LocationsPage() {
           >
             Register Network Node
           </PrimaryButton>
+          {(isOfficer || isSoloMode) && tlk.isInitialized && (
+            <DangerButton
+              onClick={() => setShowResetConfirm(true)}
+              disabled={resetLoading}
+            >
+              {resetLoading ? "Resetting…" : isSoloMode ? "Reset PLK" : "Reset TLK"}
+            </DangerButton>
+          )}
         </ActionBar>
       </Header>
 
@@ -478,6 +547,40 @@ export function LocationsPage() {
         unlockLoading={unlockLoading}
       />
       {unlockError && <ErrorText>{unlockError}</ErrorText>}
+      {resetError && <ErrorText>{resetError}</ErrorText>}
+
+      {/* Reset TLK confirmation dialog */}
+      {showResetConfirm && (
+        <ResetConfirmOverlay onClick={() => !resetLoading && setShowResetConfirm(false)}>
+          <ResetConfirmBox onClick={(e) => e.stopPropagation()}>
+            <ResetConfirmTitle>
+              {isSoloMode ? "Reset Personal Location Key" : "Reset Tribe Location Key"}
+            </ResetConfirmTitle>
+            <ResetConfirmText>
+              This will <strong>permanently delete</strong> all location data
+              {isSoloMode ? " in your solo namespace" : " for the entire tribe"}: encrypted
+              location PODs, wrapped keys, member public keys, ZK proofs, and derived
+              location tags. This action cannot be undone.
+              {!isSoloMode && " All tribe members will need to re-initialize and re-register their locations."}
+            </ResetConfirmText>
+            {resetError && <ErrorText>{resetError}</ErrorText>}
+            <ResetConfirmActions>
+              <SecondaryButton
+                onClick={() => setShowResetConfirm(false)}
+                disabled={resetLoading}
+              >
+                Cancel
+              </SecondaryButton>
+              <DangerButton
+                onClick={handleResetTlk}
+                disabled={resetLoading}
+              >
+                {resetLoading ? "Resetting…" : "Confirm Reset"}
+              </DangerButton>
+            </ResetConfirmActions>
+          </ResetConfirmBox>
+        </ResetConfirmOverlay>
+      )}
 
       {/* Summary cards */}
       {tlk.tlkBytes && (

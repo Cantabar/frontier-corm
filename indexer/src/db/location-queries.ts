@@ -581,3 +581,92 @@ export async function upsertDerivedFilterProof(
   ]);
   return result.rows[0]?.id ?? 0;
 }
+
+// ============================================================
+// TLK Reset — bulk-delete all location data for a tribe
+// ============================================================
+
+export interface TlkResetResult {
+  deletedPods: number;
+  deletedKeys: number;
+  deletedMemberKeys: number;
+  deletedProofs: number;
+  deletedTags: number;
+}
+
+/**
+ * Delete ALL location data for a tribe in a single transaction:
+ * PODs, TLKs, member public keys, filter proofs, and orphaned location tags.
+ */
+export async function resetTribeLocationData(
+  pool: pg.Pool,
+  tribeId: string,
+): Promise<TlkResetResult> {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    // 1. Collect structure IDs before deleting PODs (needed for tag cleanup)
+    const structureRes = await client.query(
+      "SELECT DISTINCT structure_id FROM location_pods WHERE tribe_id = $1",
+      [tribeId],
+    );
+    const structureIds: string[] = structureRes.rows.map((r) => r.structure_id);
+
+    // 2. Delete PODs
+    const pods = await client.query(
+      "DELETE FROM location_pods WHERE tribe_id = $1",
+      [tribeId],
+    );
+
+    // 3. Delete TLKs (wrapped keys)
+    const keys = await client.query(
+      "DELETE FROM tribe_location_keys WHERE tribe_id = $1",
+      [tribeId],
+    );
+
+    // 4. Delete member public keys
+    const memberKeys = await client.query(
+      "DELETE FROM member_public_keys WHERE tribe_id = $1",
+      [tribeId],
+    );
+
+    // 5. Delete filter proofs
+    const proofs = await client.query(
+      "DELETE FROM location_filter_proofs WHERE tribe_id = $1",
+      [tribeId],
+    );
+
+    // 6. Clean up orphaned location tags — only for structures that no
+    //    longer have PODs in *any* tribe after the deletion above.
+    let deletedTags = 0;
+    if (structureIds.length > 0) {
+      const placeholders = structureIds.map((_, i) => `$${i + 1}`).join(", ");
+      const tagRes = await client.query(
+        `DELETE FROM structure_location_tags
+         WHERE structure_id IN (${placeholders})
+           AND NOT EXISTS (
+             SELECT 1 FROM location_pods lp
+             WHERE lp.structure_id = structure_location_tags.structure_id
+           )`,
+        structureIds,
+      );
+      deletedTags = tagRes.rowCount ?? 0;
+    }
+
+    await client.query("COMMIT");
+
+    return {
+      deletedPods: pods.rowCount ?? 0,
+      deletedKeys: keys.rowCount ?? 0,
+      deletedMemberKeys: memberKeys.rowCount ?? 0,
+      deletedProofs: proofs.rowCount ?? 0,
+      deletedTags,
+    };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}

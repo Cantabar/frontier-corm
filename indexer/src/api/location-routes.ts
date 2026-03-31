@@ -32,6 +32,7 @@ import {
   deleteStaleDerivedPods,
   getFilterProofsForStructure,
   getLocationTagsByStructure,
+  resetTribeLocationData,
 } from "../db/location-queries.js";
 import { getConnectedAssemblies } from "../location/sui-rpc.js";
 
@@ -509,6 +510,56 @@ export function createLocationRouter(pool: pg.Pool): Router {
     } catch (err) {
       log.error({ err }, "Failed to rotate TLK");
       res.status(500).json({ error: "Failed to rotate TLK" });
+    }
+  });
+
+  // ================================================================
+  // POST /keys/reset — Reset TLK and delete all tribe location data
+  //
+  // Body: { tribeId }
+  //
+  // Deletes all PODs, TLKs, member public keys, filter proofs, and
+  // orphaned location tags for the tribe. Irreversible.
+  // ================================================================
+  router.post("/keys/reset", async (req: Request, res: Response) => {
+    const address = await auth(req, res);
+    if (!address) return;
+
+    const { tribeId } = req.body as { tribeId: string };
+
+    if (!tribeId) {
+      res.status(400).json({ error: "tribeId required" });
+      return;
+    }
+
+    // Solo namespace: only the owner can reset
+    if (!enforceSoloOwnership(tribeId, address, res)) return;
+
+    try {
+      // Verify caller is a location-sharing member
+      const callerTlk = await getTlkForMember(pool, tribeId, address);
+      if (!callerTlk) {
+        res.status(403).json({ error: "Caller is not a location-sharing member of this tribe" });
+        return;
+      }
+
+      const result = await resetTribeLocationData(pool, tribeId);
+
+      log.info(
+        { tribeId, ...result },
+        "TLK reset — all tribe location data deleted",
+      );
+
+      res.json({
+        tribe_id: tribeId,
+        deleted_pods: result.deletedPods,
+        deleted_keys: result.deletedKeys + result.deletedMemberKeys,
+        deleted_proofs: result.deletedProofs,
+        deleted_tags: result.deletedTags,
+      });
+    } catch (err) {
+      log.error({ err }, "Failed to reset TLK");
+      res.status(500).json({ error: "Failed to reset tribe location data" });
     }
   });
 
