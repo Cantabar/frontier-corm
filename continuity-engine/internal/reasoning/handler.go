@@ -243,7 +243,9 @@ func (h *Handler) syncChainState(ctx context.Context, environment, cormID string
 		return
 	}
 	if chainStateID == "" {
-		slog.Warn(fmt.Sprintf("syncChainState: no chain_state_id for corm %s — on-chain state will not be updated", cormID))
+		// Expected for browser sessions without a bound network node (Phase 0/1).
+		// On-chain state is created when a node is bound via ?node= or Phase2BindNode.
+		slog.Debug(fmt.Sprintf("syncChainState: no chain_state_id for corm %s — on-chain state will not be updated", cormID))
 		return
 	}
 

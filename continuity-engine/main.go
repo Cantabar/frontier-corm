@@ -284,12 +284,14 @@ func processBatch(
 				// Backfill: node is linked but chain_state_id may be NULL
 				// (e.g. CreateCormState failed on the original attempt).
 				existingChainID, _ := database.ResolveChainStateIDForNode(ctx, env, evt.NetworkNodeID)
-				if existingChainID == "" {
+				if existingChainID == "" && !backfillRecentlyFailed(evt.NetworkNodeID) {
 					chainClient := chainClients[env]
 					chainStateID, err := chainClient.CreateCormState(ctx, evt.NetworkNodeID)
 					if err != nil {
-						slog.Info(fmt.Sprintf("[%s] backfill create corm state for node %s: %v", env, evt.NetworkNodeID, err))
+						recordBackfillFailure(evt.NetworkNodeID)
+						slog.Info(fmt.Sprintf("[%s] backfill create corm state for node %s: %v (suppressing retries for %s)", env, evt.NetworkNodeID, err, backfillCooldown))
 					} else if chainStateID != "" {
+						clearBackfillFailure(evt.NetworkNodeID)
 						if err := database.SetChainStateID(ctx, env, evt.NetworkNodeID, chainStateID); err != nil {
 							slog.Info(fmt.Sprintf("[%s] backfill set chain state ID: %v", env, err))
 						} else {
@@ -305,6 +307,36 @@ func processBatch(
 	if err := handler.ProcessEventBatch(ctx, env, cormID, events); err != nil {
 		slog.Info(fmt.Sprintf("[%s] process batch (%d events): %v", env, len(events), err))
 	}
+}
+
+// --- Backfill cooldown tracking ---
+// Prevents repeated CreateCormState retries for nodes where the call fails
+// persistently (e.g. empty signer wallet, missing config).
+
+const backfillCooldown = 60 * time.Second
+
+var (
+	backfillMu       sync.Mutex
+	backfillFailures = make(map[string]time.Time) // networkNodeID → last failure time
+)
+
+func backfillRecentlyFailed(nodeID string) bool {
+	backfillMu.Lock()
+	defer backfillMu.Unlock()
+	t, ok := backfillFailures[nodeID]
+	return ok && time.Since(t) < backfillCooldown
+}
+
+func recordBackfillFailure(nodeID string) {
+	backfillMu.Lock()
+	backfillFailures[nodeID] = time.Now()
+	backfillMu.Unlock()
+}
+
+func clearBackfillFailure(nodeID string) {
+	backfillMu.Lock()
+	delete(backfillFailures, nodeID)
+	backfillMu.Unlock()
 }
 
 // buildSessionSyncFn returns a SessionSyncFn that resolves an existing corm
