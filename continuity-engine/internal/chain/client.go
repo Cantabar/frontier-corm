@@ -5,8 +5,11 @@
 package chain
 
 import (
-	"log/slog"
+	"context"
+	"encoding/json"
 	"fmt"
+	"log/slog"
+	"sync"
 
 	"github.com/pattonkan/sui-go/sui"
 	"github.com/pattonkan/sui-go/suiclient"
@@ -51,12 +54,18 @@ type Client struct {
 	coinAuthorityObjID      *sui.ObjectId
 	cormCharacterID         *sui.ObjectId
 	witnessRegistryObjID    *sui.ObjectId
+
+	// MintCap cache: cormStateID (hex) → ObjectRef. Stable 1:1 relationship;
+	// entries are evicted on transaction error (stale object version).
+	mintCapMu    sync.RWMutex
+	mintCapCache map[string]*sui.ObjectRef
 }
 
 // NewClient creates a SUI chain client.
 func NewClient(cfg ClientConfig, privateKey string) *Client {
 	c := &Client{
-		rpc: suiclient.NewClient(cfg.RpcURL),
+		rpc:          suiclient.NewClient(cfg.RpcURL),
+		mintCapCache: make(map[string]*sui.ObjectRef),
 	}
 
 	// Parse package IDs (optional — may be empty during early dev)
@@ -150,6 +159,58 @@ func (c *Client) CORMCoinType() string {
 		return ""
 	}
 	return fmt.Sprintf("%s::corm_coin::CORM_COIN", c.cormStatePkg.String())
+}
+
+// VerifyBrainAddress reads the on-chain CormConfig shared object and compares
+// its brain_address field to the signer's address. Logs a WARNING if they
+// differ, since MintCaps from install() are transferred to brain_address —
+// a mismatch means findMintCap will never find them.
+//
+// Safe to call at startup; returns nil if config is not available (early dev).
+func (c *Client) VerifyBrainAddress(ctx context.Context) error {
+	if c.cormConfigObjID == nil || c.signer == nil {
+		return nil // not configured — nothing to verify
+	}
+
+	resp, err := c.rpc.GetObject(ctx, &suiclient.GetObjectRequest{
+		ObjectId: c.cormConfigObjID,
+		Options:  &suiclient.SuiObjectDataOptions{ShowContent: true},
+	})
+	if err != nil {
+		return fmt.Errorf("read CormConfig %s: %w", c.cormConfigObjID, err)
+	}
+	if resp.Data == nil || resp.Data.Content == nil || resp.Data.Content.Data.MoveObject == nil {
+		slog.Warn(fmt.Sprintf("chain: VerifyBrainAddress: CormConfig %s has no content", c.cormConfigObjID))
+		return nil
+	}
+
+	var fields map[string]interface{}
+	if err := json.Unmarshal(resp.Data.Content.Data.MoveObject.Fields, &fields); err != nil {
+		return fmt.Errorf("parse CormConfig fields: %w", err)
+	}
+
+	brainAddr := fmt.Sprint(fields["brain_address"])
+	signerAddr := c.signer.AddressString()
+
+	if brainAddr != signerAddr {
+		slog.Error(fmt.Sprintf(
+			"chain: BRAIN ADDRESS MISMATCH — CormConfig.brain_address=%s but signer=%s. "+
+				"MintCaps from install() are transferred to brain_address, so findMintCap "+
+				"will fail. Fix: call set_brain_address with CormAdminCap, or update SUI_PRIVATE_KEY.",
+			brainAddr, signerAddr))
+	} else {
+		slog.Info(fmt.Sprintf("chain: VerifyBrainAddress OK — signer matches CormConfig.brain_address (%s)", signerAddr))
+	}
+
+	return nil
+}
+
+// InvalidateMintCapCache removes a cached MintCap entry for a given corm.
+// Called when a transaction using the cached ref fails (stale object version).
+func (c *Client) InvalidateMintCapCache(cormStateID string) {
+	c.mintCapMu.Lock()
+	delete(c.mintCapCache, cormStateID)
+	c.mintCapMu.Unlock()
 }
 
 // mustParseObjectIdOrNil parses a hex object ID string, returning nil if empty.

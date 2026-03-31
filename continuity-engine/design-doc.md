@@ -228,6 +228,16 @@ If `CanCreateContracts()` returns false (WARN log: `"chain client not fully conf
 2. `CORM_STATE_PACKAGE_ID`, `TRUSTLESS_CONTRACTS_PACKAGE_ID`, `CORM_CHARACTER_ID` are set in the ECS task definition (run `make deploy-infra ENV={env}` to sync from `.env.{env}`)
 3. The on-chain Character object exists (`sui client object <CORM_CHARACTER_ID>`)
 
+#### MintCap Discovery
+
+CORM minting requires a `MintCap` object owned by the brain's signer address. MintCaps are created by `corm_state::install()` and transferred to `CormConfig.brain_address`. If the signer address and brain_address diverge (e.g. keypair rotation), `findMintCap` will fail with `"no MintCap found for corm"`. The error message includes the signer address and the number of MintCap objects scanned for diagnostics.
+
+**Startup health check:** `VerifyBrainAddress` reads the on-chain `CormConfig` at startup and compares `brain_address` to `signer.Address()`. A mismatch is logged at ERROR level with remediation instructions. This runs automatically for each environment's chain client.
+
+**MintCap cache:** `findMintCap` caches results per corm (keyed by `CormState` object ID). The MintCap ↔ CormState relationship is 1:1 and immutable, so cached refs are reused across mint calls. Cache entries are evicted via `InvalidateMintCapCache` if a transaction using the cached ref fails (stale object version).
+
+**Recovery:** If the brain_address is wrong, fix it via `corm_state::set_brain_address` using the `CormAdminCap`, or update `SUI_PRIVATE_KEY` to match the existing brain_address.
+
 ## Responsive Layout
 
 Three CSS breakpoints handle different screen sizes:

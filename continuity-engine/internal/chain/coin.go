@@ -150,44 +150,73 @@ func (c *Client) CanMintInline() bool {
 }
 
 // findMintCap looks up the MintCap owned by the brain for a given CormState.
+// Uses a per-client cache (stable 1:1 relationship) and paginates through
+// all owned MintCap objects to avoid missing entries beyond the first page.
 func (c *Client) findMintCap(ctx context.Context, cormStateID *sui.ObjectId) (*sui.ObjectRef, error) {
-	mintCapType := fmt.Sprintf("%s::corm_coin::MintCap", c.cormStatePkg.String())
+	cacheKey := cormStateID.String()
+
+	// Check cache first.
+	c.mintCapMu.RLock()
+	if ref, ok := c.mintCapCache[cacheKey]; ok {
+		c.mintCapMu.RUnlock()
+		return ref, nil
+	}
+	c.mintCapMu.RUnlock()
+
 	mintCapStructTag := &sui.StructTag{
 		Address: sui.MustAddressFromHex(c.cormStatePkg.String()),
 		Module:  "corm_coin",
 		Name:    "MintCap",
 	}
-	_ = mintCapType // used only for error messages
 
-	resp, err := c.rpc.GetOwnedObjects(ctx, &suiclient.GetOwnedObjectsRequest{
-		Address: c.signer.Address(),
-		Query: &suiclient.SuiObjectResponseQuery{
-			Filter: &suiclient.SuiObjectDataFilter{
-				StructType: mintCapStructTag,
-			},
-			Options: &suiclient.SuiObjectDataOptions{
-				ShowContent: true,
-			},
-		},
-	})
-	if err != nil {
-		return nil, fmt.Errorf("query owned MintCaps: %w", err)
-	}
-
-	// Find the MintCap whose corm_state_id matches
 	targetID := cormStateID.String()
-	for _, obj := range resp.Data {
-		if obj.Data == nil || obj.Data.Content == nil || obj.Data.Content.Data.MoveObject == nil {
-			continue
+	var totalSeen int
+	var cursor *suiclient.CheckpointedObjectId
+
+	for {
+		resp, err := c.rpc.GetOwnedObjects(ctx, &suiclient.GetOwnedObjectsRequest{
+			Address: c.signer.Address(),
+			Query: &suiclient.SuiObjectResponseQuery{
+				Filter: &suiclient.SuiObjectDataFilter{
+					StructType: mintCapStructTag,
+				},
+				Options: &suiclient.SuiObjectDataOptions{
+					ShowContent: true,
+				},
+			},
+			Cursor: cursor,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("query owned MintCaps: %w", err)
 		}
-		var fields map[string]interface{}
-		if err := json.Unmarshal(obj.Data.Content.Data.MoveObject.Fields, &fields); err != nil {
-			continue
+
+		for _, obj := range resp.Data {
+			totalSeen++
+			if obj.Data == nil || obj.Data.Content == nil || obj.Data.Content.Data.MoveObject == nil {
+				continue
+			}
+			var fields map[string]interface{}
+			if err := json.Unmarshal(obj.Data.Content.Data.MoveObject.Fields, &fields); err != nil {
+				continue
+			}
+			if csID, ok := fields["corm_state_id"]; ok && fmt.Sprint(csID) == targetID {
+				ref := obj.Data.Ref()
+				// Cache the result.
+				c.mintCapMu.Lock()
+				c.mintCapCache[cacheKey] = ref
+				c.mintCapMu.Unlock()
+				return ref, nil
+			}
 		}
-		if csID, ok := fields["corm_state_id"]; ok && fmt.Sprint(csID) == targetID {
-			return obj.Data.Ref(), nil
+
+		if !resp.HasNextPage || resp.NextCursor == nil {
+			break
+		}
+		cursor = &suiclient.CheckpointedObjectId{
+			ObjectId: *resp.NextCursor,
 		}
 	}
 
-	return nil, fmt.Errorf("no MintCap found for corm %s", cormStateID)
+	return nil, fmt.Errorf("no MintCap found for corm %s (signer=%s, scanned %d MintCap objects)",
+		cormStateID, c.signer.AddressString(), totalSeen)
 }

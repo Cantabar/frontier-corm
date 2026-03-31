@@ -70,6 +70,13 @@ func main() {
 		slog.Info(fmt.Sprintf("chain client initialized for environment %q", env.Name))
 	}
 
+	// --- Startup health checks ---
+	for envName, c := range chainClients {
+		if err := c.VerifyBrainAddress(ctx); err != nil {
+			slog.Warn(fmt.Sprintf("chain health check [%s]: %v", envName, err))
+		}
+	}
+
 	// --- Item Registry ---
 	registry := chain.NewRegistry(cfg.ItemRegistryPath, cfg.ItemValuesPath)
 
