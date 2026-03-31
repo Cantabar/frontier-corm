@@ -911,8 +911,7 @@ function StructureRow({
           </form>
         ) : (
           <StructureName>
-            {userDefinedName && <MetadataLabel>{userDefinedName} · </MetadataLabel>}
-            {structure.name || truncateAddress(structure.id, 10, 6)}
+            {userDefinedName ? <MetadataLabel>{displayName}</MetadataLabel> : displayName}
             {isOwner && characterId && (
               <EditNameButton
                 style={{ marginLeft: 6 }}
