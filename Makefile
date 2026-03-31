@@ -28,6 +28,7 @@
         ecr-login deploy-indexer deploy-continuity \
         deploy-utopia deploy-stillness \
         publish-contracts publish-utopia publish-stillness \
+        upgrade-contracts upgrade-utopia-contracts upgrade-stillness-contracts \
         build clean enrich-items seed-ores zk-build zk-clean \
         test test-go test-contracts \
         set-phase \
@@ -155,6 +156,15 @@ publish-utopia: ## Publish Move contracts for Utopia
 
 publish-stillness: ## Publish Move contracts for Stillness
 	$(MAKE) publish-contracts ENV=stillness
+
+upgrade-contracts: ## Upgrade Move contracts for ENV (PKGS=optional space-separated list)
+	bash scripts/upgrade-contracts.sh $(ENV) $(PKGS)
+
+upgrade-utopia-contracts: ## Upgrade Move contracts for Utopia
+	$(MAKE) upgrade-contracts ENV=utopia
+
+upgrade-stillness-contracts: ## Upgrade Move contracts for Stillness
+	$(MAKE) upgrade-contracts ENV=stillness
 
 deploy-env: ## Deploy everything for ENV (no seeding)
 	@test -f .env.$(ENV) || (echo "No .env.$(ENV) found. Run: cp .env.$(ENV).example .env.$(ENV)" && exit 1)
