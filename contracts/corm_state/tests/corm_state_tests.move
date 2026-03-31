@@ -232,6 +232,63 @@ fun test_set_brain_address() {
 }
 
 #[test]
+fun test_reset_state_allows_regression() {
+    let mut scenario = ts::begin(ADMIN);
+    {
+        let ctx = scenario.ctx();
+        let admin_cap = corm_auth::create_admin_cap_for_testing(ctx);
+        let network_node_id = object::id_from_address(@0x1234);
+        let mint_cap = corm_state::create(&admin_cap, network_node_id, ctx);
+        transfer::public_transfer(mint_cap, ADMIN);
+        corm_auth::destroy_admin_cap_for_testing(admin_cap);
+    };
+
+    // Advance to phase 2
+    scenario.next_tx(ADMIN);
+    {
+        let mut state = scenario.take_shared<corm_state::CormState>();
+        corm_state::update_state(&mut state, 2, 80, 30, scenario.ctx());
+        assert!(corm_state::phase(&state) == 2);
+        ts::return_shared(state);
+    };
+
+    // Reset back to phase 0 (regression) — should succeed
+    scenario.next_tx(ADMIN);
+    {
+        let mut state = scenario.take_shared<corm_state::CormState>();
+        corm_state::reset_state(&mut state, 0, 0, 0, scenario.ctx());
+        assert!(corm_state::phase(&state) == 0);
+        assert!(corm_state::stability(&state) == 0);
+        assert!(corm_state::corruption(&state) == 0);
+        ts::return_shared(state);
+    };
+    scenario.end();
+}
+
+#[test]
+#[expected_failure(abort_code = 0)] // ENotAdmin
+fun test_reset_state_unauthorized() {
+    let mut scenario = ts::begin(ADMIN);
+    {
+        let ctx = scenario.ctx();
+        let admin_cap = corm_auth::create_admin_cap_for_testing(ctx);
+        let network_node_id = object::id_from_address(@0x1234);
+        let mint_cap = corm_state::create(&admin_cap, network_node_id, ctx);
+        transfer::public_transfer(mint_cap, ADMIN);
+        corm_auth::destroy_admin_cap_for_testing(admin_cap);
+    };
+
+    // OTHER tries to reset — should fail
+    scenario.next_tx(OTHER);
+    {
+        let mut state = scenario.take_shared<corm_state::CormState>();
+        corm_state::reset_state(&mut state, 0, 0, 0, scenario.ctx());
+        ts::return_shared(state);
+    };
+    scenario.end();
+}
+
+#[test]
 fun test_transfer_admin() {
     let mut scenario = ts::begin(ADMIN);
     {

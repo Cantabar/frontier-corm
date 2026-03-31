@@ -177,6 +177,34 @@ public fun update_state(
     });
 }
 
+/// Reset the corm's phase, stability, and corruption. Only the admin
+/// (corm-brain keypair) can call this.
+///
+/// Unlike `update_state`, this function allows phase regression —
+/// it is the admin escape hatch for recovering corms stuck at invalid phases.
+public fun reset_state(
+    state: &mut CormState,
+    new_phase: u8,
+    new_stability: u64,
+    new_corruption: u64,
+    ctx: &TxContext,
+) {
+    assert!(ctx.sender() == state.admin, ENotAdmin);
+    assert!(new_stability <= 100, EMeterOutOfRange);
+    assert!(new_corruption <= 100, EMeterOutOfRange);
+
+    state.phase = new_phase;
+    state.stability = new_stability;
+    state.corruption = new_corruption;
+
+    event::emit(CormStateUpdatedEvent {
+        corm_state_id: object::id(state),
+        phase: new_phase,
+        stability: new_stability,
+        corruption: new_corruption,
+    });
+}
+
 /// Transfer admin authority to a new address. Only current admin can call.
 public fun transfer_admin(
     state: &mut CormState,
