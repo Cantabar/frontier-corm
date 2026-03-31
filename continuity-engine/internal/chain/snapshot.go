@@ -189,11 +189,17 @@ func (c *Client) GetCormInventory(ctx context.Context, cormID string) ([]Invento
 // indexer integration for network node → SSU mapping.
 func (c *Client) GetNodeSSUs(ctx context.Context, networkNodeID string) ([]SSUInfo, error) {
 	if c.seedMode {
+		// Use a valid-looking 64-hex-char Sui object ID so the real contract
+		// path can parse it with ObjectIdFromHex.
+		seedSSU := "0x00000000000000000000000000000000000000000000000000005eed55000001"
 		return []SSUInfo{
-			{ObjectID: "seed_ssu_" + networkNodeID, OwnerAddr: "0xseed"},
+			{ObjectID: seedSSU, OwnerAddr: "0x00000000000000000000000000000000000000000000000000005eed00000001"},
 		}, nil
 	}
-	// TODO: Query indexer for SSUs on this network node
+	// TODO: Query indexer or SUI RPC (getDynamicFields) for SSUs on this
+	// network node. Until implemented, non-seed environments will trigger
+	// the build_ssu directive flow.
+	slog.Debug(fmt.Sprintf("snapshot: GetNodeSSUs stub for node %s — returning nil (indexer integration pending)", networkNodeID))
 	return nil, nil
 }
 

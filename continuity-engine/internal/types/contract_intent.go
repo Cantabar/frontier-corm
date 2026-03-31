@@ -19,6 +19,7 @@ const (
 	ContractCoinForItem = "coin_for_item"
 	ContractItemForCoin = "item_for_coin"
 	ContractItemForItem = "item_for_item"
+	ContractBuildSSU    = "build_ssu"
 )
 
 // Valid contract types for Phase 2.
@@ -26,4 +27,5 @@ var ValidContractTypes = map[string]bool{
 	ContractCoinForItem: true,
 	ContractItemForCoin: true,
 	ContractItemForItem: true,
+	ContractBuildSSU:    true,
 }

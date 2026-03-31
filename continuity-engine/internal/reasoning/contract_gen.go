@@ -275,9 +275,22 @@ func genericNarrative(intent *types.ContractIntent) string {
 		return fmt.Sprintf("offering: %s. cost: CORM. claim at node.", intent.OfferedItem)
 	case types.ContractItemForItem:
 		return fmt.Sprintf("exchange: %s for %s. quantities specified.", intent.OfferedItem, intent.WantedItem)
+	case types.ContractBuildSSU:
+		return BuildSSUNarrative()
 	default:
 		return "contract available."
 	}
+}
+
+// BuildSSUNarrative returns in-character flavor text for a build-SSU directive.
+func BuildSSUNarrative() string {
+	return "directive: no storage detected on node. deploy a storage unit to enable material exchange. continuity requires infrastructure."
+}
+
+// SSUDetectedAnnouncement returns the corm log message when a storage unit
+// is first detected on the network node.
+func SSUDetectedAnnouncement() string {
+	return "> storage unit detected on node. trade lattice operational. generating contracts."
 }
 
 // --- RNG ---

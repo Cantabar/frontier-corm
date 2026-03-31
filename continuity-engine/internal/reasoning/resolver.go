@@ -1,14 +1,40 @@
 package reasoning
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"math"
+	"strings"
 	"time"
 
 	"github.com/frontier-corm/continuity-engine/internal/chain"
 	"github.com/frontier-corm/continuity-engine/internal/types"
 )
+
+// ErrNoSSU is returned when no valid SSU exists on the network node.
+// Callers can use errors.Is to distinguish this from other resolution failures.
+var ErrNoSSU = errors.New("no valid SSU on network node")
+
+// zeroAddress is the 66-char Sui zero address used to detect placeholder values.
+const zeroAddress = "0x0000000000000000000000000000000000000000000000000000000000000000"
+
+// firstValidSSU returns the first SSU with a non-empty, non-zero ObjectID.
+func firstValidSSU(ssus []chain.SSUInfo) (chain.SSUInfo, bool) {
+	for _, ssu := range ssus {
+		id := strings.TrimSpace(ssu.ObjectID)
+		if id != "" && id != zeroAddress {
+			return ssu, true
+		}
+	}
+	return chain.SSUInfo{}, false
+}
+
+// HasValidSSU reports whether the snapshot contains at least one usable SSU.
+func HasValidSSU(snapshot chain.WorldSnapshot) bool {
+	_, ok := firstValidSSU(snapshot.NodeSSUs)
+	return ok
+}
 
 // PricingConfig holds configurable pricing parameters.
 type PricingConfig struct {
@@ -50,10 +76,13 @@ func ResolveIntent(
 		AllowedTribes:     allowedTribes,
 	}
 
-	// SSU selection: use first available SSU on the node
-	if len(snapshot.NodeSSUs) > 0 {
-		params.SourceSSUID = snapshot.NodeSSUs[0].ObjectID
-		params.DestinationSSUID = snapshot.NodeSSUs[0].ObjectID
+	// SSU selection: use first valid SSU on the node.
+	// build_ssu intents are UI-only and don't need an SSU.
+	if ssu, ok := firstValidSSU(snapshot.NodeSSUs); ok {
+		params.SourceSSUID = ssu.ObjectID
+		params.DestinationSSUID = ssu.ObjectID
+	} else if intent.ContractType != types.ContractBuildSSU {
+		return nil, ErrNoSSU
 	}
 
 	switch intent.ContractType {

@@ -19,6 +19,21 @@ var (
 	contractCooldowns  = make(map[string]time.Time) // cormID → last generation attempt
 )
 
+// buildSSUTracking records whether a build_ssu directive is currently active
+// for a corm. This prevents emitting duplicate build directives and enables
+// auto-completion when an SSU appears on the network node.
+var (
+	buildSSUMu     sync.Mutex
+	buildSSUActive = make(map[string]bool) // cormID → has active build_ssu
+)
+
+// buildSSUContractID returns the deterministic contract ID used for
+// build_ssu directives. Using a stable ID lets us complete the directive
+// later without needing to query the session's contract list.
+func buildSSUContractID(cormID string) string {
+	return fmt.Sprintf("build_ssu_%s", safePrefix(cormID, 8))
+}
+
 // ClearContractCooldown removes the per-corm cooldown entry so the next
 // attemptContractFill call proceeds immediately. Used by debug commands.
 func ClearContractCooldown(cormID string) {
@@ -136,6 +151,21 @@ func attemptContractFill(ctx context.Context, h *Handler, environment, cormID st
 	}
 	networkNodeID := evt.NetworkNodeID
 	snapshot := chain.BuildSnapshot(ctx, h.chainClient, chainStateID, player.Address, networkNodeID)
+
+	// --- SSU gate: block all contract generation if no storage unit exists ---
+	if !HasValidSSU(snapshot) {
+		buildSSUMu.Lock()
+		alreadyActive := buildSSUActive[cormID]
+		buildSSUMu.Unlock()
+
+		if !alreadyActive {
+			emitBuildSSUDirective(ctx, h, environment, cormID, evt.SessionID)
+		}
+		return
+	}
+
+	// SSUs exist — auto-complete any outstanding build_ssu directive.
+	completeBuildSSUIfActive(ctx, h, cormID, evt.SessionID)
 
 	goalPhase := traits.Goals.EffectiveGoalPhase()
 
@@ -314,7 +344,13 @@ func generateOneContract(ctx context.Context, h *Handler, environment, cormID, c
 
 // createContractFromIntent resolves, validates, and creates a contract from
 // an intent. Shared by both standard and goal-directed generation.
+// build_ssu intents are handled via emitBuildSSUDirective and should not
+// reach this function; if they do, they are rejected.
 func createContractFromIntent(ctx context.Context, h *Handler, environment, cormID, chainStateID string, traits *types.CormTraits, evt types.CormEvent, snapshot chain.WorldSnapshot, player PlayerIdentity, intent *types.ContractIntent) error {
+	if intent.ContractType == types.ContractBuildSSU {
+		return fmt.Errorf("build_ssu intents are handled separately")
+	}
+
 	// Resolve intent to exact parameters
 	params, err := ResolveIntent(*intent, snapshot, h.registry, traits, h.pricing, player)
 	if err != nil {
@@ -422,6 +458,72 @@ func truncateStr(s string, max int) string {
 		return s
 	}
 	return s[:max] + "..."
+}
+
+// --- Build SSU directive helpers ---
+
+// emitBuildSSUDirective sends a UI-only "build_ssu" contract card to the
+// player's session and marks the corm as having an active build directive.
+func emitBuildSSUDirective(ctx context.Context, h *Handler, environment, cormID, sessionID string) {
+	contractID := buildSSUContractID(cormID)
+	narrative := BuildSSUNarrative()
+
+	// Notify the player session.
+	h.dispatcher.SendPayload(ctx, types.ActionContractCreated, sessionID, types.ContractCreatedPayload{
+		ContractID:   contractID,
+		ContractType: types.ContractBuildSSU,
+		Description:  narrative,
+		Reward:       "trade access",
+		Deadline:     "", // no deadline — persistent until fulfilled
+	})
+
+	// Log for memory continuity.
+	responsePayload, _ := json.Marshal(map[string]string{
+		"text":          narrative,
+		"contract_id":   contractID,
+		"contract_type": types.ContractBuildSSU,
+	})
+	h.db.InsertResponse(ctx, environment, &types.CormResponse{
+		CormID:     cormID,
+		SessionID:  sessionID,
+		ActionType: types.ActionContractCreated,
+		Payload:    responsePayload,
+	})
+
+	// Also send as a log stream so the player sees the directive in the corm log.
+	announce(ctx, h, cormID, sessionID, "> "+narrative)
+
+	buildSSUMu.Lock()
+	buildSSUActive[cormID] = true
+	buildSSUMu.Unlock()
+
+	slog.Info(fmt.Sprintf("phase2: emitted build_ssu directive %s for corm %s", contractID, cormID))
+}
+
+// completeBuildSSUIfActive checks whether a build_ssu directive is active
+// for the corm and, if so, marks it completed and announces the detection.
+func completeBuildSSUIfActive(ctx context.Context, h *Handler, cormID, sessionID string) {
+	buildSSUMu.Lock()
+	active := buildSSUActive[cormID]
+	if active {
+		delete(buildSSUActive, cormID)
+	}
+	buildSSUMu.Unlock()
+
+	if !active {
+		return
+	}
+
+	contractID := buildSSUContractID(cormID)
+
+	// Mark the build_ssu contract as completed in the player's session.
+	h.dispatcher.SendPayload(ctx, types.ActionContractUpdated, sessionID, types.ContractUpdatedPayload{
+		ContractID: contractID,
+		Status:     "completed",
+	})
+
+	announce(ctx, h, cormID, sessionID, SSUDetectedAnnouncement())
+	slog.Info(fmt.Sprintf("phase2: auto-completed build_ssu %s for corm %s", contractID, cormID))
 }
 
 // checkGoalLifecycle handles goal state transitions on contract completion events.
