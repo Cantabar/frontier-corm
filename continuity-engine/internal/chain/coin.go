@@ -89,6 +89,9 @@ func (c *Client) MintCORM(ctx context.Context, cormID, playerAddress string, amo
 		return fmt.Errorf("execute mint: %w", err)
 	}
 
+	// MintCap version advanced — evict stale cached ref.
+	c.InvalidateMintCapCache(cormID)
+
 	slog.Info(fmt.Sprintf("chain: MintCORM %d base units (%.4f CORM) to %s (corm %s)",
 		amount, float64(amount)/float64(CormBaseUnit), playerAddress, cormID))
 	return nil

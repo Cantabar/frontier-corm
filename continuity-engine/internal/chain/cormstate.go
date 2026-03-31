@@ -2,8 +2,10 @@ package chain
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"encoding/json"
 
@@ -13,6 +15,10 @@ import (
 	"github.com/pattonkan/sui-go/suiclient"
 	"github.com/pattonkan/sui-go/suisigner"
 )
+
+// ErrStaleObject is returned when a transaction references an owned object
+// at an outdated version. Callers can retry with fresh refs.
+var ErrStaleObject = errors.New("stale object version")
 
 // CormStateOnChain represents the on-chain CormState object fields.
 type CormStateOnChain struct {
@@ -263,10 +269,15 @@ func (c *Client) getSharedObjectRef(ctx context.Context, objID *sui.ObjectId) (*
 }
 
 // signAndExecute builds transaction bytes from a PTB, signs them, and executes.
+// Acquires txMu to serialize all transactions from this signer, preventing
+// concurrent owned-object version conflicts.
 func (c *Client) signAndExecute(
 	ctx context.Context,
 	ptb *suiptb.ProgrammableTransactionBuilder,
 ) (*suiclient.SuiTransactionBlockResponse, error) {
+	c.txMu.Lock()
+	defer c.txMu.Unlock()
+
 	pt := ptb.Finish()
 
 	// Query gas coins owned by the signer. The SUI protocol requires
@@ -321,6 +332,9 @@ func (c *Client) signAndExecute(
 		RequestType: suiclient.TxnRequestTypeWaitForLocalExecution,
 	})
 	if err != nil {
+		if isStaleObjectError(err) {
+			return nil, fmt.Errorf("execute tx: %w: %w", ErrStaleObject, err)
+		}
 		return nil, fmt.Errorf("execute tx: %w", err)
 	}
 	if resp.Effects != nil && resp.Effects.Data.V1 != nil {
@@ -329,6 +343,12 @@ func (c *Client) signAndExecute(
 		}
 	}
 	return resp, nil
+}
+
+// isStaleObjectError returns true if err indicates a Sui "object not available
+// for consumption" failure (stale version reference on an owned object).
+func isStaleObjectError(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "is not available for consumption")
 }
 
 // toInt converts an interface{} (typically float64 from JSON) to int.

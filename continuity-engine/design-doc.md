@@ -216,6 +216,14 @@ Only `types.json` and `groups.json` are copied from `fsd_built/` — the rest of
 - CLI tools:
   - `make set-phase NODE=0x... PHASE=N ENV=stillness` — directly updates both the DB `corm_traits.phase` and the on-chain `CormState` for a given network node. Useful for testing and operational recovery.
 
+### Transaction Serialization
+
+All chain write paths (`CreateContracts`, `CreateContract`, `CreateCormState`, `UpdateCormState`, `ResetCormState`, `MintCORM`) funnel through `signAndExecute`, which acquires a per-client `txMu` mutex before fetching gas coins and submitting the transaction. This serializes all Sui transactions from the same signer, preventing concurrent owned-object version conflicts (gas coins, CORM coins, MintCaps) that occur when HTTP handler goroutines (e.g. `buildSessionSyncFn` reconciliation, `ReconcileChain`, `ResetPhase`) and the event processor goroutine submit transactions simultaneously.
+
+**MintCap cache invalidation:** After any successful transaction that uses a MintCap (inline minting in contract creation, `MintCORM`), the cached ObjectRef is evicted via `InvalidateMintCapCache`. This prevents stale version references on subsequent mint calls. On `ErrStaleObject` failures, the cache is also invalidated before retrying.
+
+**Stale object retry:** `CreateContracts` and `CreateContract` detect `ErrStaleObject` (Sui's "not available for consumption" error) and retry once after invalidating the MintCap cache. This handles edge cases where a cached ref becomes stale between sequential (non-concurrent) transactions.
+
 ### Chain Client Troubleshooting
 
 The chain client logs initialization status at startup:
@@ -235,7 +243,7 @@ CORM minting requires a `MintCap` object owned by the brain's signer address. Mi
 
 **Startup health check:** `VerifyBrainAddress` reads the on-chain `CormConfig` at startup and compares `brain_address` to `signer.Address()`. A mismatch is logged at ERROR level with remediation instructions. This runs automatically for each environment's chain client.
 
-**MintCap cache:** `findMintCap` caches results per corm (keyed by `CormState` object ID). The MintCap ↔ CormState relationship is 1:1 and immutable, so cached refs are reused across mint calls. Cache entries are evicted via `InvalidateMintCapCache` if a transaction using the cached ref fails (stale object version).
+**MintCap cache:** `findMintCap` caches results per corm (keyed by `CormState` object ID). The MintCap ↔ CormState relationship is 1:1 and immutable, so cached refs are reused across mint calls. Cache entries are proactively evicted via `InvalidateMintCapCache` after every successful transaction that uses a MintCap (the version advances on each use). On `ErrStaleObject`, the cache is also invalidated before retry.
 
 **Upgrades and type matching:** After a Sui package upgrade, `CORM_STATE_PACKAGE_ID` points at `published-at` (used for MoveCall targets), but struct types (`MintCap`, `CORM_COIN`) remain anchored to the package's `original-id`. The chain client therefore accepts `CORM_STATE_ORIGINAL_ID` and uses it for StructTag filters and coin type strings. If this is misconfigured after an upgrade, `findMintCap` will scan zero objects even though the MintCap exists at the correct address.
 

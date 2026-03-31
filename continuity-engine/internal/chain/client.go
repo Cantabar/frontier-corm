@@ -62,6 +62,10 @@ type Client struct {
 	cormCharacterID         *sui.ObjectId
 	witnessRegistryObjID    *sui.ObjectId
 
+	// Transaction mutex: serializes all signAndExecute calls to prevent
+	// concurrent owned-object version conflicts (gas coins, MintCaps, etc.).
+	txMu sync.Mutex
+
 	// MintCap cache: cormStateID (hex) → ObjectRef. Stable 1:1 relationship;
 	// entries are evicted on transaction error (stale object version).
 	mintCapMu    sync.RWMutex

@@ -2,6 +2,7 @@ package chain
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -32,6 +33,7 @@ type ContractParams struct {
 
 // CreateContract creates a trustless contract on-chain.
 // Routes to the appropriate Move module based on ContractType.
+// Retries once on stale object version errors (invalidating caches first).
 func (c *Client) CreateContract(ctx context.Context, cormID string, params ContractParams) (string, error) {
 	if !c.HasSigner() {
 		return "", fmt.Errorf("no signer configured")
@@ -42,6 +44,22 @@ func (c *Client) CreateContract(ctx context.Context, cormID string, params Contr
 		return c.createContractStub(cormID, params)
 	}
 
+	id, err := c.doCreateContract(ctx, cormID, params)
+	if err != nil && errors.Is(err, ErrStaleObject) {
+		c.InvalidateMintCapCache(cormID)
+		slog.Warn(fmt.Sprintf("chain: retrying single contract create after stale object for corm %s", cormID))
+		id, err = c.doCreateContract(ctx, cormID, params)
+	}
+	if err == nil {
+		// MintCap version may have advanced if minting was used — evict
+		// the cached ref so subsequent calls fetch a fresh one.
+		c.InvalidateMintCapCache(cormID)
+	}
+	return id, err
+}
+
+// doCreateContract dispatches to the type-specific contract creator.
+func (c *Client) doCreateContract(ctx context.Context, cormID string, params ContractParams) (string, error) {
 	switch params.ContractType {
 	case "coin_for_item":
 		return c.createCoinForItem(ctx, cormID, params)
@@ -164,6 +182,7 @@ func extractCreatedContract(resp *suiclient.SuiTransactionBlockResponse, typeSub
 // into one Sui transaction. Returns a contract ID for each params entry
 // (positionally matched). If only one params is provided, delegates to the
 // single-contract path for zero behavioral change.
+// Retries once on stale object version errors (invalidating caches first).
 func (c *Client) CreateContracts(ctx context.Context, cormID string, paramsList []ContractParams) ([]string, error) {
 	if len(paramsList) == 0 {
 		return nil, nil
@@ -185,6 +204,18 @@ func (c *Client) CreateContracts(ctx context.Context, cormID string, paramsList 
 		return c.createContractsStub(cormID, paramsList)
 	}
 
+	ids, err := c.createContractsBatch(ctx, cormID, paramsList)
+	if err != nil && errors.Is(err, ErrStaleObject) {
+		c.InvalidateMintCapCache(cormID)
+		slog.Warn(fmt.Sprintf("chain: retrying batch contract create after stale object for corm %s", cormID))
+		return c.createContractsBatch(ctx, cormID, paramsList)
+	}
+	return ids, err
+}
+
+// createContractsBatch is the inner batch creation logic for CreateContracts.
+// Separated to enable retry on stale object errors.
+func (c *Client) createContractsBatch(ctx context.Context, cormID string, paramsList []ContractParams) ([]string, error) {
 	// Classify contracts by type.
 	needsItemCap := false
 	var totalEscrow uint64
@@ -223,10 +254,10 @@ func (c *Client) CreateContracts(ctx context.Context, cormID string, paramsList 
 
 	// --- CORM coin split (all escrow amounts at once) ---
 	escrowArgs := make(map[int]suiptb.Argument) // paramsList index → split coin arg
+	var mintedInline bool // tracked for MintCap cache invalidation on success
 	if len(escrowAmounts) > 0 {
 		// Try to find an existing coin, fall back to minting inline.
 		var coinArg suiptb.Argument
-		var mintedInline bool
 		cormCoinRef, err := c.findOwnedCoin(ctx, c.CORMCoinType(), totalEscrow)
 		if err == nil {
 			coinArg = ptb.MustObj(suiptb.ObjectArg{ImmOrOwnedObject: cormCoinRef})
@@ -451,6 +482,11 @@ func (c *Client) CreateContracts(ctx context.Context, cormID string, paramsList 
 	resp, err := c.signAndExecute(ctx, ptb)
 	if err != nil {
 		return nil, fmt.Errorf("execute batch contract create: %w", err)
+	}
+
+	// MintCap version may have advanced — evict stale cached ref.
+	if mintedInline {
+		c.InvalidateMintCapCache(cormID)
 	}
 
 	// --- Extract created contract IDs ---
