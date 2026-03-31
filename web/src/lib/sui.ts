@@ -1233,7 +1233,7 @@ export function buildInstallCorm(params: {
 // ============================================================
 /** Construct the dApp delivery URL for a specific SSU. */
 function getDappUrl(ssuId: string): string {
-  return `${config.webUiHost}/dapp/deliver/${ssuId}`;
+  return `${config.webUiHost}/dapp/ssu/${ssuId}`;
 }
 
 /**

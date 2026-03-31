@@ -63,9 +63,13 @@ Client-side privacy-preserving location sharing with ZK proof generation. The se
 - **Optimizer Hook** (`hooks/useOptimizer`) — browser-side recipe tree resolution and gap analysis. Resolves a target item + quantity to a full dependency tree, collects leaf materials, and compares against inventory for a shopping list.
 - **BOM Library** (`lib/bom.ts`) — Bill of Materials expansion at configurable depth (0 = finished items, 1 = direct inputs, ∞ = raw materials). Used by both optimizer UI and multi-input contract creation to generate slot lists.
 
+### SSU dApp Landing Page
+
+- **DappLandingPage** (`pages/DappLandingPage`) — entry point for in-game SSU interaction. Displays two action buttons at the top: **Create Contract** (opens the full web app contract creation form in a new tab) and **Continuity Engine** (navigates to the CE dApp route within the shell). Below the buttons, the SSU delivery contracts list is rendered inline. Rendered under `/dapp/ssu/:ssuId`.
+
 ### SSU Delivery dApp
 
-- **SsuDeliveryDapp** (`pages/SsuDeliveryDapp`) — lightweight SSU-specific dApp for contract fulfillment. Fetches SSU metadata and inventory, filters contracts for deliverable items from the user’s player inventory, and provides a delivery modal. Rendered under `/dapp/ssu/:ssuId`.
+- **SsuDeliveryDapp** (`pages/SsuDeliveryDapp`) — lightweight SSU-specific dApp for contract fulfillment. Fetches SSU metadata and inventory, filters contracts for deliverable items from the user's player inventory, and provides a delivery modal. Rendered under `/dapp/deliver/:ssuId` (legacy) and embedded within the dApp landing page.
 
 ### Page Routes
 
