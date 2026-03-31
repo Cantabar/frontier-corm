@@ -13,7 +13,7 @@
  * e.g. "0xabc::tribe::Tribe<0x2::sui::SUI>" → "0x2::sui::SUI"
  */
 export function extractCoinTypeFromObjectType(objectType: string): string | null {
-  const match = objectType.match(/<(.+)>/);
+  const match = objectType.match(/<([^,>]+)/);
   return match?.[1] ?? null;
 }
 

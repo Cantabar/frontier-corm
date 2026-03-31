@@ -146,6 +146,7 @@ Per-environment defaults are defined in `config.ts` and overridden by explicit `
 - Wallet-connected SPA with Eve Frontier Character identity resolution
 - Tribe management: creation, self-join (auto-detected), member management, leadership transfer
 - Trustless contract creation and filling for all 6 contract types (coin-for-coin, coin-for-item, item-for-coin, item-for-item, multi-input, transport)
+- Coin type extraction from on-chain Move struct types (`extractCoinTypeFromObjectType`) — extracts only the first phantom type argument to avoid concatenating multi-type-param generics (e.g. `CoinForCoinContract<CE, CF>`)
 - Contract visibility filtering (character and tribe access control)
 - Dashboard with configurable quick actions (persisted to localStorage)
 - Forge Planner with blueprint browser, recipe tree optimizer, gap analysis, and multi-input order management
