@@ -143,6 +143,10 @@ func (h *Handler) ProcessEventBatch(ctx context.Context, environment, cormID str
 
 // detectPhaseTransition checks whether the event batch triggers a phase
 // transition. If so, it mutates traits in place and returns true.
+//
+// The phase_transition payload must contain {"from": <int>, "to": <int>}.
+// The transition is only applied if traits.Phase matches "from", making
+// duplicate events idempotent instead of causing over-incrementing.
 func detectPhaseTransition(events []types.CormEvent, traits *types.CormTraits) bool {
 	// Debug: force-set Phase 2 regardless of current phase.
 	for _, e := range events {
@@ -155,10 +159,20 @@ func detectPhaseTransition(events []types.CormEvent, traits *types.CormTraits) b
 		}
 	}
 
-	// Explicit phase_transition event from puzzle-service (e.g. 0→1).
+	// Explicit phase_transition event from puzzle-service (e.g. 0→1, 1→2).
 	for _, e := range events {
 		if e.EventType == types.EventPhaseTransition {
-			traits.Phase = traits.Phase + 1
+			from, to, ok := parseTransitionPayload(e.Payload)
+			if !ok {
+				// Malformed payload — skip silently.
+				continue
+			}
+			if traits.Phase != from {
+				// Stale or duplicate event — the corm has already moved
+				// past this transition. Ignore.
+				continue
+			}
+			traits.Phase = to
 			if traits.Phase == 1 {
 				traits.Stability = 0
 			}
@@ -167,6 +181,37 @@ func detectPhaseTransition(events []types.CormEvent, traits *types.CormTraits) b
 	}
 
 	return false
+}
+
+// parseTransitionPayload extracts the "from" and "to" phase values from a
+// phase_transition event payload. Handles both int and string-encoded values
+// for backward compatibility.
+func parseTransitionPayload(payload json.RawMessage) (from, to int, ok bool) {
+	if len(payload) == 0 {
+		return 0, 0, false
+	}
+	var p map[string]interface{}
+	if err := json.Unmarshal(payload, &p); err != nil {
+		return 0, 0, false
+	}
+	from, fromOK := jsonInt(p["from"])
+	to, toOK := jsonInt(p["to"])
+	return from, to, fromOK && toOK && to > from
+}
+
+// jsonInt extracts an int from a JSON-decoded value that may be float64
+// (standard JSON number) or string (legacy payloads).
+func jsonInt(v interface{}) (int, bool) {
+	switch val := v.(type) {
+	case float64:
+		return int(val), true
+	case string:
+		var n int
+		if _, err := fmt.Sscanf(val, "%d", &n); err == nil {
+			return n, true
+		}
+	}
+	return 0, false
 }
 
 // deliverTransitionResponse selects a deterministic in-character message for

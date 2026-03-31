@@ -46,6 +46,14 @@ func (h *Handlers) Phase0Interact(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Guard: ignore clicks if the session has already transitioned past Phase 0.
+	// Without this, RecordClick keeps returning true after the threshold,
+	// emitting duplicate phase_transition events that over-increment traits.Phase.
+	if sess.Phase != puzzle.PhaseAwakening {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
 	elementID := r.FormValue("element_id")
 	if elementID == "" {
 		http.Error(w, "missing element_id", http.StatusBadRequest)
@@ -67,7 +75,7 @@ func (h *Handlers) Phase0Interact(w http.ResponseWriter, r *http.Request) {
 
 	if transition {
 		// Emit phase transition event
-		transPayload, _ := json.Marshal(map[string]string{"from": "0", "to": "1"})
+		transPayload, _ := json.Marshal(map[string]any{"from": 0, "to": 1})
 		transEvt := h.buildEvent(sess, "phase_transition", transPayload)
 		sess.EventBuffer.Push(transEvt)
 		go h.dispatcher.EmitEvent(transEvt)
@@ -126,6 +134,12 @@ func (h *Handlers) Phase0Command(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Guard: ignore commands if session has already transitioned past Phase 0.
+	if sess.Phase != puzzle.PhaseAwakening {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
 	raw := r.FormValue("command")
 	if raw == "" {
 		http.Error(w, "missing command", http.StatusBadRequest)
@@ -153,7 +167,7 @@ func (h *Handlers) Phase0Command(w http.ResponseWriter, r *http.Request) {
 
 	if transition {
 		// Emit phase transition event
-		transPayload, _ := json.Marshal(map[string]string{"from": "0", "to": "1"})
+		transPayload, _ := json.Marshal(map[string]any{"from": 0, "to": 1})
 		transEvt := h.buildEvent(sess, "phase_transition", transPayload)
 		sess.EventBuffer.Push(transEvt)
 		go h.dispatcher.EmitEvent(transEvt)
