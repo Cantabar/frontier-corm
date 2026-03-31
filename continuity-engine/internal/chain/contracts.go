@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/pattonkan/sui-go/sui"
 	"github.com/pattonkan/sui-go/sui/suiptb"
@@ -859,17 +860,36 @@ func (c *Client) findOwnerCapForSSU(ctx context.Context, ssuID *sui.ObjectId) (*
 		return nil, fmt.Errorf("query OwnerCaps: %w", err)
 	}
 
-	// Find the OwnerCap whose associated SSU matches.
-	// The OwnerCap's `id` field in content may not directly reference the SSU,
-	// but in Eve Frontier the OwnerCap is transferred to the Character when
-	// the Character becomes the SSU owner. For now, return the first match;
-	// multi-SSU support can filter by SSU ID from content fields.
+	// Find the OwnerCap whose `object_id` field matches the target SSU.
+	// Eve Frontier's OwnerCap<T> struct has an `object_id: ID` field pointing
+	// to the owned structure.  We parse it from the content fields (already
+	// fetched with ShowContent: true) and compare against ssuID.
+	//
+	// Falls back to first-match if the field is absent or unparseable, which
+	// preserves single-SSU backward compatibility.
 	_ = ownerCapType // for error messages
+	targetIDStr := strings.ToLower(ssuID.String())
+	var firstMatch *sui.ObjectRef
 	for _, obj := range resp.Data {
 		if obj.Data == nil {
 			continue
 		}
-		return obj.Data.Ref(), nil
+		if firstMatch == nil {
+			ref := obj.Data.Ref()
+			firstMatch = ref
+		}
+		// Try to match by object_id field.
+		if obj.Data.Content == nil || obj.Data.Content.Data.MoveObject == nil {
+			continue
+		}
+		candidateSSUID := parseOwnerCapObjectID(obj.Data.Content.Data.MoveObject.Fields)
+		if strings.ToLower(candidateSSUID) == targetIDStr {
+			return obj.Data.Ref(), nil
+		}
+	}
+	if firstMatch != nil {
+		slog.Debug(fmt.Sprintf("chain: findOwnerCapForSSU: no exact match for SSU %s, using first OwnerCap", ssuID))
+		return firstMatch, nil
 	}
 
 	return nil, fmt.Errorf("no OwnerCap<StorageUnit> found for Character %s", c.cormCharacterID)

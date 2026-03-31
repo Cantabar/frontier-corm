@@ -36,6 +36,9 @@ type Client struct {
 	signer    *Signer
 	seedMode  bool // when true, stub methods return mock data
 
+	// Optional item registry for TypeName resolution in inventory reads.
+	registry *Registry
+
 	// Package IDs (parsed at init)
 	cormStatePkg            *sui.PackageId
 	trustlessContractsPkg   *sui.PackageId
@@ -83,6 +86,13 @@ func NewClient(cfg ClientConfig, privateKey string) *Client {
 	}
 
 	return c
+}
+
+// SetRegistry attaches an item registry to the client so that inventory
+// reads can populate InventoryItem.TypeName from on-chain type IDs.
+// Should be called once after both the registry and the client are created.
+func (c *Client) SetRegistry(r *Registry) {
+	c.registry = r
 }
 
 // SetSeedMode enables or disables seed data for stub chain methods.

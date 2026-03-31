@@ -73,6 +73,12 @@ func main() {
 	// --- Item Registry ---
 	registry := chain.NewRegistry(cfg.ItemRegistryPath, cfg.ItemValuesPath)
 
+	// Wire item registry into each chain client for TypeName resolution in
+	// SSU inventory reads.
+	for _, c := range chainClients {
+		c.SetRegistry(registry)
+	}
+
 	// --- Recipe Registry (goal-directed contract generation) ---
 	recipeRegistry := chain.NewRecipeRegistry()
 

@@ -36,8 +36,14 @@ type AssemblyInfo struct {
 	TypeName string
 }
 
-// BuildSnapshot assembles a WorldSnapshot by fetching chain state in parallel.
-// Each sub-fetch has a short timeout and returns zero-value on failure (best-effort).
+// BuildSnapshot assembles a WorldSnapshot by fetching chain state in two phases.
+//
+// Phase 1 (parallel): CORM balance, NodeSSUs, NodeAssemblies.
+// Phase 2 (parallel): CormInventory (self-contained via OwnerCap enumeration),
+// PlayerInventory (uses NodeSSUs from Phase 1 to locate the player's SSU).
+//
+// Each sub-fetch operates under a short timeout and returns a zero value on
+// failure (best-effort graceful degradation).
 func BuildSnapshot(ctx context.Context, client *Client, cormID, playerAddr, networkNodeID string) WorldSnapshot {
 	var snap WorldSnapshot
 	var mu sync.Mutex
@@ -45,6 +51,8 @@ func BuildSnapshot(ctx context.Context, client *Client, cormID, playerAddr, netw
 
 	subCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
+
+	// --- Phase 1: CORM balance, NodeSSUs, NodeAssemblies ---
 
 	// Fetch corm's CORM balance
 	wg.Add(1)
@@ -57,34 +65,6 @@ func BuildSnapshot(ctx context.Context, client *Client, cormID, playerAddr, netw
 		}
 		mu.Lock()
 		snap.CormCORMBalance = balance
-		mu.Unlock()
-	}()
-
-	// Fetch corm's SSU inventory
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		items, err := client.GetCormInventory(subCtx, cormID)
-		if err != nil {
-			slog.Info(fmt.Sprintf("snapshot: corm inventory: %v", err))
-			return
-		}
-		mu.Lock()
-		snap.CormInventory = items
-		mu.Unlock()
-	}()
-
-	// Fetch player's SSU inventory
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		items, err := client.GetPlayerInventory(subCtx, playerAddr)
-		if err != nil {
-			slog.Info(fmt.Sprintf("snapshot: player inventory: %v", err))
-			return
-		}
-		mu.Lock()
-		snap.PlayerInventory = items
 		mu.Unlock()
 	}()
 
@@ -113,6 +93,38 @@ func BuildSnapshot(ctx context.Context, client *Client, cormID, playerAddr, netw
 		}
 		mu.Lock()
 		snap.NodeAssemblies = assemblies
+		mu.Unlock()
+	}()
+
+	wg.Wait()
+
+	// --- Phase 2: inventories (depend on NodeSSUs from Phase 1) ---
+
+	// Fetch corm's SSU inventory (resolves SSUs via brain's OwnerCaps)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		items, err := client.GetCormInventory(subCtx, cormID)
+		if err != nil {
+			slog.Info(fmt.Sprintf("snapshot: corm inventory: %v", err))
+			return
+		}
+		mu.Lock()
+		snap.CormInventory = items
+		mu.Unlock()
+	}()
+
+	// Fetch player's SSU inventory (uses NodeSSUs to find the player's SSU)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		items, err := client.GetPlayerInventory(subCtx, playerAddr, snap.NodeSSUs)
+		if err != nil {
+			slog.Info(fmt.Sprintf("snapshot: player inventory: %v", err))
+			return
+		}
+		mu.Lock()
+		snap.PlayerInventory = items
 		mu.Unlock()
 	}()
 
@@ -171,22 +183,7 @@ func (c *Client) GetCORMBalance(ctx context.Context, cormID string) (uint64, err
 	return resp.TotalBalance.Uint64(), nil
 }
 
-// GetCormInventory reads items held in the corm's SSU inventory.
-// Currently returns seed data or nil — full implementation requires
-// indexer integration for SSU inventory reads.
-func (c *Client) GetCormInventory(ctx context.Context, cormID string) ([]InventoryItem, error) {
-	if c.seedMode {
-		return []InventoryItem{
-			{TypeID: "77518", TypeName: "Crude Mineral", Amount: 500},
-			{TypeID: "77523", TypeName: "Ferric Ore", Amount: 300},
-			{TypeID: "77531", TypeName: "Coolant", Amount: 200},
-		}, nil
-	}
-	// TODO: Query indexer or SSU dynamic fields for corm inventory
-	return nil, nil
-}
-
-// GetNodeSSUs returns SSUs belonging to a network node.
+// GetNodeSSUs
 // Reads the on-chain network node object to discover connected assemblies,
 // then filters for StorageUnit types. Falls back to seed data or nil.
 func (c *Client) GetNodeSSUs(ctx context.Context, networkNodeID string) ([]SSUInfo, error) {
