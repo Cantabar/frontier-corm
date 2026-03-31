@@ -98,6 +98,8 @@ func main() {
 	defaultEnv := cfg.Environments[0].Name
 	h := handlers.New(templateFS, sessionStore, dispatcher, defaultEnv)
 
+	rh := handlers.NewReconcileHandler(database, chainClients, defaultEnv)
+
 	gh := server.GameHandlers{
 		Health:           h.Health,
 		Phase0Page:       h.Phase0Page,
@@ -112,14 +114,16 @@ func main() {
 		Phase2BindNode:   h.Phase2BindNode,
 		Stream:           h.Stream,
 		Status:           h.Status,
-		ContractsPage:        h.ContractsPage,
-		DebugFillContracts:   h.DebugFillContracts,
-		DebugPhase2:          h.DebugPhase2,
+		ContractsPage:          h.ContractsPage,
+		DebugFillContracts:     h.DebugFillContracts,
+		DebugPhase2:            h.DebugPhase2,
+		DebugReconcileChain:    rh.ReconcileChain,
 	}
 
-	// Build the session sync callback — closes over DB + default environment
-	// so the middleware can eagerly restore corm state on new sessions.
-	syncFn := buildSessionSyncFn(database, defaultEnv)
+	// Build the session sync callback — closes over DB + chain clients +
+	// default environment so the middleware can eagerly restore corm state
+	// on new sessions and reconcile on-chain drift.
+	syncFn := buildSessionSyncFn(database, chainClients, defaultEnv)
 
 	mux := server.NewRouter(gh, sessionStore, staticFS, cfg.SecureCookies, syncFn)
 
@@ -307,7 +311,10 @@ func processBatch(
 // from the DB by network node ID and initializes the session with stored
 // traits (phase, stability, corruption). This is called eagerly on new session
 // creation so the player lands on the correct phase immediately.
-func buildSessionSyncFn(database *db.DB, environment string) server.SessionSyncFn {
+//
+// It also reconciles on-chain state: if the DB phase differs from the on-chain
+// CormState, it triggers an immediate update so the web UI stays in sync.
+func buildSessionSyncFn(database *db.DB, chainClients map[string]*chain.Client, environment string) server.SessionSyncFn {
 	return func(ctx context.Context, sess *puzzle.Session, nodeID string) {
 		// Resolve network node → corm ID
 		cormID, err := database.ResolveCormID(ctx, environment, nodeID)
@@ -342,5 +349,31 @@ func buildSessionSyncFn(database *db.DB, environment string) server.SessionSyncF
 
 		slog.Info(fmt.Sprintf("session sync: restored corm %s (phase=%d stab=%.0f corr=%.0f) for node %s",
 			cormID, traits.Phase, traits.Stability, traits.Corruption, nodeID))
+
+		// Reconcile on-chain state if it has drifted from the DB.
+		chainClient := chainClients[environment]
+		if chainClient == nil || !chainClient.CanUpdateCormState() {
+			return
+		}
+		chainStateID, _ := database.ResolveChainStateID(ctx, environment, cormID)
+		if chainStateID == "" || !chain.IsValidChainStateID(chainStateID) {
+			return
+		}
+		onChain, err := chainClient.GetCormState(ctx, chainStateID)
+		if err != nil {
+			slog.Info(fmt.Sprintf("session sync: read on-chain state for corm %s: %v", cormID, err))
+			return
+		}
+		if onChain == nil {
+			return
+		}
+		if onChain.Phase != traits.Phase || onChain.Stability != int(traits.Stability) || onChain.Corruption != int(traits.Corruption) {
+			if err := chainClient.UpdateCormState(ctx, chainStateID, traits.Phase, traits.Stability, traits.Corruption); err != nil {
+				slog.Warn(fmt.Sprintf("session sync: reconcile on-chain state for corm %s failed: %v", cormID, err))
+			} else {
+				slog.Info(fmt.Sprintf("session sync: reconciled on-chain state for corm %s (phase %d→%d)",
+					cormID, onChain.Phase, traits.Phase))
+			}
+		}
 	}
 }

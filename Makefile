@@ -30,6 +30,7 @@
         publish-contracts publish-utopia publish-stillness \
         build clean enrich-items seed-ores zk-build zk-clean \
         test test-go test-contracts \
+        set-phase \
         logs-indexer logs-continuity dashboard help
 
 SHELL := /bin/bash
@@ -234,7 +235,15 @@ logs-continuity: ## Tail continuity-engine logs for ENV
 dashboard: ## Open CloudWatch dashboard for ENV
 	@echo "https://$(AWS_REGION).console.aws.amazon.com/cloudwatch/home?region=$(AWS_REGION)#dashboards/dashboard/fc-$(ENV)-overview"
 
-# ── Help ─────────────────────────────────────────────────────────────────
+# ── Dev Tools ────────────────────────────────────────────────────────────────────────
+
+set-phase: ## Set corm phase (NODE=0x... PHASE=N ENV=stillness)
+	@test -n "$(NODE)" || (echo "NODE is required. Usage: make set-phase NODE=0x... PHASE=2 ENV=stillness" && exit 1)
+	@test -n "$(PHASE)" || (echo "PHASE is required. Usage: make set-phase NODE=0x... PHASE=2 ENV=stillness" && exit 1)
+	set -a && . ./.env.$(ENV) 2>/dev/null; set +a && \
+		cd continuity-engine && go run ./cmd/set-phase -node=$(NODE) -phase=$(PHASE) -env=$(ENV)
+
+# ── Help ─────────────────────────────────────────────────────────────────────────────
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \

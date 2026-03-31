@@ -283,6 +283,21 @@ func toInt(v interface{}) int {
 	return 0
 }
 
+// IsValidChainStateID returns true if the ID looks like a real Sui hex object
+// ID ("0x" prefix + 64 hex chars = 66 total). Stub IDs like "corm_0x08a493"
+// from seed-mode CreateCormState do not pass this check.
+func IsValidChainStateID(id string) bool {
+	if len(id) != 66 || id[:2] != "0x" {
+		return false
+	}
+	for _, c := range id[2:] {
+		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+			return false
+		}
+	}
+	return true
+}
+
 // containsStr checks if s contains substr.
 func containsStr(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || len(s) > 0 && findSubstr(s, substr))

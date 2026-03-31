@@ -212,6 +212,47 @@ func (d *DB) UpsertTraits(ctx context.Context, environment string, t *types.Corm
 	return err
 }
 
+// --- Reconciliation ---
+
+// CormTraitSummary is a lightweight view of a corm's phase/stability/corruption for reconciliation.
+type CormTraitSummary struct {
+	CormID     string
+	Phase      int
+	Stability  float64
+	Corruption float64
+}
+
+// ListAllCormTraits returns every corm's phase/stability/corruption for a given environment.
+func (d *DB) ListAllCormTraits(ctx context.Context, environment string) ([]CormTraitSummary, error) {
+	rows, err := d.Pool.Query(ctx,
+		"SELECT corm_id, phase, stability, corruption FROM corm_traits WHERE environment = $1",
+		environment,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []CormTraitSummary
+	for rows.Next() {
+		var s CormTraitSummary
+		if err := rows.Scan(&s.CormID, &s.Phase, &s.Stability, &s.Corruption); err != nil {
+			return nil, err
+		}
+		out = append(out, s)
+	}
+	return out, rows.Err()
+}
+
+// SetPhase directly updates the phase value in corm_traits for a given corm.
+func (d *DB) SetPhase(ctx context.Context, environment, cormID string, phase int) error {
+	_, err := d.Pool.Exec(ctx,
+		"UPDATE corm_traits SET phase = $1, updated_at = now() WHERE environment = $2 AND corm_id = $3",
+		phase, environment, cormID,
+	)
+	return err
+}
+
 // --- Responses ---
 
 // InsertResponse logs a corm response.

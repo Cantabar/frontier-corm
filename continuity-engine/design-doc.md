@@ -113,6 +113,7 @@ continuity-engine/
 ├── Dockerfile
 ├── .air.toml
 ├── design-doc.md
+├── cmd/set-phase/main.go       # CLI tool: set corm phase in DB + on-chain
 ├── internal/
 │   ├── config/config.go        # Merged config (port + DB + SUI + coalesce)
 │   ├── dispatch/dispatch.go    # In-process event→action bridge
@@ -184,7 +185,8 @@ Only `types.json` and `groups.json` are copied from `fsd_built/` — the rest of
 - Chain state auto-provisioning: if `CreateCormState` fails on a network node's first contact (e.g. RPC timeout, missing config), the `corm_network_nodes` row is created with NULL `chain_state_id`. Two backfill paths recover from this: (1) in `processBatch`, every event with a `NetworkNodeID` checks if the linked node's `chain_state_id` is NULL and retries `CreateCormState` + `SetChainStateID`; (2) in `attemptContractFill`, if `ResolveChainStateID` returns empty, the engine resolves the corm's primary network node, attempts `CreateCormState`, and stores the result before proceeding with contract generation.
 - Contract generation pre-flight: before running the goal-directed planner, the engine checks `CanCreateContracts()` (signer + trustless contracts package + corm state package + character ID). If any are missing, generation is skipped with a WARN log and the player receives empty-state feedback immediately.
 - Empty-state player feedback: when no contracts can be generated (including when goal-directed intents are generated but all fail at creation), the corm sends an in-character log message directing the player to gather specific raw materials (corruption-scaled: coherent at low corruption, garbled at high). A `contract_status` SSE event (`ActionContractStatus`) also updates the contracts panel placeholder with the same message, so feedback is visible even if the player isn't watching the log stream
-- On-chain state sync: after `ProcessEventBatch` processes events, `syncChainState` writes the current phase/stability/corruption to the on-chain `CormState` shared object via `UpdateCormState`. Phase transitions trigger an unconditional sync. Stability/corruption changes trigger a sync only when significant: absolute delta ≥ 5 from the pre-batch value, or a threshold boundary crossing (0, 25, 50, 75, 100). Sync is best-effort — errors are logged at WARN level but do not fail the batch. Postgres remains the authoritative store; on-chain state is eventually consistent. Requires `CanUpdateCormState()` (signer + `corm_state` package ID) and a resolved `chain_state_id` for the corm. Silently skipped in stub/dev mode.
+- On-chain state sync: after `ProcessEventBatch` processes events, `syncChainState` writes the current phase/stability/corruption to the on-chain `CormState` shared object via `UpdateCormState`. Phase transitions trigger an unconditional sync. Stability/corruption changes trigger a sync only when significant: absolute delta ≥ 5 from the pre-batch value, or a threshold boundary crossing (0, 25, 50, 75, 100). Sync retries up to 3 attempts (100ms, 500ms backoff) on transient failures. Invalid stub `chain_state_id` values (e.g. `"corm_0x08a493"` from seed-mode) are detected via `IsValidChainStateID()` and rejected with an ERROR log. Postgres remains the authoritative store; on-chain state is eventually consistent. Requires `CanUpdateCormState()` (signer + `corm_state` package ID) and a resolved `chain_state_id` for the corm.
+- On-chain state reconciliation: when a new session is created via `buildSessionSyncFn`, after restoring DB traits the engine reads the on-chain `CormState` via `GetCormState` and compares phase/stability/corruption. If any values differ, an immediate `UpdateCormState` call reconciles the drift. This catches accumulated desync (e.g. from failed `syncChainState` calls) on the next player connection.
 - Multi-environment support via per-environment chain clients
 - HTMX server-rendered UI with SSE log streaming
 - In-game SSU iframe embedding support (`/ssu/{entity_id}/` routes)
@@ -196,6 +198,10 @@ Only `types.json` and `groups.json` are copied from `fsd_built/` — the rest of
 - Debug terminal commands for development troubleshooting:
   - `contracts` — force-generate AI contracts up to the 5-slot cap (bypasses cooldown)
   - `phase2` — skip to Phase 2 contracts dashboard (forces phase transition in both session and DB traits)
+- Debug HTTP endpoints:
+  - `POST /debug/reconcile-chain` — scans all corms in the DB, compares each with its on-chain CormState, and syncs any drift. Returns a JSON summary of actions taken (synced, skipped, errors).
+- CLI tools:
+  - `make set-phase NODE=0x... PHASE=N ENV=stillness` — directly updates both the DB `corm_traits.phase` and the on-chain `CormState` for a given network node. Useful for testing and operational recovery.
 
 ### Chain Client Troubleshooting
 

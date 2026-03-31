@@ -23,9 +23,10 @@ type GameHandlers struct {
 	Phase2BindNode   http.HandlerFunc
 	Stream           http.HandlerFunc
 	Status           http.HandlerFunc
-	ContractsPage        http.HandlerFunc
-	DebugFillContracts   http.HandlerFunc
-	DebugPhase2          http.HandlerFunc
+	ContractsPage          http.HandlerFunc
+	DebugFillContracts     http.HandlerFunc
+	DebugPhase2            http.HandlerFunc
+	DebugReconcileChain    http.HandlerFunc
 }
 
 // NewRouter builds the HTTP mux with all routes registered.
@@ -79,6 +80,9 @@ func registerGameRoutes(mux *http.ServeMux, gh GameHandlers, prefix string) {
 	// Debug
 	mux.HandleFunc("POST "+prefix+"/debug/fill-contracts", gh.DebugFillContracts)
 	mux.HandleFunc("POST "+prefix+"/debug/phase2", gh.DebugPhase2)
+	if gh.DebugReconcileChain != nil {
+		mux.HandleFunc("POST "+prefix+"/debug/reconcile-chain", gh.DebugReconcileChain)
+	}
 
 	// Root redirect — route to the correct phase handler and preserve query params
 	// (the ?player= param is needed if the session cookie was lost/blocked).

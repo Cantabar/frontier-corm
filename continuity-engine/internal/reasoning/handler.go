@@ -229,25 +229,49 @@ func (h *Handler) buildStateSyncPayload(ctx context.Context, environment, cormID
 }
 
 // syncChainState writes the current phase/stability/corruption to the on-chain
-// CormState shared object. Best-effort: errors are logged but do not fail the
-// event batch. Postgres remains the authoritative store.
+// CormState shared object. Retries up to 2 times on transient failures.
+// Postgres remains the authoritative store; on-chain is eventually consistent.
 func (h *Handler) syncChainState(ctx context.Context, environment, cormID string, traits *types.CormTraits) {
 	if h.chainClient == nil || !h.chainClient.CanUpdateCormState() {
+		slog.Info(fmt.Sprintf("syncChainState: skipped for corm %s (chain client not configured)", cormID))
 		return
 	}
 
 	chainStateID, err := h.db.ResolveChainStateID(ctx, environment, cormID)
 	if err != nil {
-		slog.Warn(fmt.Sprintf("syncChainState: resolve chain state ID for corm %s: %v", cormID, err))
+		slog.Error(fmt.Sprintf("syncChainState: resolve chain state ID for corm %s: %v", cormID, err))
 		return
 	}
 	if chainStateID == "" {
-		return // no on-chain state yet (stub mode or pre-install)
+		slog.Warn(fmt.Sprintf("syncChainState: no chain_state_id for corm %s — on-chain state will not be updated", cormID))
+		return
 	}
 
-	if err := h.chainClient.UpdateCormState(ctx, chainStateID, traits.Phase, traits.Stability, traits.Corruption); err != nil {
-		slog.Warn(fmt.Sprintf("syncChainState: update failed for corm %s: %v", cormID, err))
+	// Reject stub IDs (e.g. "corm_0x08a493") that would fail ObjectIdFromHex.
+	if !chain.IsValidChainStateID(chainStateID) {
+		slog.Error(fmt.Sprintf("syncChainState: invalid chain_state_id %q for corm %s — skipping (likely stub from seed mode)", chainStateID, cormID))
+		return
 	}
+
+	// Retry with backoff: 100ms, 500ms.
+	backoffs := []time.Duration{100 * time.Millisecond, 500 * time.Millisecond}
+	var lastErr error
+	for attempt := 0; attempt <= len(backoffs); attempt++ {
+		if attempt > 0 {
+			time.Sleep(backoffs[attempt-1])
+		}
+		if err := h.chainClient.UpdateCormState(ctx, chainStateID, traits.Phase, traits.Stability, traits.Corruption); err != nil {
+			lastErr = err
+			slog.Warn(fmt.Sprintf("syncChainState: attempt %d/%d failed for corm %s (chain_state=%s): %v",
+				attempt+1, len(backoffs)+1, cormID, chainStateID, err))
+			continue
+		}
+		return // success
+	}
+
+	// All retries exhausted.
+	slog.Error(fmt.Sprintf("syncChainState: all retries exhausted for corm %s (chain_state=%s, phase=%d): %v",
+		cormID, chainStateID, traits.Phase, lastErr))
 }
 
 // shouldSyncMeters returns true if stability or corruption changed enough to
