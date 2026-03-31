@@ -130,7 +130,40 @@ else
   echo "  Run: make publish-contracts ENV=$ENV  (and provide the brain address when prompted)" >&2
 fi
 
-# ── 3. Check CORM_CHARACTER_ID ─────────────────────────────────────
+# ── 3. Find WitnessRegistry from corm_auth publish transaction ──────
+echo ""
+echo "Looking up WitnessRegistry..."
+CORM_AUTH_PKG=$(grep '^PACKAGE_CORM_AUTH=' "$ENV_FILE" | cut -d= -f2)
+if [ -z "$CORM_AUTH_PKG" ]; then
+  CORM_AUTH_PKG=$(grep '^VITE_CORM_AUTH_PACKAGE_ID=' "$ENV_FILE" | cut -d= -f2)
+fi
+
+if [ -z "$CORM_AUTH_PKG" ]; then
+  echo "  WARNING: No corm_auth package ID found. Skipping WitnessRegistry recovery." >&2
+else
+  AUTH_PUBLISH_TX=$(curl -s "$SUI_RPC" -X POST \
+    -H 'Content-Type: application/json' \
+    -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"sui_getObject\",\"params\":[\"$CORM_AUTH_PKG\",{\"showPreviousTransaction\":true}]}" \
+    | jq -r '.result.data.previousTransaction')
+
+  WITNESS_REGISTRY_ID=""
+  if [ -n "$AUTH_PUBLISH_TX" ] && [ "$AUTH_PUBLISH_TX" != "null" ]; then
+    echo "  corm_auth publish TX: $AUTH_PUBLISH_TX"
+    WITNESS_REGISTRY_ID=$(curl -s "$SUI_RPC" -X POST \
+      -H 'Content-Type: application/json' \
+      -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"sui_getTransactionBlock\",\"params\":[\"$AUTH_PUBLISH_TX\",{\"showObjectChanges\":true}]}" \
+      | jq -r '(.result.objectChanges // [])[] | select(.type == "created") | select(.objectType | contains("WitnessRegistry")) | .objectId // empty')
+  fi
+
+  if [ -n "$WITNESS_REGISTRY_ID" ] && [ "$WITNESS_REGISTRY_ID" != "null" ]; then
+    echo "  WITNESS_REGISTRY_OBJECT_ID=$WITNESS_REGISTRY_ID"
+    write_env_var "WITNESS_REGISTRY_OBJECT_ID" "$WITNESS_REGISTRY_ID" "$ENV_FILE"
+  else
+    echo "  WARNING: WitnessRegistry not found in corm_auth publish transaction." >&2
+  fi
+fi
+
+# ── 4. Check CORM_CHARACTER_ID ─────────────────────────────────────
 echo ""
 EXISTING_CHAR=$(grep '^CORM_CHARACTER_ID=' "$ENV_FILE" 2>/dev/null | cut -d= -f2 || true)
 if [ -z "$EXISTING_CHAR" ]; then
@@ -151,7 +184,7 @@ fi
 # ── Summary ────────────────────────────────────────────────────────
 echo ""
 echo "=== Current state of $ENV_FILE ==="
-for var in CORM_STATE_PACKAGE_ID COIN_AUTHORITY_OBJECT_ID CORM_CONFIG_OBJECT_ID CORM_CHARACTER_ID; do
+for var in CORM_STATE_PACKAGE_ID COIN_AUTHORITY_OBJECT_ID CORM_CONFIG_OBJECT_ID WITNESS_REGISTRY_OBJECT_ID WITNESSED_CONTRACTS_PACKAGE_ID CORM_CHARACTER_ID; do
   val=$(grep "^${var}=" "$ENV_FILE" 2>/dev/null | cut -d= -f2 || echo "(not set)")
   [ -z "$val" ] && val="(empty)"
   echo "  $var=$val"

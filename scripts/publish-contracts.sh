@@ -180,7 +180,7 @@ echo "Generated $PUB_FILE"
 # web env file cleanup, a stale VITE_CORM_CONFIG_ID (created under a
 # previous package deployment) survives a republish and causes
 # TypeMismatch errors at runtime.
-STALE_VARS=("${ENV_VARS[@]}" "${VITE_VARS[@]}" VITE_TRIBE_REGISTRY_ID VITE_CORM_CONFIG_ID VITE_METADATA_REGISTRY_ID COIN_AUTHORITY_OBJECT_ID CORM_CONFIG_OBJECT_ID)
+STALE_VARS=("${ENV_VARS[@]}" "${VITE_VARS[@]}" VITE_TRIBE_REGISTRY_ID VITE_CORM_CONFIG_ID VITE_METADATA_REGISTRY_ID COIN_AUTHORITY_OBJECT_ID CORM_CONFIG_OBJECT_ID WITNESS_REGISTRY_OBJECT_ID WITNESSED_CONTRACTS_PACKAGE_ID)
 echo "Clearing stale contract IDs from $ENV_FILE..."
 for var in "${STALE_VARS[@]}"; do
   if grep -q "^${var}=" "$ENV_FILE" 2>/dev/null; then
@@ -300,6 +300,46 @@ for i in "${!PACKAGES[@]}"; do
       fi
     else
       echo "  WARNING: Could not extract TribeRegistry ID from publish events" >&2
+    fi
+  fi
+
+  # Write continuity-engine aliases for witnessed contracts config
+  if [ "$pkg" = "witnessed_contracts" ]; then
+    write_env_var "WITNESSED_CONTRACTS_PACKAGE_ID" "$PACKAGE_ID" "$ENV_FILE"
+    echo "  WITNESSED_CONTRACTS_PACKAGE_ID=$PACKAGE_ID"
+  fi
+
+  if [ "$pkg" = "corm_auth" ]; then
+    echo "  Querying WitnessRegistry shared object ID..."
+
+    # Try extracting from fresh publish result first
+    WITNESS_REGISTRY_ID=""
+    if [ -f /tmp/publish-result-clean.json ]; then
+      WITNESS_REGISTRY_ID=$(jq -r '(.objectChanges // [])[] | select(.type == "created") | select(.objectType | contains("WitnessRegistry")) | .objectId // empty' /tmp/publish-result-clean.json 2>/dev/null)
+    fi
+
+    # Fallback: query the package's publish transaction from chain
+    if [ -z "$WITNESS_REGISTRY_ID" ] || [ "$WITNESS_REGISTRY_ID" = "null" ]; then
+      PUBLISH_TX=$(curl -s "$SUI_RPC" -X POST \
+        -H 'Content-Type: application/json' \
+        -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"sui_getObject\",\"params\":[\"$PACKAGE_ID\",{\"showPreviousTransaction\":true}]}" \
+        | jq -r '.result.data.previousTransaction')
+      if [ -n "$PUBLISH_TX" ] && [ "$PUBLISH_TX" != "null" ]; then
+        WITNESS_REGISTRY_ID=$(curl -s "$SUI_RPC" -X POST \
+          -H 'Content-Type: application/json' \
+          -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"sui_getTransactionBlock\",\"params\":[\"$PUBLISH_TX\",{\"showObjectChanges\":true}]}" \
+          | jq -r '(.result.objectChanges // [])[] | select(.type == "created") | select(.objectType | contains("WitnessRegistry")) | .objectId // empty')
+      fi
+    fi
+
+    if [ -n "$WITNESS_REGISTRY_ID" ] && [ "$WITNESS_REGISTRY_ID" != "null" ]; then
+      echo "  WITNESS_REGISTRY_OBJECT_ID=$WITNESS_REGISTRY_ID"
+      write_env_var "WITNESS_REGISTRY_OBJECT_ID" "$WITNESS_REGISTRY_ID" "$ENV_FILE"
+      if [ -f "$WEB_ENV_FILE" ]; then
+        write_env_var "WITNESS_REGISTRY_OBJECT_ID" "$WITNESS_REGISTRY_ID" "$WEB_ENV_FILE"
+      fi
+    else
+      echo "  WARNING: Could not extract WitnessRegistry ID from publish transaction" >&2
     fi
   fi
 

@@ -29,7 +29,7 @@ write_env_var() {
 # ── Clear stale package IDs from previous runs ────────────────────
 if [ -f "$ENV_FILE" ]; then
   echo "Clearing stale contract IDs from $ENV_FILE..."
-  for var in "${ENV_VARS[@]}" "${VITE_VARS[@]}" VITE_TRIBE_REGISTRY_ID CORM_STATE_PACKAGE_ID VITE_METADATA_REGISTRY_ID VITE_CORM_CONFIG_ID; do
+  for var in "${ENV_VARS[@]}" "${VITE_VARS[@]}" VITE_TRIBE_REGISTRY_ID CORM_STATE_PACKAGE_ID VITE_METADATA_REGISTRY_ID VITE_CORM_CONFIG_ID WITNESS_REGISTRY_OBJECT_ID WITNESSED_CONTRACTS_PACKAGE_ID; do
     [ -z "$var" ] && continue
     sed -i "s|^${var}=.*|${var}=|" "$ENV_FILE"
   done
@@ -168,7 +168,45 @@ for i in "${!PACKAGES[@]}"; do
     echo "  CORM_STATE_PACKAGE_ID=$PACKAGE_ID"
   fi
 
+  # Write continuity-engine alias for witnessed contracts package
+  if [ "$pkg" = "witnessed_contracts" ]; then
+    write_env_var "WITNESSED_CONTRACTS_PACKAGE_ID" "$PACKAGE_ID" "$ENV_FILE"
+    echo "  WITNESSED_CONTRACTS_PACKAGE_ID=$PACKAGE_ID"
+  fi
+
   # ── Extract shared object IDs created during init ────────────────
+  if [ "$pkg" = "corm_auth" ]; then
+    echo "  Querying WitnessRegistry shared object ID..."
+    WITNESS_REGISTRY_ID=$(
+      curl -s http://127.0.0.1:9000 -X POST \
+        -H 'Content-Type: application/json' \
+        -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"suix_queryEvents\",\"params\":[{\"MoveModule\":{\"package\":\"${PACKAGE_ID}\",\"module\":\"corm_auth\"}},null,5,false]}" \
+      | jq -r '[.result.data[].parsedJson] | map(select(.id)) | .[0].id // empty'
+    )
+    # Fallback: look in the publish transaction's object changes
+    if [ -z "$WITNESS_REGISTRY_ID" ] || [ "$WITNESS_REGISTRY_ID" = "null" ]; then
+      PUBLISH_TX=$(curl -s http://127.0.0.1:9000 -X POST \
+        -H 'Content-Type: application/json' \
+        -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"sui_getObject\",\"params\":[\"$PACKAGE_ID\",{\"showPreviousTransaction\":true}]}" \
+        | jq -r '.result.data.previousTransaction')
+      if [ -n "$PUBLISH_TX" ] && [ "$PUBLISH_TX" != "null" ]; then
+        WITNESS_REGISTRY_ID=$(curl -s http://127.0.0.1:9000 -X POST \
+          -H 'Content-Type: application/json' \
+          -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"sui_getTransactionBlock\",\"params\":[\"$PUBLISH_TX\",{\"showObjectChanges\":true}]}" \
+          | jq -r '(.result.objectChanges // [])[] | select(.type == "created") | select(.objectType | contains("WitnessRegistry")) | .objectId // empty')
+      fi
+    fi
+    if [ -n "$WITNESS_REGISTRY_ID" ] && [ "$WITNESS_REGISTRY_ID" != "null" ]; then
+      echo "  WITNESS_REGISTRY_OBJECT_ID=$WITNESS_REGISTRY_ID"
+      write_env_var "WITNESS_REGISTRY_OBJECT_ID" "$WITNESS_REGISTRY_ID" "$ENV_FILE"
+      if [ -f "$WEB_ENV_FILE" ]; then
+        write_env_var "WITNESS_REGISTRY_OBJECT_ID" "$WITNESS_REGISTRY_ID" "$WEB_ENV_FILE"
+      fi
+    else
+      echo "  WARNING: Could not extract WitnessRegistry ID from publish events" >&2
+    fi
+  fi
+
   if [ "$pkg" = "tribe" ]; then
     echo "  Querying TribeRegistry shared object ID..."
     TRIBE_REGISTRY_ID=$(
