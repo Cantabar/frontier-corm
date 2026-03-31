@@ -253,6 +253,8 @@ type CormTraits struct {
 	Volatility               float64            `json:"volatility"`
 	PlayerAffinities         map[string]float64 `json:"player_affinities"`
 	ConsolidationCheckpoint  int64              `json:"consolidation_checkpoint"`
+	FrigateGoalTypeID        uint64             `json:"frigate_goal_type_id,omitempty"`
+	CompletedGoals           []uint64           `json:"completed_goals,omitempty"`
 	UpdatedAt                time.Time          `json:"updated_at"`
 }
 

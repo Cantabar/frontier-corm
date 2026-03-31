@@ -41,6 +41,9 @@ func handlePhase2Effects(ctx context.Context, h *Handler, environment, cormID st
 		// Sync updated state
 		h.dispatcher.SendPayload(ctx, types.ActionStateSync, evt.SessionID, h.buildStateSyncPayload(ctx, environment, cormID, traits))
 
+		// Check if a goal ship was completed.
+		checkGoalCompletion(ctx, h, environment, cormID, traits, evt)
+
 		// TODO: Evaluate pattern alignment and mint CORM reward
 		// TODO: Check if progression requirements met for Phase 3
 
@@ -125,7 +128,7 @@ func attemptContractFill(ctx context.Context, h *Handler, environment, cormID st
 		// creation is not possible (missing signer or package IDs).
 		if !h.chainClient.CanCreateContracts() {
 			slog.Warn(fmt.Sprintf("phase2: skipping goal-directed contracts for corm %s (chain client not fully configured)", cormID))
-			sendEmptyStateFeedback(ctx, h, cormID, evt.SessionID, traits)
+			sendEmptyStateFeedback(ctx, h, cormID, evt.SessionID, traits, snapshot)
 			return
 		}
 
@@ -145,7 +148,7 @@ func attemptContractFill(ctx context.Context, h *Handler, environment, cormID st
 		}
 
 		slots := maxActiveContracts - activeCount
-		goals := DefaultGoals()
+		goals := ProgressiveGoals(traits)
 		intents := PlanAcquisitionContracts(goals, snapshot, h.recipeRegistry, traits, playerAddr, slots)
 
 		if len(intents) > 0 {
@@ -161,12 +164,12 @@ func attemptContractFill(ctx context.Context, h *Handler, environment, cormID st
 			}
 			// All intents failed — still send feedback.
 			if activeCount == 0 {
-				sendEmptyStateFeedback(ctx, h, cormID, evt.SessionID, traits)
+				sendEmptyStateFeedback(ctx, h, cormID, evt.SessionID, traits, snapshot)
 			}
 		} else {
 			// Safety net: no goal-directed contracts possible either.
 			// Send feedback to the player.
-			sendEmptyStateFeedback(ctx, h, cormID, evt.SessionID, traits)
+			sendEmptyStateFeedback(ctx, h, cormID, evt.SessionID, traits, snapshot)
 		}
 	} else if standardFailed && activeCount == 0 && h.recipeRegistry == nil {
 		// No recipe registry available — send generic feedback.
@@ -240,9 +243,13 @@ func createContractFromIntent(ctx context.Context, h *Handler, environment, corm
 // sendEmptyStateFeedback delivers an in-character log message to the player
 // explaining that no contracts could be generated and what materials to gather.
 // It also updates the contracts panel placeholder with the same message.
-func sendEmptyStateFeedback(ctx context.Context, h *Handler, cormID, sessionID string, traits *types.CormTraits) {
-	goals := DefaultGoals()
-	text := EmptyStateMessage(goals, h.recipeRegistry, traits.Corruption)
+func sendEmptyStateFeedback(ctx context.Context, h *Handler, cormID, sessionID string, traits *types.CormTraits, snapshot ...chain.WorldSnapshot) {
+	goals := ProgressiveGoals(traits)
+	var snap chain.WorldSnapshot
+	if len(snapshot) > 0 {
+		snap = snapshot[0]
+	}
+	text := EmptyStateMessage(goals, h.recipeRegistry, snap, traits.Corruption)
 
 	entryID := fmt.Sprintf("corm_%s_empty_%d", safePrefix(cormID, 8), time.Now().UnixMilli())
 
@@ -283,4 +290,72 @@ func truncateStr(s string, max int) string {
 		return s
 	}
 	return s[:max] + "..."
+}
+
+// checkGoalCompletion inspects the corm's inventory for completed goal ships
+// after a contract completion event. If a goal ship is found, it marks it as
+// completed in traits and sends a celebration message.
+func checkGoalCompletion(ctx context.Context, h *Handler, environment, cormID string, traits *types.CormTraits, evt types.CormEvent) {
+	if h.chainClient == nil {
+		return
+	}
+
+	// Re-fetch inventory to check for newly acquired goal ships.
+	chainStateID, _ := h.db.ResolveChainStateID(ctx, environment, cormID)
+	inventory, err := h.chainClient.GetCormInventory(ctx, chainStateID)
+	if err != nil {
+		slog.Info(fmt.Sprintf("phase2: goal check inventory fetch for %s: %v", cormID, err))
+		return
+	}
+
+	// Build a set of completed goals for quick lookup.
+	alreadyCompleted := make(map[uint64]bool)
+	for _, id := range traits.CompletedGoals {
+		alreadyCompleted[id] = true
+	}
+
+	var newlyCompleted []uint64
+	for _, item := range inventory {
+		var typeID uint64
+		fmt.Sscanf(item.TypeID, "%d", &typeID)
+		if typeID > 0 && IsGoalShip(typeID) && !alreadyCompleted[typeID] {
+			newlyCompleted = append(newlyCompleted, typeID)
+		}
+	}
+
+	if len(newlyCompleted) == 0 {
+		return
+	}
+
+	// Mark completed and persist.
+	for _, id := range newlyCompleted {
+		traits.CompletedGoals = append(traits.CompletedGoals, id)
+	}
+	if err := h.db.UpsertTraits(ctx, environment, traits); err != nil {
+		slog.Info(fmt.Sprintf("phase2: upsert traits after goal completion: %v", err))
+	}
+
+	// Send celebration message for the first newly completed ship.
+	shipName := goalShipName(newlyCompleted[0])
+	celebrationText := fmt.Sprintf("> %s hull detected in storage. assembly complete. continuity advances.", shipName)
+
+	entryID := fmt.Sprintf("corm_%s_goal_%d", safePrefix(cormID, 8), time.Now().UnixMilli())
+	h.dispatcher.SendPayload(ctx, types.ActionLogStreamStart, evt.SessionID, types.LogStreamStartPayload{EntryID: entryID})
+	h.dispatcher.SendPayload(ctx, types.ActionLogStreamDelta, evt.SessionID, types.LogStreamDeltaPayload{EntryID: entryID, Text: celebrationText})
+	h.dispatcher.SendPayload(ctx, types.ActionLogStreamEnd, evt.SessionID, types.LogStreamEndPayload{EntryID: entryID})
+
+	slog.Info(fmt.Sprintf("phase2: goal ship %s (%d) completed for corm %s", shipName, newlyCompleted[0], cormID))
+}
+
+// goalShipName returns the display name for a goal ship type ID.
+func goalShipName(typeID uint64) string {
+	names := map[uint64]string{
+		87847: "Reflex", 87848: "Reiver",
+		81609: "USV", 82424: "HAF", 82425: "LAI", 82426: "LORHA", 81904: "MCF",
+		81808: "TADES", 82430: "MAUL",
+	}
+	if n, ok := names[typeID]; ok {
+		return n
+	}
+	return fmt.Sprintf("Ship %d", typeID)
 }

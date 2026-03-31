@@ -175,8 +175,11 @@ Only `types.json` and `groups.json` are copied from `fsd_built/` — the rest of
 - Contract address discovery with group-reveal and auto-complete
 - Four AI-controlled hint systems: heatmap, vectors, decode, signal
 - Deterministic Phase 2 contract generation from traits + inventory state with automatic slot fill-up (up to 5 active contracts per corm, triggered on page load, node bind, and contract completion/failure; rate-limited by `CONTRACT_GENERATION_COOLDOWN_MS`)
-- Goal-directed contract generation: when standard generation fails (empty inventories/zero CORM), the corm falls back to a recipe-driven goal planner that generates `coin_for_item` acquisition contracts for raw materials needed to build target ships (Reflex, then Reiver)
-- Recipe registry (`internal/chain/recipes.go`): hardcoded dependency trees for Reflex and Reiver, with recursive flattening to raw ore requirements (Feldspar Crystals, Silica Grains, Iron-Rich Nodules, Palladium, Fossilized Exotronics)
+- Goal-directed contract generation: when standard generation fails (empty inventories/zero CORM), the corm falls back to a recipe-driven goal planner that generates `coin_for_item` acquisition contracts for raw materials needed to build target ships
+- Progressive ship build goals: the corm guides the player through a five-tier build pipeline — Reflex (corvette) → Reiver (corvette) → random frigate → TADES (destroyer) → MAUL (cruiser). The frigate is selected deterministically per-corm via SHA-256 hash of the corm ID. Completed goals are tracked in `CormTraits.CompletedGoals` and filtered from future contract generation. Goal completion is detected by checking inventory after contract completions.
+- Infrastructure checks: before generating material acquisition contracts for a goal, the planner walks the recipe tree to determine required manufacturing facilities (Printer, Berth, Heavy Printer, Heavy Berth). If any non-starter facilities are missing from the network node's assemblies, the corm generates infrastructure build-request contracts instead (`coin_for_item` targeting the facility itself), blocking material acquisition until the player deploys the required structures.
+- Facility registry (`internal/chain/facilities.go`): maps recipe Facility strings to type IDs, walks recipe trees to collect unique facility requirements, and compares against the node's assembly list. Starter facilities (Field Refinery, Field Printer, Mini Printer, Mini Berth) are excluded since all players have them.
+- Recipe registry (`internal/chain/recipes.go`): hardcoded dependency trees for all ship tiers — corvettes (Reflex, Reiver), frigates (USV, LORHA, MCF, HAF, LAI), destroyer (TADES), cruiser (MAUL) — plus intermediates (batched/packaged alloys, carbon weave, thermal composites), program frames (Apocalypse, Bastion, Archangel, Exterminata), and raw-material-tier components (Still Kernel, Echo Chamber, Still Knot). Recursive flattening resolves any ship to its leaf-level raw ore requirements.
 - Bootstrap CORM minting: when the corm has zero CORM balance and the chain client is fully configured (`CanMintCORM()`), a seed amount (1000 CORM) is minted to fund acquisition contracts. When chain config is incomplete, minting returns 0 (no phantom balance) and contract generation falls through to empty-state feedback.
 - Contract generation pre-flight: before running the goal-directed planner, the engine checks `CanCreateContracts()` (signer + trustless contracts package + corm state package + character ID). If any are missing, generation is skipped with a WARN log and the player receives empty-state feedback immediately.
 - Empty-state player feedback: when no contracts can be generated (including when goal-directed intents are generated but all fail at creation), the corm sends an in-character log message directing the player to gather specific raw materials (corruption-scaled: coherent at low corruption, garbled at high). A `contract_status` SSE event (`ActionContractStatus`) also updates the contracts panel placeholder with the same message, so feedback is visible even if the player isn't watching the log stream
@@ -225,8 +228,9 @@ Run all tests: `go test ./...` from the `continuity-engine/` directory (or `make
 - **`tests/`** — integration-style tests (external test package `tests`). 7 files covering cipher round-trips, puzzle generation, HTTP handler logic, contract generation, trait reduction, prompt processing, and trap movement.
 - **`internal/handlers/game_test.go`** — unit tests for puzzle decrypt handlers with real template rendering, OOB swap verification.
 - **`internal/reasoning/transitions_test.go`** — unit tests for deterministic transition message selection (determinism, corruption tolerance, in-character validation).
-- **`internal/chain/recipes_test.go`** — unit tests for recipe registry flattening (Reflex/Reiver raw material resolution, unknown items, raw material detection).
-- **`internal/reasoning/goals_test.go`** — unit tests for goal planner (acquisition contract generation from empty inventory, partial inventory subtraction, slot limits, empty-state messages at varying corruption levels).
+- **`internal/chain/recipes_test.go`** — unit tests for recipe registry flattening (Reflex/Reiver/USV/TADES/MAUL raw material resolution, unknown items, raw material detection, facility field correctness).
+- **`internal/chain/facilities_test.go`** — unit tests for facility requirement derivation per ship tier (corvette/frigate/TADES/MAUL) and CheckMissingFacilities logic.
+- **`internal/reasoning/goals_test.go`** — unit tests for goal planner (acquisition contract generation from empty inventory, partial inventory subtraction, slot limits, empty-state messages at varying corruption levels, progressive goal generation, goal completion filtering, frigate selection determinism, infrastructure check contract generation, infrastructure-missing feedback messages).
 - **`internal/reasoning/phase2_test.go`** — unit tests for `sendEmptyStateFeedback` (verifies log stream + `contract_status` dispatch at low and high corruption).
 
 ### What's tested
@@ -239,7 +243,10 @@ Run all tests: `go test ./...` from the `continuity-engine/` directory (or `make
 - Puzzle generation: grid layout, target word embedding, address cell grouping
 - Contract generation from trait state and inventory
 - Goal-directed contract generation from recipe registry (empty inventory fallback, material priority ordering)
-- Recipe registry flattening (Reflex/Reiver dependency trees to raw ores)
+- Progressive goal generation (5-tier pipeline, completion filtering, deterministic frigate selection)
+- Infrastructure check contract generation (missing facilities → build-request intents)
+- Recipe registry flattening (Reflex/Reiver/USV/TADES/MAUL dependency trees to raw ores)
+- Facility requirement derivation per ship tier
 - Deterministic trait reduction
 - Transition message determinism, corruption resilience, and in-character tone
 - Trap movement mechanics

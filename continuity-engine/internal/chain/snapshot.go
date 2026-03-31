@@ -17,6 +17,7 @@ type WorldSnapshot struct {
 	CormInventory   []InventoryItem // items in the corm's SSU
 	PlayerInventory []InventoryItem // items in the player's SSU
 	NodeSSUs        []SSUInfo       // SSUs on this network node
+	NodeAssemblies  []AssemblyInfo  // manufacturing facilities on this network node
 	ActiveContracts int             // count of open contracts for this corm
 }
 
@@ -24,6 +25,13 @@ type WorldSnapshot struct {
 type SSUInfo struct {
 	ObjectID  string
 	OwnerAddr string
+}
+
+// AssemblyInfo identifies a manufacturing facility on a network node.
+type AssemblyInfo struct {
+	ObjectID string
+	TypeID   uint64
+	TypeName string
 }
 
 // BuildSnapshot assembles a WorldSnapshot by fetching chain state in parallel.
@@ -89,6 +97,20 @@ func BuildSnapshot(ctx context.Context, client *Client, cormID, playerAddr, netw
 		}
 		mu.Lock()
 		snap.NodeSSUs = ssus
+		mu.Unlock()
+	}()
+
+	// Fetch manufacturing facilities on this network node
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		assemblies, err := client.GetNodeAssemblies(subCtx, networkNodeID)
+		if err != nil {
+			slog.Info(fmt.Sprintf("snapshot: node assemblies: %v", err))
+			return
+		}
+		mu.Lock()
+		snap.NodeAssemblies = assemblies
 		mu.Unlock()
 	}()
 
@@ -172,5 +194,22 @@ func (c *Client) GetNodeSSUs(ctx context.Context, networkNodeID string) ([]SSUIn
 		}, nil
 	}
 	// TODO: Query indexer for SSUs on this network node
+	return nil, nil
+}
+
+// GetNodeAssemblies returns manufacturing facilities on a network node.
+// Seed mode returns starter-tier facilities (Field Refinery, Field Printer,
+// Mini Printer, Mini Berth) that all players have from the tutorial.
+// Full implementation requires indexer integration.
+func (c *Client) GetNodeAssemblies(ctx context.Context, networkNodeID string) ([]AssemblyInfo, error) {
+	if c.seedMode {
+		return []AssemblyInfo{
+			{ObjectID: "seed_refinery_" + networkNodeID, TypeID: FacilityFieldRefinery, TypeName: "Field Refinery"},
+			{ObjectID: "seed_printer_" + networkNodeID, TypeID: FacilityFieldPrinter, TypeName: "Field Printer"},
+			{ObjectID: "seed_miniprinter_" + networkNodeID, TypeID: FacilityMiniPrinter, TypeName: "Mini Printer"},
+			{ObjectID: "seed_miniberth_" + networkNodeID, TypeID: FacilityMiniBerth, TypeName: "Mini Berth"},
+		}, nil
+	}
+	// TODO: Query indexer for assemblies on this network node
 	return nil, nil
 }
