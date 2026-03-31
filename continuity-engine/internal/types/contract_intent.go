@@ -7,9 +7,10 @@ type ContractIntent struct {
 	ContractType string `json:"contract_type"` // "coin_for_item", "item_for_coin", "item_for_item"
 	OfferedItem  string `json:"offered_item"`  // item name (for item_for_coin, item_for_item) or empty
 	WantedItem   string `json:"wanted_item"`   // item name (for coin_for_item, item_for_item) or empty
-	CORMAmount   string `json:"corm_amount"`   // "small", "medium", "large" — modulates LUX-derived price
-	Quantity     string `json:"quantity"`       // "small", "medium", "large" — % of available inventory
-	Urgency      string `json:"urgency"`        // "low", "medium", "high" — maps to deadline
+	CORMAmount    string `json:"corm_amount"`              // "small", "medium", "large" — modulates LUX-derived price
+	Quantity      string `json:"quantity"`                 // "small", "medium", "large" — % of available inventory
+	ExactQuantity uint64 `json:"exact_quantity,omitempty"` // When >0, resolver uses this instead of qualitative Quantity
+	Urgency       string `json:"urgency"`                  // "low", "medium", "high" — maps to deadline
 	AllowPartial bool   `json:"allow_partial"`
 	Narrative    string `json:"narrative"` // flavor text for the contract announcement
 }

@@ -235,14 +235,14 @@ func PlanAcquisitionContracts(
 				}
 			}
 
-			intents = append(intents, types.ContractIntent{
-				ContractType: types.ContractCoinForItem,
-				WantedItem:   mat.Name,
-				CORMAmount:   cormAmount,
-				Quantity:     "medium",
-				Urgency:      "medium",
-				AllowPartial: true,
-				Narrative:    acquisitionNarrative(mat.Name, goal.TargetName),
+		intents = append(intents, types.ContractIntent{
+				ContractType:  types.ContractCoinForItem,
+				WantedItem:    mat.Name,
+				CORMAmount:    cormAmount,
+				ExactQuantity: uint64(mat.Quantity),
+				Urgency:       "medium",
+				AllowPartial:  true,
+				Narrative:     acquisitionNarrative(mat.Name, goal.TargetName),
 			})
 		}
 	}

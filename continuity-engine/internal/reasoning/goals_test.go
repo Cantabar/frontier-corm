@@ -286,6 +286,52 @@ func TestEmptyStateMessage_MissingInfrastructure(t *testing.T) {
 	}
 }
 
+func TestPlanAcquisitionContracts_ExactQuantityMatchesDeficit(t *testing.T) {
+	recipes := chain.NewRecipeRegistry()
+	goals := []CormGoal{{TargetTypeID: 87847, TargetName: "Reflex", Priority: 0}}
+
+	// Give the corm some Feldspar Crystals — less than what the recipe needs.
+	// The intent's ExactQuantity should equal the remaining deficit, not a
+	// qualitative fraction of the player's inventory.
+	snapshot := chain.WorldSnapshot{
+		CormCORMBalance: 1000,
+		CormInventory: []chain.InventoryItem{
+			{TypeID: "77800", TypeName: "Feldspar Crystals", Amount: 10},
+		},
+	}
+	traits := &types.CormTraits{PlayerAffinities: map[string]float64{}}
+
+	needed := recipes.MaterialsNeeded(87847, 1)
+	deficitMap := make(map[string]uint64) // material name → expected deficit
+	for _, mat := range needed {
+		deficit := uint64(mat.Quantity)
+		// Subtract corm inventory.
+		if mat.TypeID == 77800 {
+			deficit -= 10
+		}
+		deficitMap[mat.Name] = deficit
+	}
+
+	intents := PlanAcquisitionContracts(goals, snapshot, recipes, traits, "0xplayer", 20)
+	if len(intents) == 0 {
+		t.Fatal("expected acquisition intents")
+	}
+
+	for _, intent := range intents {
+		expected, ok := deficitMap[intent.WantedItem]
+		if !ok {
+			t.Errorf("unexpected material in intent: %s", intent.WantedItem)
+			continue
+		}
+		if intent.ExactQuantity != expected {
+			t.Errorf("%s: expected ExactQuantity=%d, got %d", intent.WantedItem, expected, intent.ExactQuantity)
+		}
+		if intent.Quantity != "" {
+			t.Errorf("%s: expected empty Quantity field, got %q", intent.WantedItem, intent.Quantity)
+		}
+	}
+}
+
 // --- Goal lifecycle tests ---
 
 func TestIsGoalFullyAcquired_NotAcquired(t *testing.T) {

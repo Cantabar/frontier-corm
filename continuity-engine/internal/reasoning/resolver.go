@@ -92,7 +92,12 @@ func ResolveIntent(
 		if wanted == nil {
 			return nil, fmt.Errorf("unknown item: %s", intent.WantedItem)
 		}
-		qty := resolveQuantity(intent.Quantity, playerInventoryQty(snapshot.PlayerInventory, wanted.TypeID))
+		var qty uint64
+		if intent.ExactQuantity > 0 {
+			qty = intent.ExactQuantity
+		} else {
+			qty = resolveQuantity(intent.Quantity, playerInventoryQty(snapshot.PlayerInventory, wanted.TypeID))
+		}
 		if qty == 0 {
 			qty = 10 // minimum
 		}
@@ -106,7 +111,12 @@ func ResolveIntent(
 		if offered == nil {
 			return nil, fmt.Errorf("unknown item: %s", intent.OfferedItem)
 		}
-		qty := resolveQuantity(intent.Quantity, cormInventoryQty(snapshot.CormInventory, offered.TypeID))
+		var qty uint64
+		if intent.ExactQuantity > 0 {
+			qty = intent.ExactQuantity
+		} else {
+			qty = resolveQuantity(intent.Quantity, cormInventoryQty(snapshot.CormInventory, offered.TypeID))
+		}
 		if qty == 0 {
 			qty = 10
 		}
@@ -124,7 +134,12 @@ func ResolveIntent(
 		if wanted == nil {
 			return nil, fmt.Errorf("unknown wanted item: %s", intent.WantedItem)
 		}
-		offeredQty := resolveQuantity(intent.Quantity, cormInventoryQty(snapshot.CormInventory, offered.TypeID))
+		var offeredQty uint64
+		if intent.ExactQuantity > 0 {
+			offeredQty = intent.ExactQuantity
+		} else {
+			offeredQty = resolveQuantity(intent.Quantity, cormInventoryQty(snapshot.CormInventory, offered.TypeID))
+		}
 		if offeredQty == 0 {
 			offeredQty = 10
 		}
