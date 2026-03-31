@@ -196,6 +196,54 @@ func (c *Client) UpdateCormState(ctx context.Context, cormID string, phase int, 
 	return nil
 }
 
+// ResetCormState resets phase/stability/corruption on-chain via
+// corm_state::reset_state. Unlike UpdateCormState, this allows phase
+// regression (the admin escape hatch for stuck corms).
+func (c *Client) ResetCormState(ctx context.Context, cormID string, phase int, stability, corruption float64) error {
+	if !c.HasSigner() {
+		return fmt.Errorf("no signer configured")
+	}
+	if c.cormStatePkg == nil {
+		slog.Info(fmt.Sprintf("chain: stub ResetCormState %s → phase=%d stab=%.0f corr=%.0f (no package ID)", cormID, phase, stability, corruption))
+		return nil
+	}
+
+	objID, err := sui.ObjectIdFromHex(cormID)
+	if err != nil {
+		return fmt.Errorf("invalid corm ID: %w", err)
+	}
+
+	stateRef, err := c.getSharedObjectRef(ctx, objID)
+	if err != nil {
+		return fmt.Errorf("get CormState ref: %w", err)
+	}
+
+	// Build PTB: corm_state::reset_state(state, phase, stability, corruption)
+	ptb := suiptb.NewTransactionDataTransactionBuilder()
+
+	stateArg := ptb.MustObj(suiptb.ObjectArg{
+		SharedObject: stateRef.SharedObjectArg(true),
+	})
+	phaseArg := ptb.MustPure(uint8(phase))
+	stabArg := ptb.MustPure(uint64(stability))
+	corrArg := ptb.MustPure(uint64(corruption))
+
+	ptb.ProgrammableMoveCall(
+		c.cormStatePkg,
+		"corm_state",
+		"reset_state",
+		[]sui.TypeTag{},
+		[]suiptb.Argument{stateArg, phaseArg, stabArg, corrArg},
+	)
+
+	if _, err := c.signAndExecute(ctx, ptb); err != nil {
+		return fmt.Errorf("execute reset_state: %w", err)
+	}
+
+	slog.Info(fmt.Sprintf("chain: ResetCormState %s → phase=%d stab=%.0f corr=%.0f", cormID, phase, stability, corruption))
+	return nil
+}
+
 // --- Shared helpers ---
 
 // getSharedObjectRef fetches the object's version info needed for SharedObjectArg.

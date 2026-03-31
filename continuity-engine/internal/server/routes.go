@@ -27,6 +27,7 @@ type GameHandlers struct {
 	DebugFillContracts     http.HandlerFunc
 	DebugPhase2            http.HandlerFunc
 	DebugReconcileChain    http.HandlerFunc
+	APIResetPhase          http.HandlerFunc
 }
 
 // NewRouter builds the HTTP mux with all routes registered.
@@ -45,6 +46,11 @@ func NewRouter(gh GameHandlers, store *puzzle.SessionStore, staticFS embed.FS, s
 	// Game routes — both root and SSU-prefixed
 	registerGameRoutes(mux, gh, "")
 	registerGameRoutes(mux, gh, "/ssu/{entity_id}")
+
+	// JSON API routes (no session middleware — used by the web app directly)
+	if gh.APIResetPhase != nil {
+		mux.HandleFunc("POST /api/reset-phase", gh.APIResetPhase)
+	}
 
 	return CORSMiddleware(SessionMiddleware(store, secureCookies, syncFn)(mux))
 }

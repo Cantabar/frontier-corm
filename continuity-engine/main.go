@@ -101,6 +101,8 @@ func main() {
 
 	rh := handlers.NewReconcileHandler(database, chainClients, defaultEnv)
 
+	ah := handlers.NewAPIHandler(database, chainClients, defaultEnv)
+
 	gh := server.GameHandlers{
 		Health:           h.Health,
 		Phase0Page:       h.Phase0Page,
@@ -119,6 +121,7 @@ func main() {
 		DebugFillContracts:     h.DebugFillContracts,
 		DebugPhase2:            h.DebugPhase2,
 		DebugReconcileChain:    rh.ReconcileChain,
+		APIResetPhase:          ah.ResetPhase,
 	}
 
 	// Build the session sync callback — closes over DB + chain clients +
