@@ -96,6 +96,26 @@ func attemptContractFill(ctx context.Context, h *Handler, environment, cormID st
 		slog.Info(fmt.Sprintf("phase2: resolve chain state ID for corm %s: %v", cormID, err))
 	}
 
+	// Safety net: if chain_state_id is still missing, attempt to provision
+	// it now. This handles corms whose initial CreateCormState call failed
+	// and haven't been backfilled by the event processor yet.
+	if chainStateID == "" && h.chainClient != nil && h.chainClient.CanUpdateCormState() {
+		nodeID, _ := h.db.ResolveNetworkNodeByCorm(ctx, environment, cormID)
+		if nodeID != "" {
+			newID, cErr := h.chainClient.CreateCormState(ctx, nodeID)
+			if cErr != nil {
+				slog.Info(fmt.Sprintf("phase2: auto-provision chain state for corm %s node %s: %v", cormID, nodeID, cErr))
+			} else if newID != "" {
+				if sErr := h.db.SetChainStateID(ctx, environment, nodeID, newID); sErr != nil {
+					slog.Info(fmt.Sprintf("phase2: auto-provision set chain state ID: %v", sErr))
+				} else {
+					chainStateID = newID
+					slog.Info(fmt.Sprintf("phase2: auto-provisioned chain_state_id for corm %s → %s", cormID, newID))
+				}
+			}
+		}
+	}
+
 	// Count active contracts from the session to enforce the cap,
 	// since WorldSnapshot.ActiveContracts is not yet populated from chain.
 	activeCount := countActiveSessionContracts(h.dispatcher, evt.SessionID)

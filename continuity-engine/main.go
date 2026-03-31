@@ -276,6 +276,23 @@ func processBatch(
 					}
 				}
 				slog.Info(fmt.Sprintf("[%s] linked node %s to corm %s (chain_state=%s)", env, evt.NetworkNodeID, cormID, chainStateID))
+			} else {
+				// Backfill: node is linked but chain_state_id may be NULL
+				// (e.g. CreateCormState failed on the original attempt).
+				existingChainID, _ := database.ResolveChainStateIDForNode(ctx, env, evt.NetworkNodeID)
+				if existingChainID == "" {
+					chainClient := chainClients[env]
+					chainStateID, err := chainClient.CreateCormState(ctx, evt.NetworkNodeID)
+					if err != nil {
+						slog.Info(fmt.Sprintf("[%s] backfill create corm state for node %s: %v", env, evt.NetworkNodeID, err))
+					} else if chainStateID != "" {
+						if err := database.SetChainStateID(ctx, env, evt.NetworkNodeID, chainStateID); err != nil {
+							slog.Info(fmt.Sprintf("[%s] backfill set chain state ID: %v", env, err))
+						} else {
+							slog.Info(fmt.Sprintf("[%s] backfilled chain_state_id for node %s → %s", env, evt.NetworkNodeID, chainStateID))
+						}
+					}
+				}
 			}
 			break
 		}

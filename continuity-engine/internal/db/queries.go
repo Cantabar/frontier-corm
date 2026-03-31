@@ -100,6 +100,26 @@ func (d *DB) ResolveChainStateID(ctx context.Context, environment, cormID string
 	return *chainID, nil
 }
 
+// ResolveChainStateIDForNode returns the chain_state_id for a specific network
+// node row. Returns empty string if the row doesn't exist or chain_state_id is NULL.
+func (d *DB) ResolveChainStateIDForNode(ctx context.Context, environment, networkNodeID string) (string, error) {
+	var chainID *string
+	err := d.Pool.QueryRow(ctx,
+		"SELECT chain_state_id FROM corm_network_nodes WHERE environment = $1 AND network_node_id = $2",
+		environment, networkNodeID,
+	).Scan(&chainID)
+	if err == pgx.ErrNoRows {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	if chainID == nil {
+		return "", nil
+	}
+	return *chainID, nil
+}
+
 // ResolveNetworkNodeByCorm returns the primary network node ID for a corm.
 // Falls back to the oldest node by linked_at if no is_primary row exists.
 func (d *DB) ResolveNetworkNodeByCorm(ctx context.Context, environment, cormID string) (string, error) {
