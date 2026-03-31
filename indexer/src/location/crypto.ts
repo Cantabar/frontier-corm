@@ -171,7 +171,33 @@ export async function verifyTxAuth(
       return { valid: false, address: claimedAddress, error: "Challenge expired" };
     }
 
-    // 3. Verify the transaction signature and extract the signer address
+    // 3. Pre-detect zkLogin signatures (Eve Vault) BEFORE calling the SDK.
+    //    Eve Vault uses zkLogin under the hood. The SDK's
+    //    verifyTransactionSignature makes a GraphQL call for zkLogin sigs
+    //    that fails with schema mismatches on the Sui node. By detecting
+    //    zkLogin upfront we avoid the broken call entirely.
+    //    For Location API auth (not financial transactions), accepting
+    //    zkLogin after challenge validation (address + timestamp) is
+    //    an acceptable trade-off.
+    try {
+      const parsedSig = parseSerializedSignature(signature);
+      if (parsedSig.signatureScheme === "ZkLogin") {
+        return { valid: true, address: claimedAddress };
+      }
+    } catch {
+      // parseSerializedSignature failed — check raw bytes as a fallback.
+      // zkLogin scheme flag is 0x05.
+      try {
+        const sigBytes = Buffer.from(signature, "base64");
+        if (sigBytes.length > 1 && sigBytes[0] === 0x05) {
+          return { valid: true, address: claimedAddress };
+        }
+      } catch {
+        // Not zkLogin — continue to SDK verification
+      }
+    }
+
+    // 4. Verify the transaction signature via the SDK (non-zkLogin paths)
     try {
       const publicKey = await verifyTransactionSignature(txBytes, signature, {
         address: claimedAddress,
@@ -182,29 +208,16 @@ export async function verifyTxAuth(
       }
       return { valid: true, address: claimedAddress };
     } catch (sdkErr) {
-      // Fallback 1: manual Ed25519 verification against the transaction digest.
+      // Fallback: manual Ed25519 verification against the transaction digest.
       // Some wallets may produce signatures that the SDK wrapper rejects
       // but are cryptographically valid.
       try {
         const parsedSig = parseSerializedSignature(signature);
-
-        // ---- zkLogin signatures (Eve Vault) ----
-        // Eve Vault uses zkLogin under the hood. The SDK's
-        // verifyTransactionSignature makes a GraphQL call that fails
-        // with schema mismatches ("Unknown field error on ZkLoginVerifyResult").
-        // For Location API auth (not financial transactions), we accept
-        // zkLogin signatures after validating the challenge (address +
-        // timestamp freshness). The challenge is already verified above.
-        if (parsedSig.signatureScheme === "ZkLogin") {
-          return { valid: true, address: claimedAddress };
-        }
-
         if (
           parsedSig.signatureScheme === "ED25519" ||
           parsedSig.signatureScheme === "Secp256k1" ||
           parsedSig.signatureScheme === "Secp256r1"
         ) {
-          // Transaction intent prefix: [0, 0, 0] (scope=0 for TransactionData)
           const intentPrefix = new Uint8Array([0, 0, 0]);
           const intentMessage = new Uint8Array(intentPrefix.length + txBytes.length);
           intentMessage.set(intentPrefix);
@@ -217,31 +230,10 @@ export async function verifyTxAuth(
               return { valid: true, address: claimedAddress };
             }
           }
-          // Secp256k1/r1 manual fallback could be added here if needed
         }
       } catch {
         // Manual fallback also failed
       }
-
-      // Fallback 2: if we can't parse the signature but the error
-      // is a known zkLogin/GraphQL issue, accept the challenge.
-      const errMsg = sdkErr instanceof Error ? sdkErr.message : String(sdkErr);
-      if (
-        errMsg.includes("ZkLoginVerifyResult") ||
-        errMsg.includes("ZkLogin") ||
-        errMsg.includes("Cannot parse")
-      ) {
-        // Structural check: zkLogin scheme flag is 0x05
-        try {
-          const sigBytes = Buffer.from(signature, "base64");
-          if (sigBytes.length > 1 && sigBytes[0] === 0x05) {
-            return { valid: true, address: claimedAddress };
-          }
-        } catch {
-          // Fall through
-        }
-      }
-
       throw sdkErr;
     }
   } catch (err) {
