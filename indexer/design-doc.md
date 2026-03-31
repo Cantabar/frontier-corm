@@ -144,7 +144,7 @@ Mounted under `/api/v1/locations/proofs`.
 - `events` — all archived events with checkpoint proof metadata (`tx_digest`, `event_seq`, `checkpoint_seq`, `checkpoint_digest`), denormalized fields, raw JSON payload
 - `reputation_snapshots`
 - `indexer_cursor` — resumable polling cursor
-- `location_pods` — encrypted location PODs per structure×tribe with owner, location_hash, encrypted_blob, nonce, signature, pod/TLK version, optional network_node_id for derived PODs
+- `location_pods` — encrypted location PODs per structure×tribe with owner, location_hash, encrypted_blob, nonce, signature (optional, vestigial — auth is handled at the HTTP layer via TxSig/Bearer), pod/TLK version, optional network_node_id for derived PODs
 - `tribe_location_keys` — per-member wrapped TLK blobs (X25519 ECIES), versioned for rotation
 - `member_public_keys` — X25519 public keys registered by members for TLK distribution
 - `filter_proofs` — verified Groth16 proofs (region/proximity/mutual proximity) per structure×tribe with filter key, public signals, proof JSON, and optional reference_structure_id for mutual proximity proofs

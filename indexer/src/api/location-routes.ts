@@ -131,7 +131,7 @@ export function createLocationRouter(pool: pg.Pool): Router {
       tlkVersion,
     } = req.body;
 
-    if (!structureId || !tribeId || !locationHash || !encryptedBlob || !nonce || !signature) {
+    if (!structureId || !tribeId || !locationHash || !encryptedBlob || !nonce) {
       res.status(400).json({ error: "Missing required fields" });
       return;
     }
@@ -147,7 +147,7 @@ export function createLocationRouter(pool: pg.Pool): Router {
         locationHash,
         encryptedBlob: Buffer.from(encryptedBlob, "base64"),
         nonce: Buffer.from(nonce, "base64"),
-        signature,
+        signature: signature ?? "",
         podVersion: podVersion ?? 1,
         tlkVersion: tlkVersion ?? 1,
       });
@@ -655,8 +655,7 @@ export function createLocationRouter(pool: pg.Pool): Router {
       !tribeId ||
       !locationHash ||
       !encryptedBlob ||
-      !nonce ||
-      !signature
+      !nonce
     ) {
       res.status(400).json({ error: "Missing required fields" });
       return;
@@ -668,6 +667,7 @@ export function createLocationRouter(pool: pg.Pool): Router {
     try {
       const blobBuf = Buffer.from(encryptedBlob, "base64");
       const nonceBuf = Buffer.from(nonce, "base64");
+      const sig = signature ?? "";
       const ver = podVersion ?? 1;
       const tlkVer = tlkVersion ?? 1;
 
@@ -679,7 +679,7 @@ export function createLocationRouter(pool: pg.Pool): Router {
         locationHash,
         encryptedBlob: blobBuf,
         nonce: nonceBuf,
-        signature,
+        signature: sig,
         podVersion: ver,
         tlkVersion: tlkVer,
         networkNodeId: null, // primary — not derived
@@ -703,7 +703,7 @@ export function createLocationRouter(pool: pg.Pool): Router {
           locationHash,
           encryptedBlob: blobBuf,
           nonce: nonceBuf,
-          signature,
+          signature: sig,
           podVersion: ver,
           tlkVersion: tlkVer,
           networkNodeId,
