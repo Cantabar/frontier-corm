@@ -8,13 +8,23 @@ import (
 	"github.com/frontier-corm/continuity-engine/internal/puzzle"
 )
 
+// SessionSyncFn is called on new session creation when a network node is
+// bound. It resolves the existing corm from the DB and initializes the
+// session's phase/stability/corruption from stored traits, so the player
+// lands on the correct phase immediately instead of always starting at
+// Phase 0.
+type SessionSyncFn func(ctx context.Context, sess *puzzle.Session, nodeID string)
+
 // SessionMiddleware looks up or creates a session based on cookie.
 //
 // The cookie uses SameSite=None + Secure so it persists inside cross-origin
 // iframes (the continuity-engine is embedded from api.ef-corm.com inside the
 // SPA at ef-corm.com). When secureCookies is false (local HTTP dev), it falls
 // back to SameSite=Lax without the Secure flag.
-func SessionMiddleware(store *puzzle.SessionStore, secureCookies bool) func(http.Handler) http.Handler {
+//
+// syncFn is optional — if non-nil it is called after session creation when a
+// network node is bound, to eagerly restore corm state from the database.
+func SessionMiddleware(store *puzzle.SessionStore, secureCookies bool, syncFn SessionSyncFn) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			var sess *puzzle.Session
@@ -40,8 +50,15 @@ func SessionMiddleware(store *puzzle.SessionStore, secureCookies bool) func(http
 				// Auto-bind network node from URL param (set by the web
 				// app when the player has an installed corm). This makes
 				// the Phase 2 manual bind form unnecessary.
-				if nodeID := r.URL.Query().Get("node"); nodeID != "" && sess.GetNetworkNodeID() == "" {
+				nodeID := r.URL.Query().Get("node")
+				if nodeID != "" && sess.GetNetworkNodeID() == "" {
 					sess.SetNetworkNodeID(nodeID)
+				}
+
+				// Eagerly sync corm state from DB when a node is bound,
+				// so the session starts at the correct phase.
+				if syncFn != nil && nodeID != "" {
+					syncFn(r.Context(), sess, nodeID)
 				}
 
 				store.Put(sess)

@@ -80,6 +80,9 @@ export function ContinuityEngine() {
   if (activeNodeId) {
     puzzleUrl += `&node=${encodeURIComponent(activeNodeId)}`;
   }
+  if (activeCormStateId) {
+    puzzleUrl += `&cormStateId=${encodeURIComponent(activeCormStateId)}`;
+  }
 
   return (
     <Wrapper>
@@ -128,6 +131,9 @@ export function ContinuityEngineDapp({ entityId }: { entityId?: string }) {
   let puzzleUrl = `${config.continuityEngineUrl}${basePath}?player=${encodeURIComponent(address)}`;
   if (activeNodeId) {
     puzzleUrl += `&node=${encodeURIComponent(activeNodeId)}`;
+  }
+  if (activeCormStateId) {
+    puzzleUrl += `&cormStateId=${encodeURIComponent(activeCormStateId)}`;
   }
 
   return (

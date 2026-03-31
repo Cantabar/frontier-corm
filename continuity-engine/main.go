@@ -116,7 +116,12 @@ func main() {
 		DebugFillContracts:   h.DebugFillContracts,
 		DebugPhase2:          h.DebugPhase2,
 	}
-	mux := server.NewRouter(gh, sessionStore, staticFS, cfg.SecureCookies)
+
+	// Build the session sync callback — closes over DB + default environment
+	// so the middleware can eagerly restore corm state on new sessions.
+	syncFn := buildSessionSyncFn(database, defaultEnv)
+
+	mux := server.NewRouter(gh, sessionStore, staticFS, cfg.SecureCookies, syncFn)
 
 	// --- Start goroutines ---
 	var wg sync.WaitGroup
@@ -278,5 +283,47 @@ func processBatch(
 
 	if err := handler.ProcessEventBatch(ctx, env, cormID, events); err != nil {
 		slog.Info(fmt.Sprintf("[%s] process batch (%d events): %v", env, len(events), err))
+	}
+}
+
+// buildSessionSyncFn returns a SessionSyncFn that resolves an existing corm
+// from the DB by network node ID and initializes the session with stored
+// traits (phase, stability, corruption). This is called eagerly on new session
+// creation so the player lands on the correct phase immediately.
+func buildSessionSyncFn(database *db.DB, environment string) server.SessionSyncFn {
+	return func(ctx context.Context, sess *puzzle.Session, nodeID string) {
+		// Resolve network node → corm ID
+		cormID, err := database.ResolveCormID(ctx, environment, nodeID)
+		if err != nil {
+			slog.Info(fmt.Sprintf("session sync: resolve corm for node %s: %v", nodeID, err))
+			return
+		}
+		if cormID == "" {
+			// No existing corm for this node — new corm will be created
+			// on first event in processBatch.
+			return
+		}
+
+		// Load stored traits
+		traits, err := database.GetTraits(ctx, environment, cormID)
+		if err != nil {
+			slog.Info(fmt.Sprintf("session sync: get traits for corm %s: %v", cormID, err))
+			return
+		}
+		if traits == nil {
+			// Corm exists in network_nodes but has no traits row yet.
+			return
+		}
+
+		// Initialize session with stored corm state
+		sess.SetStateSync(puzzle.Phase(traits.Phase), int(traits.Stability), int(traits.Corruption))
+
+		// Link this session to the corm so processBatch finds it
+		if err := database.LinkSessionCorm(ctx, environment, sess.ID, cormID); err != nil {
+			slog.Info(fmt.Sprintf("session sync: link session %s to corm %s: %v", sess.ID, cormID, err))
+		}
+
+		slog.Info(fmt.Sprintf("session sync: restored corm %s (phase=%d stab=%.0f corr=%.0f) for node %s",
+			cormID, traits.Phase, traits.Stability, traits.Corruption, nodeID))
 	}
 }

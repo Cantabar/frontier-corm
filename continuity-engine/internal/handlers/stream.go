@@ -30,6 +30,20 @@ func (h *Handlers) Stream(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("X-Accel-Buffering", "no")
 
+	// Push initial state_sync so the browser has correct meters/phase from
+	// first paint, without waiting for a player event round-trip.
+	if sess.Phase > 0 || sess.Stability > 0 || sess.Corruption > 0 {
+		initAction := types.CormAction{ActionType: types.ActionStateSync}
+		initPayload, _ := json.Marshal(types.StateSyncPayload{
+			Phase:         int(sess.Phase),
+			Stability:     sess.Stability,
+			Corruption:    sess.Corruption,
+			NetworkNodeID: sess.GetNetworkNodeID(),
+		})
+		initAction.Payload = initPayload
+		writeSSEAction(w, flusher, initAction, sess, h)
+	}
+
 	ctx := r.Context()
 
 	for {
