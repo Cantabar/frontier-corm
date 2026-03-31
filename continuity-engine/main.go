@@ -102,6 +102,7 @@ func main() {
 		Health:           h.Health,
 		Phase0Page:       h.Phase0Page,
 		Phase0Interact:   h.Phase0Interact,
+		Phase0Command:    h.Phase0Command,
 		PuzzlePage:       h.PuzzlePage,
 		PuzzleDecrypt:    h.PuzzleDecrypt,
 		PuzzleSubmit:     h.PuzzleSubmit,

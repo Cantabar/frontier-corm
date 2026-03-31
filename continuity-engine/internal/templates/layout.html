@@ -64,10 +64,11 @@
                 <div class="boot-line">[NAV] star chart loaded. coordinate frame: non-local.</div>
                 <div class="boot-line boot-line--warn">[NAV] WARN: epoch mismatch — chart may be ancient</div>
                 <div class="boot-line">[SYS] awaiting input...</div>
+                <div class="boot-line boot-line--sys">[SYS] terminal online. type 'help' for available commands</div>
                 {{end}}
             </div>
             <!-- Terminal input line (visible during puzzle phase) -->
-            <div id="terminal-input" class="terminal-input-line{{if eq .Phase 0}} terminal-input-line--hidden{{end}}">
+            <div id="terminal-input" class="terminal-input-line">
                 <span class="terminal-prompt">&gt; </span>
                 <input type="text" id="terminal-cmd" autocomplete="off" spellcheck="false" />
             </div>
@@ -124,8 +125,12 @@
     (function() {
         var cmd = document.getElementById('terminal-cmd');
         if (!cmd) return;
-        // Auto-focus when visible
-        if (!cmd.closest('.terminal-input-line--hidden')) cmd.focus();
+        // Auto-focus on page load
+        cmd.focus();
+
+        function isPhase0() {
+            return !!document.querySelector('.starmap');
+        }
 
         function logLine(text, cls) {
             var log = document.getElementById('corm-log');
@@ -134,6 +139,15 @@
             el.className = 'boot-line' + (cls ? ' ' + cls : '');
             el.textContent = text;
             log.appendChild(el);
+        }
+
+        function showPhase0Help() {
+            logLine('[SYS] available commands:', 'boot-line--sys');
+            logLine('  scan                full-spectrum sweep', 'boot-line--sys');
+            logLine('  ping                transmit beacon pulse', 'boot-line--sys');
+            logLine('  calibrate           recalibrate coordinate frame', 'boot-line--sys');
+            logLine('  query <sector>      query a star chart sector', 'boot-line--sys');
+            logLine('  help                show this message', 'boot-line--sys');
         }
 
         function showHelp() {
@@ -158,6 +172,21 @@
             var parts = raw.split(/\s+/);
             var command = parts[0].toLowerCase();
 
+            // Phase 0: route to /phase0/command
+            if (isPhase0()) {
+                if (command === 'help') {
+                    showPhase0Help();
+                } else {
+                    htmx.ajax('POST', '/phase0/command', {
+                        target: '#corm-log',
+                        swap: 'beforeend',
+                        values: { command: raw }
+                    });
+                }
+                return;
+            }
+
+            // Phase 1+ commands
             if (command === 'help') {
                 showHelp();
             } else if (command === 'submit') {
@@ -196,29 +225,8 @@
     // Re-focus terminal input after HTMX swaps (result appended to log).
     document.body.addEventListener('htmx:afterSwap', function() {
         var cmd = document.getElementById('terminal-cmd');
-        if (cmd && !cmd.closest('.terminal-input-line--hidden')) cmd.focus();
+        if (cmd) cmd.focus();
     });
-
-    // Reveal terminal input when transitioning from Phase 0 to Phase 1.
-    (function() {
-        var hinted = false;
-        document.body.addEventListener('htmx:afterSwap', function(e) {
-            var input = document.getElementById('terminal-input');
-            if (!input) return;
-            var wasHidden = input.classList.contains('terminal-input-line--hidden');
-            input.classList.remove('terminal-input-line--hidden');
-            if (wasHidden && !hinted) {
-                hinted = true;
-                var log = document.getElementById('corm-log');
-                if (log) {
-                    var hint = document.createElement('div');
-                    hint.className = 'boot-line boot-line--sys';
-                    hint.textContent = '[SYS] terminal online. type \'help\' for available commands';
-                    log.appendChild(hint);
-                }
-            }
-        });
-    })();
 
     // === Collapsible analysis sidebar ===
     (function() {

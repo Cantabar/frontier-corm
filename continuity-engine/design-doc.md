@@ -163,7 +163,7 @@ Only `types.json` and `groups.json` are copied from `fsd_built/` — the rest of
 - Real-time deterministic trait reduction on every event batch
 - Corruption-proportional garbling of transition response text
 - Phase-aware event processing with corm responses:
-  - Phase 0: escalating awareness messages at click-count thresholds (passive noise → fragment awareness → growing awareness)
+  - Phase 0: escalating awareness messages at click-count thresholds (passive noise → fragment awareness → growing awareness). Terminal input is available from page load with navigation commands (`scan`, `ping`, `calibrate`, `query <sector>`) that count toward the transition threshold alongside star-map clicks.
   - Phase 1: struggling hints (heatmap/signal on every 4th incorrect submit), boost evaluation
   - Phase 2: contract generation, pattern alignment tracking
 - Dynamically-sized cipher grids, three cipher tiers, sensor/trap mechanics
