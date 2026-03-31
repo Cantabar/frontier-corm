@@ -108,8 +108,9 @@ func (c *Client) MintBootstrapCORM(ctx context.Context, cormID string, amount ui
 		return amount, nil
 	}
 	if !c.HasSigner() || c.cormStatePkg == nil || c.coinAuthorityObjID == nil {
-		slog.Info(fmt.Sprintf("chain: stub MintBootstrapCORM for corm %s amount=%d (missing config)", cormID, amount))
-		return amount, nil
+		slog.Warn(fmt.Sprintf("chain: MintBootstrapCORM skipped for corm %s amount=%d (missing config: signer=%t pkg=%t authority=%t)",
+			cormID, amount, c.HasSigner(), c.cormStatePkg != nil, c.coinAuthorityObjID != nil))
+		return 0, nil
 	}
 
 	// Mint to the brain's own address so it can use CORM for escrow

@@ -114,11 +114,21 @@ func attemptContractFill(ctx context.Context, h *Handler, environment, cormID st
 	// If standard generation failed and we have open slots, try goal-directed
 	// acquisition contracts.
 	if standardFailed && activeCount < maxActiveContracts && h.recipeRegistry != nil {
+		// Pre-flight: skip goal-directed generation if on-chain contract
+		// creation is not possible (missing signer or package IDs).
+		if !h.chainClient.CanCreateContracts() {
+			slog.Warn(fmt.Sprintf("phase2: skipping goal-directed contracts for corm %s (chain client not fully configured)", cormID))
+			sendEmptyStateFeedback(ctx, h, cormID, evt.SessionID, traits)
+			return
+		}
+
 		// Bootstrap CORM if the corm has zero balance.
 		if snapshot.CormCORMBalance == 0 {
 			minted, err := h.chainClient.MintBootstrapCORM(ctx, cormID, bootstrapCORMAmount)
 			if err != nil {
 				slog.Info(fmt.Sprintf("phase2: bootstrap CORM mint failed for %s: %v", cormID, err))
+			} else if minted == 0 {
+				slog.Warn(fmt.Sprintf("phase2: bootstrap CORM mint returned 0 for %s (config incomplete)", cormID))
 			} else {
 				snapshot.CormCORMBalance = minted
 				slog.Info(fmt.Sprintf("phase2: minted %d bootstrap CORM for corm %s", minted, cormID))

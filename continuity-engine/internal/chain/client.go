@@ -89,6 +89,20 @@ func (c *Client) HasSigner() bool {
 	return c.signer != nil
 }
 
+// CanCreateContracts returns true if the client has all the config needed
+// to create on-chain contracts: a signer, the trustless contracts package,
+// and the corm character ID. When this returns false, contract creation
+// will always fail, so callers should skip generation entirely.
+func (c *Client) CanCreateContracts() bool {
+	return c.signer != nil && c.trustlessContractsPkg != nil && c.cormStatePkg != nil && c.cormCharacterID != nil
+}
+
+// CanMintCORM returns true if the client has the config needed to mint CORM:
+// a signer, the corm state package, and the coin authority object.
+func (c *Client) CanMintCORM() bool {
+	return c.signer != nil && c.cormStatePkg != nil && c.coinAuthorityObjID != nil
+}
+
 // CORMCoinType returns the fully-qualified coin type string for CORM_COIN.
 // e.g. "0xabc123::corm_coin::CORM_COIN"
 func (c *Client) CORMCoinType() string {

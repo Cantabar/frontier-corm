@@ -411,8 +411,14 @@ if [ -n "$CORM_AUTH_PKG" ] && [ -n "$CORM_STATE_PKG" ]; then
 
     sed -n '/^{/,$p' /tmp/create-config-result.json > /tmp/create-config-result-clean.json
     CORM_CONFIG_ID=$(
-      jq -r '(.changed_objects // .objectChanges // [])[] | select(.idOperation == "CREATED" or .type == "created") | select(.objectType | contains("CormConfig")) | .objectId' /tmp/create-config-result-clean.json
+      jq -r '(.objectChanges // [])[] | select(.type == "created") | select(.objectType | contains("CormConfig")) | .objectId // empty' /tmp/create-config-result-clean.json 2>/dev/null
     )
+    # Fallback: try legacy format (older sui CLI versions)
+    if [ -z "$CORM_CONFIG_ID" ] || [ "$CORM_CONFIG_ID" = "null" ]; then
+      CORM_CONFIG_ID=$(
+        jq -r '(.changed_objects // [])[] | select(.idOperation == "CREATED") | select(.objectType | contains("CormConfig")) | .objectId // empty' /tmp/create-config-result-clean.json 2>/dev/null
+      )
+    fi
 
       if [ -n "$CORM_CONFIG_ID" ] && [ "$CORM_CONFIG_ID" != "null" ]; then
         echo "  VITE_CORM_CONFIG_ID=$CORM_CONFIG_ID"

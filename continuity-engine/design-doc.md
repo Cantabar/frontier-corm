@@ -54,7 +54,7 @@ All communication is in-process via Go channels. No WebSocket, no HTTP relay.
 - **Puzzle Generator** (`internal/puzzle`) — creates dynamically-sized cipher grids with configurable difficulty.
 - **Reasoning Handler** (`internal/reasoning`) — processes event batches: runs trait reduction, detects phase transitions, delivers deterministic transition messages, and executes phase-specific effects (Phase 0 escalation, Phase 1 hints/difficulty, Phase 2 contract generation).
 - **Trait Reducer** (`internal/memory`) — deterministic trait mutations (stability, corruption, patience, paranoia, etc.) applied inline on every event batch.
-- **Chain Client** (`internal/chain`) — per-environment Sui RPC client for on-chain state writes. Uses `pattonkan/sui-go` for JSON-RPC, PTB building, Ed25519 signing, and BCS decoding. Implements real PTB transactions for CormState creation (`install`), state updates (`update_state`), CORM minting (`corm_coin::mint`), and `coin_for_item` contract creation. Falls back to stub logging when package/object IDs are not configured (graceful degradation for dev environments). Inventory and SSU reads remain seed-mode stubs pending indexer integration.
+- **Chain Client** (`internal/chain`) — per-environment Sui RPC client for on-chain state writes. Uses `pattonkan/sui-go` for JSON-RPC, PTB building, Ed25519 signing, and BCS decoding. Implements real PTB transactions for CormState creation (`install`), state updates (`update_state`), CORM minting (`corm_coin::mint`), and `coin_for_item` contract creation. Falls back to stub logging when package/object IDs are not configured (graceful degradation for dev environments). Exposes `CanCreateContracts()` and `CanMintCORM()` for pre-flight capability checks. Inventory and SSU reads remain seed-mode stubs pending SUI dynamic field integration (requires `getDynamicFields` + `getDynamicFieldObject` RPC calls per SSU, similar to the web app's `useSsuInventory` hook).
 
 ### Goroutines
 
@@ -94,9 +94,9 @@ All via environment variables:
 - `CORM_STATE_PACKAGE_ID` — deployed corm_state package ID
 - `TRUSTLESS_CONTRACTS_PACKAGE_ID` — deployed trustless_contracts package ID
 - `CORM_AUTH_PACKAGE_ID` — deployed corm_auth package ID
-- `CORM_CONFIG_OBJECT_ID` — shared CormConfig object ID (for corm install)
-- `COIN_AUTHORITY_OBJECT_ID` — shared CoinAuthority object ID (for CORM minting); auto-populated by `publish-contracts.sh` from the `corm_state` publish transaction
-- `CORM_CHARACTER_ID` — brain's on-chain Character object ID (for posting contracts); set manually after Character creation
+- `CORM_CONFIG_OBJECT_ID` — shared CormConfig object ID (for corm install); auto-populated by `publish-contracts.sh`. If missing, run `scripts/recover-object-ids.sh`.
+- `COIN_AUTHORITY_OBJECT_ID` — shared CoinAuthority object ID (for CORM minting); auto-populated by `publish-contracts.sh` from the `corm_state` publish transaction. If missing, run `scripts/recover-object-ids.sh`.
+- `CORM_CHARACTER_ID` — brain's on-chain Character object ID (for posting contracts); set manually after Character creation. **Required** for `CanCreateContracts()` — without it, all contract creation is skipped.
 - `ITEM_REGISTRY_PATH`, `ITEM_VALUES_PATH` — item data paths
 - `CORM_PER_LUX`, `CORM_FLOOR_PER_UNIT` — pricing config
 - `CONTRACT_GENERATION_COOLDOWN_MS` — min time between contract generation per corm
@@ -175,7 +175,8 @@ Only `types.json` and `groups.json` are copied from `fsd_built/` — the rest of
 - Deterministic Phase 2 contract generation from traits + inventory state with automatic slot fill-up (up to 5 active contracts per corm, triggered on page load, node bind, and contract completion/failure; rate-limited by `CONTRACT_GENERATION_COOLDOWN_MS`)
 - Goal-directed contract generation: when standard generation fails (empty inventories/zero CORM), the corm falls back to a recipe-driven goal planner that generates `coin_for_item` acquisition contracts for raw materials needed to build target ships (Reflex, then Reiver)
 - Recipe registry (`internal/chain/recipes.go`): hardcoded dependency trees for Reflex and Reiver, with recursive flattening to raw ore requirements (Feldspar Crystals, Silica Grains, Iron-Rich Nodules, Palladium, Fossilized Exotronics)
-- Bootstrap CORM minting: when the corm has zero CORM balance, a seed amount (1000 CORM) is minted to fund acquisition contracts
+- Bootstrap CORM minting: when the corm has zero CORM balance and the chain client is fully configured (`CanMintCORM()`), a seed amount (1000 CORM) is minted to fund acquisition contracts. When chain config is incomplete, minting returns 0 (no phantom balance) and contract generation falls through to empty-state feedback.
+- Contract generation pre-flight: before running the goal-directed planner, the engine checks `CanCreateContracts()` (signer + trustless contracts package + corm state package + character ID). If any are missing, generation is skipped with a WARN log and the player receives empty-state feedback immediately.
 - Empty-state player feedback: when no contracts can be generated (including when goal-directed intents are generated but all fail at creation), the corm sends an in-character log message directing the player to gather specific raw materials (corruption-scaled: coherent at low corruption, garbled at high). A `contract_status` SSE event (`ActionContractStatus`) also updates the contracts panel placeholder with the same message, so feedback is visible even if the player isn't watching the log stream
 - On-chain state writes (phase transitions, stability/corruption updates)
 - Multi-environment support via per-environment chain clients
