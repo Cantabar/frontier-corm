@@ -90,7 +90,7 @@ All via environment variables:
 - `ENVIRONMENTS_CONFIG` — path to JSON file for multi-environment setup
 - `SEED_CHAIN_DATA` — stub chain data for dev (default: true)
 - `SUI_RPC_URL` — Sui RPC endpoint
-- `SUI_PRIVATE_KEY` — hex-encoded Ed25519 seed (32 bytes) for chain operations
+- `SUI_PRIVATE_KEY` — Ed25519 private key for chain operations. Accepts bech32 `suiprivkey1...` format (as exported by `sui keytool export`) or hex-encoded 32-byte seed (with or without `0x` prefix). Stored in Secrets Manager (`fc-{env}/sui-signer`).
 - `CORM_STATE_PACKAGE_ID` — deployed corm_state package ID
 - `TRUSTLESS_CONTRACTS_PACKAGE_ID` — deployed trustless_contracts package ID
 - `CORM_AUTH_PACKAGE_ID` — deployed corm_auth package ID
@@ -187,6 +187,19 @@ Only `types.json` and `groups.json` are copied from `fsd_built/` — the rest of
 - Debug terminal commands for development troubleshooting:
   - `contracts` — force-generate AI contracts up to the 5-slot cap (bypasses cooldown)
   - `phase2` — skip to Phase 2 contracts dashboard (forces phase transition in both session and DB traits)
+
+### Chain Client Troubleshooting
+
+The chain client logs initialization status at startup:
+- `"chain: initialized signer for address 0x..."` — signer OK
+- `"chain: WARNING — no SUI_PRIVATE_KEY set"` — key missing from Secrets Manager
+- `"chain: failed to initialize signer: ..."` — key present but in unrecognized format
+- `"chain: invalid object ID"` — malformed package/object ID env var
+
+If `CanCreateContracts()` returns false (WARN log: `"chain client not fully configured"`), check:
+1. `SUI_PRIVATE_KEY` in Secrets Manager (`fc-{env}/sui-signer`) is populated and valid
+2. `CORM_STATE_PACKAGE_ID`, `TRUSTLESS_CONTRACTS_PACKAGE_ID`, `CORM_CHARACTER_ID` are set in the ECS task definition (run `make deploy-infra ENV={env}` to sync from `.env.{env}`)
+3. The on-chain Character object exists (`sui client object <CORM_CHARACTER_ID>`)
 
 ## Testing
 

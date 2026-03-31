@@ -3,6 +3,8 @@ module github.com/frontier-corm/continuity-engine
 go 1.23.0
 
 require (
+	github.com/btcsuite/btcd/btcutil v1.1.6
+	github.com/fardream/go-bcs v0.9.0
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.7.2
 	github.com/pattonkan/sui-go v0.1.17
@@ -10,10 +12,8 @@ require (
 
 require (
 	github.com/Khan/genqlient v0.8.1 // indirect
-	github.com/btcsuite/btcd/btcutil v1.1.6 // indirect
 	github.com/coder/websocket v1.8.13 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.0 // indirect
-	github.com/fardream/go-bcs v0.9.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
