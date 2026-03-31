@@ -115,7 +115,7 @@ All via Vite environment variables (`VITE_*`), resolved in `src/config.ts`:
 - `VITE_CORM_COIN_TYPE` — CORM coin type string
 - `VITE_COIN_TYPE` — default coin type for escrow/treasury (default: `0x2::sui::SUI`)
 - `VITE_INDEXER_URL` — indexer API base URL (default: `/api/v1`)
-- `VITE_WEB_UI_HOST` — public web UI host (for SSU dApp URLs)
+- `VITE_WEB_UI_HOST` — public web UI host used to compose on-chain SSU dApp URLs (defaults: `https://ef-corm.com` for stillness, `https://utopia.ef-corm.com` for utopia)
 - `VITE_WORLD_API_URL` — Eve Frontier world API (tribe name backfill)
 - `VITE_CONTINUITY_ENGINE_URL` — continuity-engine service URL (Continuity Engine iframe)
 - `VITE_SUI_RPC_URL` — Sui RPC proxy URL override (default: `/sui-rpc` for deployed envs, SDK default for local)

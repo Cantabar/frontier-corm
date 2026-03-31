@@ -37,14 +37,14 @@ const envDefaults: Record<AppEnv, EnvDefaults> = {
     network: "testnet",
     worldApiUrl: "https://world-api-utopia.live.tech.evefrontier.com",
     indexerUrl: "/api/v1",
-    webUiHost: "https://corm-utopia.evefrontier.com",
+    webUiHost: "https://utopia.ef-corm.com",
     suiRpcUrl: "/sui-rpc",
   },
   stillness: {
     network: "testnet",
     worldApiUrl: "https://world-api-stillness.live.tech.evefrontier.com",
     indexerUrl: "/api/v1",
-    webUiHost: "https://corm-stillness.evefrontier.com",
+    webUiHost: "https://ef-corm.com",
     suiRpcUrl: "/sui-rpc",
   },
   local: {
