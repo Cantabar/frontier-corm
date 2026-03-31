@@ -130,6 +130,17 @@ func (h *Handler) ProcessEventBatch(ctx context.Context, environment, cormID str
 // detectPhaseTransition checks whether the event batch triggers a phase
 // transition. If so, it mutates traits in place and returns true.
 func detectPhaseTransition(events []types.CormEvent, traits *types.CormTraits) bool {
+	// Debug: force-set Phase 2 regardless of current phase.
+	for _, e := range events {
+		if e.EventType == types.EventDebugForcePhase2 {
+			if traits.Phase < 2 {
+				traits.Phase = 2
+				return true
+			}
+			return false
+		}
+	}
+
 	// Explicit phase_transition event from puzzle-service (e.g. 0→1).
 	for _, e := range events {
 		if e.EventType == types.EventPhaseTransition {

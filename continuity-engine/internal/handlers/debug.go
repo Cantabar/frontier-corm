@@ -50,6 +50,14 @@ func (h *Handlers) DebugPhase2(w http.ResponseWriter, r *http.Request) {
 
 	if sess.Phase < puzzle.PhaseContracts {
 		sess.TransitionToPhase2()
+
+		// Emit debug_force_phase2 so the reasoning engine updates DB traits
+		// to Phase 2. Without this, the phase2_load state_sync (fired on
+		// the redirected page) would read stale traits and revert the
+		// session phase back to 0/1.
+		evt := h.buildEvent(sess, "debug_force_phase2", nil)
+		sess.EventBuffer.Push(evt)
+		go h.dispatcher.EmitEvent(evt)
 	}
 
 	w.Header().Set("HX-Redirect", "/phase2")

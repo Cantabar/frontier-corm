@@ -35,6 +35,7 @@ const (
 	EventNodeBind         = "node_bind"
 	EventPhase2Load            = "phase2_load"
 	EventDebugFillContracts    = "debug_fill_contracts"
+	EventDebugForcePhase2      = "debug_force_phase2"
 )
 
 // Significance returns a priority score for the event type.
