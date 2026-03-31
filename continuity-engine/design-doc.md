@@ -204,6 +204,8 @@ Only `types.json` and `groups.json` are copied from `fsd_built/` — the rest of
   - `phase2` — skip to Phase 2 contracts dashboard (forces phase transition in both session and DB traits)
 - Debug HTTP endpoints:
   - `POST /debug/reconcile-chain` — scans all corms in the DB, compares each with its on-chain CormState, and syncs any drift. Returns a JSON summary of actions taken (synced, skipped, errors).
+- JSON API endpoints:
+  - `POST /api/reset-phase` — resets a corm's phase, stability, and corruption in both DB and on-chain. Accepts `{"network_node_id": "0x...", "phase": 0}`. Uses `corm_state::reset_state` on-chain (allows phase regression, unlike `update_state`). Called by the web UI Settings page.
 - CLI tools:
   - `make set-phase NODE=0x... PHASE=N ENV=stillness` — directly updates both the DB `corm_traits.phase` and the on-chain `CormState` for a given network node. Useful for testing and operational recovery.
 
