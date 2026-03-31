@@ -16,6 +16,13 @@ type PricingConfig struct {
 	CORMFloorPerUnit uint64
 }
 
+// PlayerIdentity holds the identity fields needed for contract access restriction.
+type PlayerIdentity struct {
+	Address     string
+	CharacterID string
+	TribeID     uint32
+}
+
 // ResolveIntent maps a ContractIntent to exact on-chain ContractParams.
 func ResolveIntent(
 	intent types.ContractIntent,
@@ -23,17 +30,24 @@ func ResolveIntent(
 	registry *chain.Registry,
 	traits *types.CormTraits,
 	pricing PricingConfig,
-	playerAddr string,
+	player PlayerIdentity,
 ) (*chain.ContractParams, error) {
 	if !types.ValidContractTypes[intent.ContractType] {
 		return nil, fmt.Errorf("invalid contract type: %s", intent.ContractType)
 	}
 
+	var allowedTribes []uint32
+	if player.TribeID > 0 {
+		allowedTribes = []uint32{player.TribeID}
+	}
+
 	params := &chain.ContractParams{
-		ContractType:  intent.ContractType,
-		PlayerAddress: playerAddr,
-		AllowPartial:  intent.AllowPartial,
-		DeadlineMs:    resolveDeadline(intent.Urgency, traits.Patience),
+		ContractType:      intent.ContractType,
+		PlayerCharacterID: player.CharacterID,
+		PlayerAddress:     player.Address,
+		AllowPartial:      intent.AllowPartial,
+		DeadlineMs:        resolveDeadline(intent.Urgency, traits.Patience),
+		AllowedTribes:     allowedTribes,
 	}
 
 	// SSU selection: use first available SSU on the node
@@ -239,7 +253,7 @@ func resolveDeadline(urgency string, patience float64) int64 {
 	return deadline.UnixMilli()
 }
 
-// playerInventoryQty
+// playerInventoryQty finds a specific item's quantity in an inventory.
 func playerInventoryQty(inv []chain.InventoryItem, typeID uint64) uint64 {
 	for _, item := range inv {
 		// InventoryItem.TypeID is a string — compare as string

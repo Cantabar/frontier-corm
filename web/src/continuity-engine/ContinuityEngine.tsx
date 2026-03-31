@@ -46,7 +46,7 @@ const NoWallet = styled.div`
 `;
 
 export function ContinuityEngine() {
-  const { address, isLoading } = useIdentity();
+  const { address, characterId, inGameTribeId, isLoading } = useIdentity();
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const [searchParams] = useSearchParams();
   const { installedCorms } = useInstalledCorms();
@@ -83,6 +83,12 @@ export function ContinuityEngine() {
   if (activeCormStateId) {
     puzzleUrl += `&cormStateId=${encodeURIComponent(activeCormStateId)}`;
   }
+  if (characterId) {
+    puzzleUrl += `&characterId=${encodeURIComponent(characterId)}`;
+  }
+  if (inGameTribeId && inGameTribeId > 0) {
+    puzzleUrl += `&tribeId=${encodeURIComponent(inGameTribeId)}`;
+  }
 
   return (
     <Wrapper>
@@ -97,7 +103,7 @@ export function ContinuityEngine() {
  * Includes the entity_id in the puzzle-service URL path.
  */
 export function ContinuityEngineDapp({ entityId }: { entityId?: string }) {
-  const { address, isLoading } = useIdentity();
+  const { address, characterId, inGameTribeId, isLoading } = useIdentity();
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const { installedCorms } = useInstalledCorms();
 
@@ -134,6 +140,12 @@ export function ContinuityEngineDapp({ entityId }: { entityId?: string }) {
   }
   if (activeCormStateId) {
     puzzleUrl += `&cormStateId=${encodeURIComponent(activeCormStateId)}`;
+  }
+  if (characterId) {
+    puzzleUrl += `&characterId=${encodeURIComponent(characterId)}`;
+  }
+  if (inGameTribeId && inGameTribeId > 0) {
+    puzzleUrl += `&tribeId=${encodeURIComponent(inGameTribeId)}`;
   }
 
   return (

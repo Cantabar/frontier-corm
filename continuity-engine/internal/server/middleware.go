@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/frontier-corm/continuity-engine/internal/puzzle"
@@ -53,6 +54,16 @@ func SessionMiddleware(store *puzzle.SessionStore, secureCookies bool, syncFn Se
 				nodeID := r.URL.Query().Get("node")
 				if nodeID != "" && sess.GetNetworkNodeID() == "" {
 					sess.SetNetworkNodeID(nodeID)
+				}
+
+				// Player identity for contract access restriction.
+				if charID := r.URL.Query().Get("characterId"); charID != "" {
+					sess.SetPlayerCharacterID(charID)
+				}
+				if tribeStr := r.URL.Query().Get("tribeId"); tribeStr != "" {
+					if tID, err := strconv.ParseUint(tribeStr, 10, 32); err == nil && tID > 0 {
+						sess.SetPlayerTribeID(uint32(tID))
+					}
 				}
 
 				// Eagerly sync corm state from DB when a node is bound,

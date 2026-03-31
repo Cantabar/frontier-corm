@@ -12,14 +12,16 @@ import (
 // including the Environment tag required by the event processor.
 func (h *Handlers) buildEvent(sess *puzzle.Session, eventType string, payload json.RawMessage) types.CormEvent {
 	return types.CormEvent{
-		Type:          "event",
-		SessionID:     sess.ID,
-		PlayerAddress: sess.PlayerAddress,
-		NetworkNodeID: sess.NetworkNodeID,
-		Context:       sess.Context,
-		EventType:     eventType,
-		Payload:       payload,
-		Timestamp:     time.Now(),
-		Environment:   h.defaultEnv,
+		Type:              "event",
+		SessionID:         sess.ID,
+		PlayerAddress:     sess.PlayerAddress,
+		PlayerCharacterID: sess.PlayerCharacterID,
+		PlayerTribeID:     sess.PlayerTribeID,
+		NetworkNodeID:     sess.NetworkNodeID,
+		Context:           sess.Context,
+		EventType:         eventType,
+		Payload:           payload,
+		Timestamp:         time.Now(),
+		Environment:       h.defaultEnv,
 	}
 }

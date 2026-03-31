@@ -26,6 +26,7 @@ type ContractParams struct {
 	DestinationSSUID  string
 	AllowPartial      bool
 	DeadlineMs        int64
+	AllowedTribes     []uint32 // in-game tribe IDs allowed to fill (empty = no tribe restriction)
 }
 
 // CreateContract creates a trustless contract on-chain.
@@ -127,6 +128,14 @@ func allowedCharsArg(ptb *suiptb.ProgrammableTransactionBuilder, playerCharacter
 	return ptb.MustPure(allowedChars)
 }
 
+// allowedTribesArg builds the allowed_tribes vector<u32> PTB argument.
+func allowedTribesArg(ptb *suiptb.ProgrammableTransactionBuilder, tribes []uint32) suiptb.Argument {
+	if tribes == nil {
+		tribes = []uint32{}
+	}
+	return ptb.MustPure(tribes)
+}
+
 // extractCreatedContract finds a contract object ID from transaction ObjectChanges.
 func extractCreatedContract(resp *suiclient.SuiTransactionBlockResponse, typeSubstring string) string {
 	for _, change := range resp.ObjectChanges {
@@ -177,8 +186,8 @@ func (c *Client) createCoinForItem(ctx context.Context, cormID string, params Co
 			ptb.MustPure(params.AllowPartial),
 			ptb.MustPure(false), // use_owner_inventory
 			ptb.MustPure(uint64(params.DeadlineMs)),
-			allowedCharsArg(ptb, params.PlayerCharacterID),
-			ptb.MustPure([]uint32{}), // allowed_tribes
+		allowedCharsArg(ptb, params.PlayerCharacterID),
+			allowedTribesArg(ptb, params.AllowedTribes),
 			clockArg(ptb),
 		},
 	)
@@ -229,8 +238,8 @@ func (c *Client) createCoinForCoin(ctx context.Context, cormID string, params Co
 		ptb.MustPure(params.CORMWantedAmount),
 			ptb.MustPure(params.AllowPartial),
 			ptb.MustPure(uint64(params.DeadlineMs)),
-			allowedCharsArg(ptb, params.PlayerCharacterID),
-			ptb.MustPure([]uint32{}), // allowed_tribes
+		allowedCharsArg(ptb, params.PlayerCharacterID),
+			allowedTribesArg(ptb, params.AllowedTribes),
 			clockArg(ptb),
 		},
 	)
@@ -348,8 +357,8 @@ func (c *Client) createItemForCoin(ctx context.Context, cormID string, params Co
 			ptb.MustPure(params.CORMWantedAmount),
 			ptb.MustPure(params.AllowPartial),
 			ptb.MustPure(uint64(params.DeadlineMs)),
-			allowedCharsArg(ptb, params.PlayerCharacterID),
-			ptb.MustPure([]uint32{}), // allowed_tribes
+		allowedCharsArg(ptb, params.PlayerCharacterID),
+			allowedTribesArg(ptb, params.AllowedTribes),
 			clockArg(ptb),
 		},
 	)
@@ -466,8 +475,8 @@ func (c *Client) createItemForItem(ctx context.Context, cormID string, params Co
 			ptb.MustPure(params.AllowPartial),
 			ptb.MustPure(false), // use_owner_inventory
 			ptb.MustPure(uint64(params.DeadlineMs)),
-			allowedCharsArg(ptb, params.PlayerCharacterID),
-			ptb.MustPure([]uint32{}), // allowed_tribes
+		allowedCharsArg(ptb, params.PlayerCharacterID),
+			allowedTribesArg(ptb, params.AllowedTribes),
 			clockArg(ptb),
 		},
 	)

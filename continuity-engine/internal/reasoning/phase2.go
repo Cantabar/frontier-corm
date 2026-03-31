@@ -129,21 +129,25 @@ func attemptContractFill(ctx context.Context, h *Handler, environment, cormID st
 		return
 	}
 
-	playerAddr := evt.PlayerAddress
+	player := PlayerIdentity{
+		Address:     evt.PlayerAddress,
+		CharacterID: evt.PlayerCharacterID,
+		TribeID:     evt.PlayerTribeID,
+	}
 	networkNodeID := evt.NetworkNodeID
-	snapshot := chain.BuildSnapshot(ctx, h.chainClient, chainStateID, playerAddr, networkNodeID)
+	snapshot := chain.BuildSnapshot(ctx, h.chainClient, chainStateID, player.Address, networkNodeID)
 
 	goalPhase := traits.Goals.EffectiveGoalPhase()
 
 	switch goalPhase {
 	case types.GoalPhaseDistributing:
-		attemptDistributionFill(ctx, h, environment, cormID, chainStateID, traits, evt, snapshot, playerAddr, activeCount)
+		attemptDistributionFill(ctx, h, environment, cormID, chainStateID, traits, evt, snapshot, player, activeCount)
 	case types.GoalPhaseVerifying:
 		// Standard generation only — no goal-specific contracts.
 		// No reserved materials in verifying phase.
-		attemptStandardFill(ctx, h, environment, cormID, chainStateID, traits, evt, snapshot, playerAddr, activeCount, nil)
+		attemptStandardFill(ctx, h, environment, cormID, chainStateID, traits, evt, snapshot, player, activeCount, nil)
 	default: // GoalPhaseAcquiring
-		attemptAcquisitionFill(ctx, h, environment, cormID, chainStateID, traits, evt, snapshot, playerAddr, activeCount)
+		attemptAcquisitionFill(ctx, h, environment, cormID, chainStateID, traits, evt, snapshot, player, activeCount)
 	}
 }
 
@@ -151,7 +155,7 @@ func attemptContractFill(ctx context.Context, h *Handler, environment, cormID st
 // 1. Standard generation with goal-reserved inventory protection
 // 2. Goal-directed acquisition contracts
 // 3. Check if acquisition is now complete → transition to distributing
-func attemptAcquisitionFill(ctx context.Context, h *Handler, environment, cormID, chainStateID string, traits *types.CormTraits, evt types.CormEvent, snapshot chain.WorldSnapshot, playerAddr string, activeCount int) {
+func attemptAcquisitionFill(ctx context.Context, h *Handler, environment, cormID, chainStateID string, traits *types.CormTraits, evt types.CormEvent, snapshot chain.WorldSnapshot, player PlayerIdentity, activeCount int) {
 	goals := ProgressiveGoals(traits)
 	var reserved map[uint64]uint64
 	if h.recipeRegistry != nil && len(goals) > 0 {
@@ -159,7 +163,7 @@ func attemptAcquisitionFill(ctx context.Context, h *Handler, environment, cormID
 	}
 
 	// Try standard generation with goal protection.
-	standardFailed := attemptStandardFill(ctx, h, environment, cormID, chainStateID, traits, evt, snapshot, playerAddr, activeCount, reserved)
+	standardFailed := attemptStandardFill(ctx, h, environment, cormID, chainStateID, traits, evt, snapshot, player, activeCount, reserved)
 	if standardFailed {
 		activeCount = countActiveSessionContracts(h.dispatcher, evt.SessionID)
 	}
@@ -200,14 +204,14 @@ func attemptAcquisitionFill(ctx context.Context, h *Handler, environment, cormID
 		}
 
 		slots := maxActiveContracts - activeCount
-		intents := PlanAcquisitionContracts(goals, snapshot, h.recipeRegistry, traits, playerAddr, slots)
+		intents := PlanAcquisitionContracts(goals, snapshot, h.recipeRegistry, traits, player.Address, slots)
 
 		if len(intents) > 0 {
 			for _, intent := range intents {
 				if activeCount >= maxActiveContracts {
 					break
 				}
-				if err := createContractFromIntent(ctx, h, environment, cormID, chainStateID, traits, evt, snapshot, playerAddr, &intent); err != nil {
+				if err := createContractFromIntent(ctx, h, environment, cormID, chainStateID, traits, evt, snapshot, player, &intent); err != nil {
 					slog.Info(fmt.Sprintf("phase2: goal-directed contract failed: %v", err))
 					break
 				}
@@ -238,7 +242,7 @@ func attemptAcquisitionFill(ctx context.Context, h *Handler, environment, cormID
 
 // attemptDistributionFill generates distribution contracts (item_for_coin at
 // token prices) to give collected goal materials back to the player.
-func attemptDistributionFill(ctx context.Context, h *Handler, environment, cormID, chainStateID string, traits *types.CormTraits, evt types.CormEvent, snapshot chain.WorldSnapshot, playerAddr string, activeCount int) {
+func attemptDistributionFill(ctx context.Context, h *Handler, environment, cormID, chainStateID string, traits *types.CormTraits, evt types.CormEvent, snapshot chain.WorldSnapshot, player PlayerIdentity, activeCount int) {
 	goals := ProgressiveGoals(traits)
 	if len(goals) == 0 || h.recipeRegistry == nil {
 		return
@@ -251,7 +255,7 @@ func attemptDistributionFill(ctx context.Context, h *Handler, environment, cormI
 
 	goal := goals[0]
 	slots := maxActiveContracts - activeCount
-	intents := PlanDistributionContracts(goal, snapshot, h.recipeRegistry, traits, playerAddr, slots)
+	intents := PlanDistributionContracts(goal, snapshot, h.recipeRegistry, traits, player.Address, slots)
 
 	if len(intents) == 0 {
 		// All materials distributed or no inventory — check if done.
@@ -274,7 +278,7 @@ func attemptDistributionFill(ctx context.Context, h *Handler, environment, cormI
 		if activeCount >= maxActiveContracts {
 			break
 		}
-		if err := createContractFromIntent(ctx, h, environment, cormID, chainStateID, traits, evt, snapshot, playerAddr, &intent); err != nil {
+		if err := createContractFromIntent(ctx, h, environment, cormID, chainStateID, traits, evt, snapshot, player, &intent); err != nil {
 			slog.Info(fmt.Sprintf("phase2: distribution contract failed: %v", err))
 			break
 		}
@@ -284,10 +288,10 @@ func attemptDistributionFill(ctx context.Context, h *Handler, environment, cormI
 
 // attemptStandardFill tries standard contract generation with optional
 // reserved-material filtering. Returns true if generation failed (no viable contracts).
-func attemptStandardFill(ctx context.Context, h *Handler, environment, cormID, chainStateID string, traits *types.CormTraits, evt types.CormEvent, snapshot chain.WorldSnapshot, playerAddr string, activeCount int, reserved map[uint64]uint64) bool {
+func attemptStandardFill(ctx context.Context, h *Handler, environment, cormID, chainStateID string, traits *types.CormTraits, evt types.CormEvent, snapshot chain.WorldSnapshot, player PlayerIdentity, activeCount int, reserved map[uint64]uint64) bool {
 	failed := false
 	for activeCount < maxActiveContracts {
-		if err := generateOneContract(ctx, h, environment, cormID, chainStateID, traits, evt, snapshot, playerAddr, reserved); err != nil {
+		if err := generateOneContract(ctx, h, environment, cormID, chainStateID, traits, evt, snapshot, player, reserved); err != nil {
 			slog.Info(fmt.Sprintf("phase2: standard fill stopped after %d active: %v", activeCount, err))
 			failed = true
 			break
@@ -299,20 +303,20 @@ func attemptStandardFill(ctx context.Context, h *Handler, environment, cormID, c
 
 // generateOneContract runs the deterministic contract generation pipeline once.
 // Returns nil on success or an error if generation should stop.
-func generateOneContract(ctx context.Context, h *Handler, environment, cormID, chainStateID string, traits *types.CormTraits, evt types.CormEvent, snapshot chain.WorldSnapshot, playerAddr string, reserved map[uint64]uint64) error {
-	intent, err := GenerateContractIntent(traits, snapshot, h.registry, playerAddr, nil, reserved)
+func generateOneContract(ctx context.Context, h *Handler, environment, cormID, chainStateID string, traits *types.CormTraits, evt types.CormEvent, snapshot chain.WorldSnapshot, player PlayerIdentity, reserved map[uint64]uint64) error {
+	intent, err := GenerateContractIntent(traits, snapshot, h.registry, player.Address, nil, reserved)
 	if err != nil {
 		return fmt.Errorf("generate intent: %w", err)
 	}
 
-	return createContractFromIntent(ctx, h, environment, cormID, chainStateID, traits, evt, snapshot, playerAddr, intent)
+	return createContractFromIntent(ctx, h, environment, cormID, chainStateID, traits, evt, snapshot, player, intent)
 }
 
 // createContractFromIntent resolves, validates, and creates a contract from
 // an intent. Shared by both standard and goal-directed generation.
-func createContractFromIntent(ctx context.Context, h *Handler, environment, cormID, chainStateID string, traits *types.CormTraits, evt types.CormEvent, snapshot chain.WorldSnapshot, playerAddr string, intent *types.ContractIntent) error {
+func createContractFromIntent(ctx context.Context, h *Handler, environment, cormID, chainStateID string, traits *types.CormTraits, evt types.CormEvent, snapshot chain.WorldSnapshot, player PlayerIdentity, intent *types.ContractIntent) error {
 	// Resolve intent to exact parameters
-	params, err := ResolveIntent(*intent, snapshot, h.registry, traits, h.pricing, playerAddr)
+	params, err := ResolveIntent(*intent, snapshot, h.registry, traits, h.pricing, player)
 	if err != nil {
 		return fmt.Errorf("resolve intent: %w", err)
 	}
@@ -355,7 +359,7 @@ func createContractFromIntent(ctx context.Context, h *Handler, environment, corm
 		Payload:    responsePayload,
 	})
 
-	slog.Info(fmt.Sprintf("phase2: created %s contract %s for corm %s → %s", params.ContractType, contractID, cormID, playerAddr))
+	slog.Info(fmt.Sprintf("phase2: created %s contract %s for corm %s → %s", params.ContractType, contractID, cormID, player.Address))
 	return nil
 }
 

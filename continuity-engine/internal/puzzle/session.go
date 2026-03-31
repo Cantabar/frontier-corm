@@ -132,6 +132,10 @@ type Session struct {
 	// Network node binding (Phase 2+)
 	NetworkNodeID string
 
+	// Player identity (for contract access restriction)
+	PlayerCharacterID string // Sui Character object ID
+	PlayerTribeID     uint32 // in-game tribe ID (0 = unassigned)
+
 	// Corm integration
 	EventBuffer        *types.RingBuffer
 	ActionChan         chan types.CormAction
@@ -251,6 +255,34 @@ func (s *Session) GetNetworkNodeID() string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.NetworkNodeID
+}
+
+// SetPlayerCharacterID stores the player's on-chain Character object ID.
+func (s *Session) SetPlayerCharacterID(id string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.PlayerCharacterID = id
+}
+
+// GetPlayerCharacterID returns the player's Character ID (empty if unknown).
+func (s *Session) GetPlayerCharacterID() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.PlayerCharacterID
+}
+
+// SetPlayerTribeID stores the player's in-game tribe ID.
+func (s *Session) SetPlayerTribeID(id uint32) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.PlayerTribeID = id
+}
+
+// GetPlayerTribeID returns the player's tribe ID (0 = unassigned).
+func (s *Session) GetPlayerTribeID() uint32 {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.PlayerTribeID
 }
 
 // CellKey returns the map key for a cell coordinate.

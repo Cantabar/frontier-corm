@@ -11,16 +11,18 @@ import (
 
 // CormEvent is a player action received over the WebSocket from puzzle-service.
 type CormEvent struct {
-	Type          string          `json:"type"`
-	Seq           uint64          `json:"seq"`
-	SessionID     string          `json:"session_id"`
-	PlayerAddress string          `json:"player_address"`
-	NetworkNodeID string          `json:"network_node_id"`
-	Context       string          `json:"context"`
-	EventType     string          `json:"event_type"`
-	Payload       json.RawMessage `json:"payload"`
-	Timestamp     time.Time       `json:"timestamp"`
-	Environment   string          `json:"-"` // set by transport layer, not from wire
+	Type              string          `json:"type"`
+	Seq               uint64          `json:"seq"`
+	SessionID         string          `json:"session_id"`
+	PlayerAddress     string          `json:"player_address"`
+	PlayerCharacterID string          `json:"player_character_id"`
+	PlayerTribeID     uint32          `json:"player_tribe_id"`
+	NetworkNodeID     string          `json:"network_node_id"`
+	Context           string          `json:"context"`
+	EventType         string          `json:"event_type"`
+	Payload           json.RawMessage `json:"payload"`
+	Timestamp         time.Time       `json:"timestamp"`
+	Environment       string          `json:"-"` // set by transport layer, not from wire
 }
 
 // Event type constants.
