@@ -43,8 +43,9 @@ function parseNetworkNode(
   objectId: string,
   fields: Record<string, unknown>,
 ): NetworkNodeData {
-  const metaOuter = fields.metadata as { fields?: { name?: string } } | null;
+  const metaOuter = fields.metadata as { fields?: { name?: string; url?: string } } | null;
   const name = metaOuter?.fields?.name || "";
+  const metadataUrl = metaOuter?.fields?.url || "";
 
   const fuelOuter = fields.fuel as {
     fields?: { quantity?: unknown; max_capacity?: unknown };
@@ -71,6 +72,7 @@ function parseNetworkNode(
     typeId: Number(fields.type_id ?? 0),
     status: parseStatus(fields.status),
     name,
+    metadataUrl,
     fuelQuantity,
     fuelMaxCapacity,
     maxEnergyProduction,

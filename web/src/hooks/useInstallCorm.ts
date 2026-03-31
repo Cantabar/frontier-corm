@@ -12,7 +12,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useIdentity } from "./useIdentity";
 import { useStructures } from "./useStructures";
 import { useNotifications } from "./useNotifications";
-import { buildInstallCorm } from "../lib/sui";
+import { buildInstallCorm, buildInstallCormWithUrl } from "../lib/sui";
 import { config } from "../config";
 import type { AssemblyData } from "../lib/types";
 
@@ -32,7 +32,7 @@ export interface InstallCormState {
 }
 
 export function useInstallCorm(): InstallCormState {
-  const { address } = useIdentity();
+  const { address, characterId } = useIdentity();
   const { structures, isLoading } = useStructures();
   const { push } = useNotifications();
   const client = useSuiClient();
@@ -66,7 +66,25 @@ export function useInstallCorm(): InstallCormState {
 
       setIsInstalling(true);
       try {
-        const tx = buildInstallCorm({ configId, networkNodeId });
+        // Look up the OwnerCap for this network node so we can set the
+        // metadata URL in the same transaction.
+        const nodeAssembly = networkNodes.find((n) => n.id === networkNodeId);
+        let tx;
+        if (characterId && nodeAssembly) {
+          // Fetch fresh OwnerCap version/digest to avoid stale Receiving<T>
+          const capObj = await client.getObject({ id: nodeAssembly.ownerCapId });
+          tx = buildInstallCormWithUrl({
+            configId,
+            characterId,
+            networkNodeId,
+            ownerCapId: nodeAssembly.ownerCapId,
+            ownerCapVersion: capObj.data?.version ?? nodeAssembly.ownerCapVersion,
+            ownerCapDigest: capObj.data?.digest ?? nodeAssembly.ownerCapDigest,
+          });
+        } else {
+          // Fallback: install only (no OwnerCap available)
+          tx = buildInstallCorm({ configId, networkNodeId });
+        }
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const result = await signAndExecute({ transaction: tx as any });
 
@@ -99,7 +117,7 @@ export function useInstallCorm(): InstallCormState {
         setIsInstalling(false);
       }
     },
-    [canInstall, configId, signAndExecute, queryClient, push, client, isConfigured],
+    [canInstall, configId, signAndExecute, queryClient, push, client, isConfigured, characterId, networkNodes],
   );
 
   return {

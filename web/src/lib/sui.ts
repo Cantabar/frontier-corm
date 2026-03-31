@@ -1209,6 +1209,11 @@ export function buildCleanupCompletedItemContract(params: {
 // Corm Installation
 // ============================================================
 
+/** Construct the full-page Continuity Engine URL for a Network Node. */
+export function getContinuityUrl(networkNodeId: string): string {
+  return `${config.webUiHost}/continuity?node=${networkNodeId}`;
+}
+
 /**
  * Install a corm on a network node. Permissionless — any player who owns
  * the node can call this. The MintCap and CormState admin are routed to
@@ -1226,6 +1231,133 @@ export function buildInstallCorm(params: {
       tx.pure.id(params.networkNodeId),
     ],
   });
+  return tx;
+}
+
+/**
+ * Install a corm **and** set the Network Node metadata URL to the full-page
+ * Continuity Engine link in a single PTB.
+ *
+ * Steps:
+ * 1. Borrow OwnerCap<NetworkNode> from Character
+ * 2. Call corm_state::install (permissionless)
+ * 3. Call network_node::update_metadata_url with the Continuity Engine URL
+ * 4. Return OwnerCap to Character
+ */
+export function buildInstallCormWithUrl(params: {
+  configId: string;
+  characterId: string;
+  networkNodeId: string;
+  ownerCapId: string;
+  ownerCapVersion: string;
+  ownerCapDigest: string;
+}): Transaction {
+  const tx = new Transaction();
+  const pkg = worldPkg();
+  const nnTypeArg = `${pkg}::network_node::NetworkNode`;
+
+  // 1. Borrow OwnerCap<NetworkNode> from Character
+  const [ownerCap, receipt] = tx.moveCall({
+    target: `${pkg}::character::borrow_owner_cap`,
+    typeArguments: [nnTypeArg],
+    arguments: [
+      tx.object(params.characterId),
+      tx.object(
+        Inputs.ReceivingRef({
+          objectId: params.ownerCapId,
+          version: params.ownerCapVersion,
+          digest: params.ownerCapDigest,
+        }),
+      ),
+    ],
+  });
+
+  // 2. Install corm
+  tx.moveCall({
+    target: `${packages.cormState}::corm_state::install`,
+    arguments: [
+      tx.object(params.configId),
+      tx.pure.id(params.networkNodeId),
+    ],
+  });
+
+  // 3. Set metadata URL to the full-page Continuity Engine link
+  tx.moveCall({
+    target: `${pkg}::network_node::update_metadata_url`,
+    arguments: [
+      tx.object(params.networkNodeId),
+      ownerCap,
+      tx.pure.string(getContinuityUrl(params.networkNodeId)),
+    ],
+  });
+
+  // 4. Return OwnerCap to Character
+  tx.moveCall({
+    target: `${pkg}::character::return_owner_cap`,
+    typeArguments: [nnTypeArg],
+    arguments: [
+      tx.object(params.characterId),
+      ownerCap,
+      receipt,
+    ],
+  });
+
+  return tx;
+}
+
+/**
+ * Update (or set) the Network Node metadata URL to the full-page
+ * Continuity Engine link. Used as a repair action for nodes that were
+ * installed before URL-writing was added to the install flow.
+ */
+export function buildUpdateNetworkNodeUrl(params: {
+  characterId: string;
+  networkNodeId: string;
+  ownerCapId: string;
+  ownerCapVersion: string;
+  ownerCapDigest: string;
+}): Transaction {
+  const tx = new Transaction();
+  const pkg = worldPkg();
+  const nnTypeArg = `${pkg}::network_node::NetworkNode`;
+
+  // 1. Borrow OwnerCap<NetworkNode> from Character
+  const [ownerCap, receipt] = tx.moveCall({
+    target: `${pkg}::character::borrow_owner_cap`,
+    typeArguments: [nnTypeArg],
+    arguments: [
+      tx.object(params.characterId),
+      tx.object(
+        Inputs.ReceivingRef({
+          objectId: params.ownerCapId,
+          version: params.ownerCapVersion,
+          digest: params.ownerCapDigest,
+        }),
+      ),
+    ],
+  });
+
+  // 2. Set metadata URL
+  tx.moveCall({
+    target: `${pkg}::network_node::update_metadata_url`,
+    arguments: [
+      tx.object(params.networkNodeId),
+      ownerCap,
+      tx.pure.string(getContinuityUrl(params.networkNodeId)),
+    ],
+  });
+
+  // 3. Return OwnerCap to Character
+  tx.moveCall({
+    target: `${pkg}::character::return_owner_cap`,
+    typeArguments: [nnTypeArg],
+    arguments: [
+      tx.object(params.characterId),
+      ownerCap,
+      receipt,
+    ],
+  });
+
   return tx;
 }
 

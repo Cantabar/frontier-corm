@@ -51,10 +51,17 @@ export function ContinuityEngine() {
   const [searchParams] = useSearchParams();
   const { installedCorms } = useInstalledCorms();
 
-  // Resolve corm state ID and network node from URL params or first installed corm
+  // Resolve corm state ID and network node from URL params or first installed corm.
+  // When only ?node= is provided (e.g. from in-game metadata URL), derive
+  // cormStateId by matching the node against installed corms.
   const urlCormStateId = searchParams.get("cormStateId") || undefined;
   const urlNodeId = searchParams.get("node") || undefined;
-  const activeCormStateId = urlCormStateId || installedCorms[0]?.cormStateId || config.cormStateId || undefined;
+  const activeCormStateId =
+    urlCormStateId
+    || (urlNodeId && installedCorms.find((c) => c.networkNodeId === urlNodeId)?.cormStateId)
+    || installedCorms[0]?.cormStateId
+    || config.cormStateId
+    || undefined;
   const activeNodeId = urlNodeId || installedCorms[0]?.networkNodeId || undefined;
 
   // Bridge on-chain state into the continuity-engine iframe

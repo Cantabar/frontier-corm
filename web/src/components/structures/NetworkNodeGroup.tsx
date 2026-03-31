@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import styled from "styled-components";
 import { Link } from "react-router-dom";
-import { useSignAndExecuteTransaction } from "@mysten/dapp-kit";
+import { useSignAndExecuteTransaction, useSuiClient } from "@mysten/dapp-kit";
 import { CopyableId } from "../shared/CopyableId";
-import { buildOnlineStructure, buildOfflineStructure } from "../../lib/sui";
+import { buildOnlineStructure, buildOfflineStructure, buildUpdateNetworkNodeUrl, getContinuityUrl } from "../../lib/sui";
+import { useIdentity } from "../../hooks/useIdentity";
 import { config } from "../../config";
 import { truncateAddress } from "../../lib/format";
 import type { AssemblyData, AssemblyStatus, NetworkNodeData } from "../../lib/types";
@@ -348,7 +349,10 @@ export function NetworkNodeGroup({
 }: NetworkNodeGroupProps) {
   const [open, setOpen] = useState(defaultOpen);
   const { mutateAsync: signAndExecute } = useSignAndExecuteTransaction();
+  const suiClient = useSuiClient();
+  const { characterId: myCharacterId } = useIdentity();
   const [pending, setPending] = useState(false);
+  const [updatingUrl, setUpdatingUrl] = useState(false);
   const [iconFallback, setIconFallback] = useState<"primary" | "canonical" | "none">("primary");
 
   // Reset icon fallback state when the node changes
@@ -386,6 +390,34 @@ export function NetworkNodeGroup({
   // A NetworkNode is its own energy source — use its own ID as the networkNodeId.
   const canOnline = isOwner && node.status === "Offline" && !!characterId && !!assembly;
   const canOffline = isOwner && node.status === "Online" && !!characterId && !!assembly;
+
+  // Determine if the metadata URL needs to be set/updated
+  const expectedUrl = getContinuityUrl(node.id);
+  const urlSynced = node.metadataUrl === expectedUrl;
+  const canUpdateUrl = isOwner && !!myCharacterId && !!assembly && !urlSynced;
+
+  async function handleUpdateUrl() {
+    if (!myCharacterId || !assembly) return;
+    setUpdatingUrl(true);
+    try {
+      const capObj = await suiClient.getObject({ id: assembly.ownerCapId });
+      const tx = buildUpdateNetworkNodeUrl({
+        characterId: myCharacterId,
+        networkNodeId: assembly.id,
+        ownerCapId: assembly.ownerCapId,
+        ownerCapVersion: capObj.data?.version ?? assembly.ownerCapVersion,
+        ownerCapDigest: capObj.data?.digest ?? assembly.ownerCapDigest,
+      });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await signAndExecute({ transaction: tx as any });
+      await new Promise((r) => setTimeout(r, 1500));
+      onRefreshNodes();
+    } catch (err) {
+      console.error("Failed to update network node URL:", err);
+    } finally {
+      setUpdatingUrl(false);
+    }
+  }
 
   async function handleToggle(action: "online" | "offline") {
     if (!characterId || !assembly) return;
@@ -484,6 +516,19 @@ export function NetworkNodeGroup({
               + Location
             </LocationBadge>
           ) : null}
+          {canUpdateUrl && (
+            <ActionButton
+              $variant="online"
+              disabled={updatingUrl}
+              title="Set on-chain metadata URL to the full-page Continuity Engine link"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleUpdateUrl();
+              }}
+            >
+              {updatingUrl ? "…" : "🔗 Set Link"}
+            </ActionButton>
+          )}
           {canOnline && (
             <ActionButton
               $variant="online"

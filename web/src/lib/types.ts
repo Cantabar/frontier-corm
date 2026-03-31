@@ -211,6 +211,8 @@ export interface NetworkNodeData {
   typeId: number;
   status: AssemblyStatus;
   name: string;
+  /** On-chain metadata URL (e.g. full-page Continuity Engine link), empty if unset. */
+  metadataUrl: string;
   fuelQuantity: number;
   fuelMaxCapacity: number;
   maxEnergyProduction: number;

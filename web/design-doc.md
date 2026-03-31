@@ -80,7 +80,7 @@ Client-side privacy-preserving location sharing with ZK proof generation. The se
 - `/contracts/build/create` — Create new build request
 - `/contracts/build/:contractId` — Build request detail
 - `/contracts/:contractId` — Trustless contract detail (fills, status)
-- `/continuity` — Continuity Engine (puzzle-service iframe with CormState bridge)
+- `/continuity` — Continuity Engine (puzzle-service iframe with CormState bridge). Supports `?node=<id>` to select a specific Network Node (resolves cormStateId from installed corms). This is the URL written to Network Node on-chain metadata.
 - `/events` — Event Explorer (filterable event log)
 - `/structures` → redirects to `/structures/:characterId`
 - `/structures/:characterId` — Player's structures
@@ -121,7 +121,7 @@ All via Vite environment variables (`VITE_*`), resolved in `src/config.ts`:
 - `VITE_CORM_COIN_TYPE` — CORM coin type string (primary coin for contracts; derived from the **original** `corm_state` package address as `<ORIGINAL_ID>::corm_coin::CORM_COIN` — stable across upgrades)
 - `VITE_COIN_TYPE` — fallback coin type for escrow/treasury when CORM is not configured (default: `0x2::sui::SUI`)
 - `VITE_INDEXER_URL` — indexer API base URL (default: `/api/v1`)
-- `VITE_WEB_UI_HOST` — public web UI host used to compose on-chain SSU dApp URLs (defaults: `https://ef-corm.com` for stillness, `https://utopia.ef-corm.com` for utopia)
+- `VITE_WEB_UI_HOST` — public web UI host used to compose on-chain metadata URLs for SSU dApp links and Network Node Continuity Engine links (defaults: `https://ef-corm.com` for stillness, `https://utopia.ef-corm.com` for utopia)
 - `VITE_WORLD_API_URL` — Eve Frontier world API (tribe name backfill)
 - `VITE_CONTINUITY_ENGINE_URL` — continuity-engine service URL (Continuity Engine iframe)
 - `VITE_SUI_RPC_URL` — Sui RPC proxy URL override (default: `/sui-rpc` for deployed envs, SDK default for local)
@@ -168,7 +168,8 @@ Per-environment defaults are defined in `config.ts` and overridden by explicit `
 - Initialize tribe banner for unclaimed in-game tribes
 - Dashboard Locations card: `ClickableCard` linking to `/locations` for quick access to tribe location management
 - Continuity Engine dashboard section: dedicated section below the overview grid containing Install Corm card, conditional Continuity Engine link card (visible when corm is installed, shows current phase), and conditional Corm Status card (phase, stability, corruption, network node from on-chain `useCormState`)
-- Install Corm: card under the Continuity Engine section for installing a corm on a player-owned Network Node (permissionless on-chain `corm_state::install`). Capped at 320px max-width to prevent the card from stretching across the full grid when it is the only item in the Continuity Engine section.
+- Install Corm: card under the Continuity Engine section for installing a corm on a player-owned Network Node (permissionless on-chain `corm_state::install`). The install transaction also sets the Network Node's on-chain metadata URL to the full-page Continuity Engine link (`/continuity?node=<id>`) via `network_node::update_metadata_url`, so clicking the node in-game opens the web UI directly. Capped at 320px max-width to prevent the card from stretching across the full grid when it is the only item in the Continuity Engine section.
+- Network Node metadata URL repair: owner-only "Set Link" action on `NetworkNodeGroup` headers sets or updates the on-chain metadata URL for nodes that were installed before URL-writing was added. Reads current URL from on-chain `Metadata.url` and only shows the action when the URL is missing or outdated.
 - Event Explorer with type/tribe/character filtering, pagination, and "World" module category for structure lifecycle events. Clicking an event row expands an inline drawer directly below it showing on-chain proof details (tx digest, event sequence, checkpoint, timestamp, verification note, raw event data) with a module-colored left accent and slide-down animation.
 - Descriptive event display names: `StatusChangedEvent` renders as "Structure Anchored", "Structure Unanchored", etc. based on the event's `action` field, via centralized `eventDisplayName()` formatter
 - Structure browser with aggregated SSU inventory
