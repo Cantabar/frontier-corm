@@ -243,10 +243,30 @@ func (h *Handler) syncChainState(ctx context.Context, environment, cormID string
 		return
 	}
 	if chainStateID == "" {
-		// Expected for browser sessions without a bound network node (Phase 0/1).
-		// On-chain state is created when a node is bound via ?node= or Phase2BindNode.
-		slog.Debug(fmt.Sprintf("syncChainState: no chain_state_id for corm %s — on-chain state will not be updated", cormID))
-		return
+		// Attempt to provision the CormState on-chain if a network node is linked.
+		// This covers the race where CreateCormState failed on initial contact
+		// and the backfill cooldown suppressed retries before Phase 2 transition.
+		nodeID, _ := h.db.ResolveNetworkNodeByCorm(ctx, environment, cormID)
+		if nodeID == "" {
+			// No-node corm — expected for Phase 0/1 browser sessions.
+			slog.Debug(fmt.Sprintf("syncChainState: no chain_state_id for corm %s — on-chain state will not be updated", cormID))
+			return
+		}
+		newID, cErr := h.chainClient.CreateCormState(ctx, nodeID)
+		if cErr != nil {
+			slog.Error(fmt.Sprintf("syncChainState: provision CormState for corm %s node %s: %v", cormID, nodeID, cErr))
+			return
+		}
+		if newID == "" {
+			slog.Error(fmt.Sprintf("syncChainState: provision CormState returned empty ID for corm %s node %s", cormID, nodeID))
+			return
+		}
+		if sErr := h.db.SetChainStateID(ctx, environment, nodeID, newID); sErr != nil {
+			slog.Error(fmt.Sprintf("syncChainState: store provisioned chain_state_id for corm %s: %v", cormID, sErr))
+			return
+		}
+		chainStateID = newID
+		slog.Info(fmt.Sprintf("syncChainState: provisioned CormState for corm %s node %s → %s", cormID, nodeID, newID))
 	}
 
 	// Reject stub IDs (e.g. "corm_0x08a493") that would fail ObjectIdFromHex.

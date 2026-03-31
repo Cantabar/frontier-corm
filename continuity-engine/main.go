@@ -284,7 +284,10 @@ func processBatch(
 				// Backfill: node is linked but chain_state_id may be NULL
 				// (e.g. CreateCormState failed on the original attempt).
 				existingChainID, _ := database.ResolveChainStateIDForNode(ctx, env, evt.NetworkNodeID)
-				if existingChainID == "" && !backfillRecentlyFailed(evt.NetworkNodeID) {
+				// Bypass the backfill cooldown for Phase 2+ corms — they need
+				// chain state immediately for contract generation.
+				cormPhase := database.ResolveCormPhase(ctx, env, existing)
+				if existingChainID == "" && (cormPhase >= 2 || !backfillRecentlyFailed(evt.NetworkNodeID)) {
 					chainClient := chainClients[env]
 					chainStateID, err := chainClient.CreateCormState(ctx, evt.NetworkNodeID)
 					if err != nil {

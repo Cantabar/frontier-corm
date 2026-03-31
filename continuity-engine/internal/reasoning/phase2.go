@@ -101,7 +101,9 @@ func attemptContractFill(ctx context.Context, h *Handler, environment, cormID st
 	// and haven't been backfilled by the event processor yet.
 	if chainStateID == "" && h.chainClient != nil && h.chainClient.CanUpdateCormState() {
 		nodeID, _ := h.db.ResolveNetworkNodeByCorm(ctx, environment, cormID)
-		if nodeID != "" {
+		if nodeID == "" {
+			slog.Info(fmt.Sprintf("phase2: auto-provision skipped for corm %s (no linked network node)", cormID))
+		} else {
 			newID, cErr := h.chainClient.CreateCormState(ctx, nodeID)
 			if cErr != nil {
 				slog.Info(fmt.Sprintf("phase2: auto-provision chain state for corm %s node %s: %v", cormID, nodeID, cErr))
@@ -114,6 +116,14 @@ func attemptContractFill(ctx context.Context, h *Handler, environment, cormID st
 				}
 			}
 		}
+	} else if chainStateID == "" && h.chainClient != nil {
+		slog.Info(fmt.Sprintf("phase2: auto-provision skipped for corm %s (CanUpdateCormState=false)", cormID))
+	}
+
+	// If chain state is still missing after auto-provision, clear the contract
+	// cooldown so the next player event retries immediately.
+	if chainStateID == "" {
+		ClearContractCooldown(cormID)
 	}
 
 	// Count active contracts from the session to enforce the cap,

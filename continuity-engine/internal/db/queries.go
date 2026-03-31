@@ -146,6 +146,20 @@ func (d *DB) ResolveNetworkNodeByCorm(ctx context.Context, environment, cormID s
 	return nodeID, err
 }
 
+// ResolveCormPhase returns the current phase for a corm, or -1 if not found.
+// Lightweight alternative to GetTraits when only the phase is needed.
+func (d *DB) ResolveCormPhase(ctx context.Context, environment, cormID string) int {
+	var phase int
+	err := d.Pool.QueryRow(ctx,
+		"SELECT phase FROM corm_traits WHERE environment = $1 AND corm_id = $2",
+		environment, cormID,
+	).Scan(&phase)
+	if err != nil {
+		return -1
+	}
+	return phase
+}
+
 // --- Events ---
 
 // InsertEvent appends a raw event and returns the assigned ID.
