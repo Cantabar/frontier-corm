@@ -13,14 +13,14 @@ import (
 // ContractParams holds parameters for creating a trustless contract on-chain.
 // All coin types are Coin<CORM_COIN>.
 type ContractParams struct {
-	ContractType      string // coin_for_item, item_for_coin, item_for_item, corm_giveaway
+	ContractType      string // coin_for_item, item_for_coin, item_for_item
 	PlayerCharacterID string
 	PlayerAddress     string
 	OfferedTypeID     uint64 // for item_for_coin, item_for_item
 	OfferedQuantity   uint32
 	WantedTypeID      uint64 // for coin_for_item, item_for_item
 	WantedQuantity    uint32
-	CORMEscrowAmount  uint64 // for coin_for_item, corm_giveaway
+	CORMEscrowAmount  uint64 // for coin_for_item
 	CORMWantedAmount  uint64 // for item_for_coin
 	SourceSSUID       string
 	DestinationSSUID  string
@@ -55,9 +55,6 @@ func (c *Client) CreateContract(ctx context.Context, cormID string, params Contr
 			return c.createContractStub(cormID, params)
 		}
 		return c.createItemForItem(ctx, cormID, params)
-	case "corm_giveaway":
-		// Giveaway is coin_for_coin with wanted_amount=0 (per coin_for_coin.move special case).
-		return c.createCoinForCoin(ctx, cormID, params)
 	default:
 		return c.createContractStub(cormID, params)
 	}
@@ -204,7 +201,6 @@ func (c *Client) createCoinForItem(ctx context.Context, cormID string, params Co
 // --- CoinForCoin ---
 
 // createCoinForCoin creates a CoinForCoin<CORM_COIN, CORM_COIN> contract.
-// When CORMWantedAmount == 0 this becomes a free giveaway (corm_giveaway).
 func (c *Client) createCoinForCoin(ctx context.Context, cormID string, params ContractParams) (string, error) {
 	ptb := suiptb.NewTransactionDataTransactionBuilder()
 
@@ -220,7 +216,7 @@ func (c *Client) createCoinForCoin(ctx context.Context, cormID string, params Co
 		return "", err
 	}
 
-	// coin_for_coin::create<CE, CF> — both are CORM_COIN for corm giveaways
+	// coin_for_coin::create<CE, CF>
 	cormTag := c.cormCoinTypeTag()
 	ptb.ProgrammableMoveCall(
 		c.trustlessContractsPkg,
@@ -230,7 +226,7 @@ func (c *Client) createCoinForCoin(ctx context.Context, cormID string, params Co
 		[]suiptb.Argument{
 			charArg,
 			escrowArg,
-			ptb.MustPure(params.CORMWantedAmount), // 0 for giveaway
+		ptb.MustPure(params.CORMWantedAmount),
 			ptb.MustPure(params.AllowPartial),
 			ptb.MustPure(uint64(params.DeadlineMs)),
 			allowedCharsArg(ptb, params.PlayerCharacterID),
@@ -249,12 +245,8 @@ func (c *Client) createCoinForCoin(ctx context.Context, cormID string, params Co
 		return "", fmt.Errorf("contract object not found in transaction effects")
 	}
 
-	logType := "CoinForCoin"
-	if params.CORMWantedAmount == 0 {
-		logType = "CORMGiveaway"
-	}
-	slog.Info(fmt.Sprintf("chain: Create%s %s escrow=%d wanted=%d player=%s",
-		logType, contractID, params.CORMEscrowAmount, params.CORMWantedAmount, params.PlayerAddress))
+	slog.Info(fmt.Sprintf("chain: CreateCoinForCoin %s escrow=%d wanted=%d player=%s",
+		contractID, params.CORMEscrowAmount, params.CORMWantedAmount, params.PlayerAddress))
 	return contractID, nil
 }
 
@@ -604,9 +596,6 @@ func (c *Client) createContractStub(cormID string, params ContractParams) (strin
 	case "item_for_item":
 		slog.Info(fmt.Sprintf("chain: stub CreateItemForItem %s offered_type=%d offered_qty=%d wanted_type=%d wanted_qty=%d player=%s",
 			contractID, params.OfferedTypeID, params.OfferedQuantity, params.WantedTypeID, params.WantedQuantity, params.PlayerAddress))
-	case "corm_giveaway":
-		slog.Info(fmt.Sprintf("chain: stub CreateCORMGiveaway %s escrow=%d player=%s",
-			contractID, params.CORMEscrowAmount, params.PlayerAddress))
 	default:
 		slog.Info(fmt.Sprintf("chain: stub CreateContract %s type=%s player=%s", contractID, params.ContractType, params.PlayerAddress))
 	}

@@ -4,7 +4,7 @@ package types
 // generation call. Fields use qualitative values that the resolver maps to
 // exact on-chain parameters.
 type ContractIntent struct {
-	ContractType string `json:"contract_type"` // "coin_for_item", "item_for_coin", "item_for_item", "corm_giveaway"
+	ContractType string `json:"contract_type"` // "coin_for_item", "item_for_coin", "item_for_item"
 	OfferedItem  string `json:"offered_item"`  // item name (for item_for_coin, item_for_item) or empty
 	WantedItem   string `json:"wanted_item"`   // item name (for coin_for_item, item_for_item) or empty
 	CORMAmount   string `json:"corm_amount"`   // "small", "medium", "large" — modulates LUX-derived price
@@ -19,13 +19,11 @@ const (
 	ContractCoinForItem = "coin_for_item"
 	ContractItemForCoin = "item_for_coin"
 	ContractItemForItem = "item_for_item"
-	ContractCORMGiveaway = "corm_giveaway"
 )
 
 // Valid contract types for Phase 2.
 var ValidContractTypes = map[string]bool{
-	ContractCoinForItem:  true,
-	ContractItemForCoin:  true,
-	ContractItemForItem:  true,
-	ContractCORMGiveaway: true,
+	ContractCoinForItem: true,
+	ContractItemForCoin: true,
+	ContractItemForItem: true,
 }

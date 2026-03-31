@@ -95,13 +95,6 @@ func ResolveIntent(
 		params.WantedTypeID = wanted.TypeID
 		params.WantedQuantity = uint32(wantedQty)
 
-	case types.ContractCORMGiveaway:
-		// Corm distributes CORM for free (wanted_amount = 0)
-		amount := resolveGiveawayAmount(intent.CORMAmount, snapshot.CormCORMBalance, traits)
-		if amount == 0 {
-			return nil, fmt.Errorf("insufficient CORM balance for giveaway")
-		}
-		params.CORMEscrowAmount = amount
 	}
 
 	return params, nil
@@ -246,30 +239,7 @@ func resolveDeadline(urgency string, patience float64) int64 {
 	return deadline.UnixMilli()
 }
 
-// resolveGiveawayAmount picks a CORM giveaway amount based on balance.
-func resolveGiveawayAmount(scale string, balance uint64, traits *types.CormTraits) uint64 {
-	if balance == 0 {
-		return 0
-	}
-
-	var fraction float64
-	switch scale {
-	case "small":
-		fraction = 0.05
-	case "large":
-		fraction = 0.20
-	default:
-		fraction = 0.10
-	}
-
-	amount := uint64(math.Max(1, math.Round(float64(balance)*fraction)))
-	if amount > balance {
-		amount = balance
-	}
-	return amount
-}
-
-// playerInventoryQty finds a specific item's quantity in the player's inventory.
+// playerInventoryQty
 func playerInventoryQty(inv []chain.InventoryItem, typeID uint64) uint64 {
 	for _, item := range inv {
 		// InventoryItem.TypeID is a string — compare as string

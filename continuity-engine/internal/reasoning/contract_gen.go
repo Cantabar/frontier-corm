@@ -76,12 +76,6 @@ func GenerateContractIntent(
 		}
 		intent.OfferedItem = offered.TypeName
 		intent.WantedItem = wanted.TypeName
-
-	case types.ContractCORMGiveaway:
-		// No items needed — just CORM distribution.
-		if snapshot.CormCORMBalance == 0 {
-			return nil, fmt.Errorf("corm_giveaway: no CORM balance")
-		}
 	}
 
 	// Generate a generic narrative (may be replaced by async Nano call).
@@ -112,9 +106,6 @@ func agendaAlignmentScore(contractType string, w types.AgendaWeights) float64 {
 	case types.ContractItemForItem:
 		// Barter aligns with industry.
 		return w.Industry
-	case types.ContractCORMGiveaway:
-		// Giveaways don't strongly align with any agenda.
-		return 0.1
 	default:
 		return 0.1
 	}
@@ -127,7 +118,6 @@ func pickContractType(traits *types.CormTraits, snapshot chain.WorldSnapshot, rn
 		types.ContractCoinForItem,
 		types.ContractItemForCoin,
 		types.ContractItemForItem,
-		types.ContractCORMGiveaway,
 	}
 
 	// Build weights.
@@ -154,14 +144,6 @@ func pickContractType(traits *types.CormTraits, snapshot chain.WorldSnapshot, rn
 		case types.ContractItemForItem:
 			if len(snapshot.CormInventory) == 0 || len(snapshot.PlayerInventory) == 0 {
 				w = 0
-			}
-		case types.ContractCORMGiveaway:
-			if snapshot.CormCORMBalance == 0 {
-				w = 0
-			}
-			// Giveaways are normally rare — boost under high corruption.
-			if traits.Corruption > 70 {
-				w += 0.3
 			}
 		}
 
@@ -293,8 +275,6 @@ func genericNarrative(intent *types.ContractIntent) string {
 		return fmt.Sprintf("offering: %s. cost: CORM. claim at node.", intent.OfferedItem)
 	case types.ContractItemForItem:
 		return fmt.Sprintf("exchange: %s for %s. quantities specified.", intent.OfferedItem, intent.WantedItem)
-	case types.ContractCORMGiveaway:
-		return "distribution: CORM. no obligation."
 	default:
 		return "contract available."
 	}

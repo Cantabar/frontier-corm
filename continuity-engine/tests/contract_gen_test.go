@@ -45,11 +45,10 @@ func testTraits() *types.CormTraits {
 		PlayerAffinities: map[string]float64{
 			"0xplayer1": 0.7,
 		},
-		ContractTypeAffinity: map[string]float64{
-			"coin_for_item":  0.5,
-			"item_for_coin":  0.3,
-			"item_for_item":  0.1,
-			"corm_giveaway":  0.0,
+	ContractTypeAffinity: map[string]float64{
+			"coin_for_item": 0.5,
+			"item_for_coin": 0.3,
+			"item_for_item": 0.1,
 		},
 	}
 }
@@ -88,7 +87,7 @@ func TestGenerateContractIntent_EmptyInventoriesAndBalance(t *testing.T) {
 	}
 }
 
-func TestGenerateContractIntent_CoinForItemNeedsPlayerInventory(t *testing.T) {
+func TestGenerateContractIntent_CORMBalanceOnlyReturnsError(t *testing.T) {
 	traits := testTraits()
 	// Only CORM balance, no player inventory.
 	snapshot := chain.WorldSnapshot{
@@ -97,15 +96,11 @@ func TestGenerateContractIntent_CoinForItemNeedsPlayerInventory(t *testing.T) {
 		PlayerInventory: nil,
 	}
 
-	// With no player inventory and no corm inventory, coin_for_item and item types are infeasible.
-	// Only corm_giveaway should be possible.
+	// With no player inventory and no corm inventory, no contract type is feasible.
 	rng := seedRNG(42)
-	intent, err := reasoning.GenerateContractIntent(traits, snapshot, nil, "0xplayer1", rng)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if intent.ContractType != types.ContractCORMGiveaway {
-		t.Errorf("expected corm_giveaway when only CORM balance available, got %s", intent.ContractType)
+	_, err := reasoning.GenerateContractIntent(traits, snapshot, nil, "0xplayer1", rng)
+	if err == nil {
+		t.Error("expected error when only CORM balance available with no items")
 	}
 }
 
@@ -130,32 +125,6 @@ func TestGenerateContractIntent_ItemsFromActualInventory(t *testing.T) {
 		if intent.WantedItem != "" && !playerItemNames[intent.WantedItem] {
 			t.Errorf("seed %d: wanted item %q not in player inventory", i, intent.WantedItem)
 		}
-	}
-}
-
-func TestGenerateContractIntent_HighCorruptionGiveawayChance(t *testing.T) {
-	traits := testTraits()
-	traits.Corruption = 80
-	snapshot := testSnapshot()
-
-	giveawayCount := 0
-	iterations := 500
-	for i := 0; i < iterations; i++ {
-		rng := seedRNG(int64(i))
-		intent, err := reasoning.GenerateContractIntent(traits, snapshot, nil, "0xplayer1", rng)
-		if err != nil {
-			continue
-		}
-		if intent.ContractType == types.ContractCORMGiveaway {
-			giveawayCount++
-		}
-	}
-
-	// With high corruption, giveaway weight gets +0.3 boost.
-	// We expect a meaningful number of giveaways (at least 5%).
-	ratio := float64(giveawayCount) / float64(iterations)
-	if ratio < 0.03 {
-		t.Errorf("expected >3%% giveaways at corruption=80, got %.1f%% (%d/%d)", ratio*100, giveawayCount, iterations)
 	}
 }
 
