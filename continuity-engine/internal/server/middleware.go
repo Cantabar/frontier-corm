@@ -36,6 +36,14 @@ func SessionMiddleware(store *puzzle.SessionStore, secureCookies bool) func(http
 				}
 
 				sess = puzzle.NewSession(playerAddr, ctx)
+
+				// Auto-bind network node from URL param (set by the web
+				// app when the player has an installed corm). This makes
+				// the Phase 2 manual bind form unnecessary.
+				if nodeID := r.URL.Query().Get("node"); nodeID != "" && sess.GetNetworkNodeID() == "" {
+					sess.SetNetworkNodeID(nodeID)
+				}
+
 				store.Put(sess)
 
 				c := &http.Cookie{

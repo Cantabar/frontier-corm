@@ -11,7 +11,7 @@ import { useNotifications } from "../hooks/useNotifications";
 import { useQuickActions } from "../hooks/useQuickActions";
 import { useInitializeTribe } from "../hooks/useInitializeTribe";
 import { useInstallCorm } from "../hooks/useInstallCorm";
-import { useCormState } from "../continuity-engine/useCormState";
+import { useInstalledCorms } from "../hooks/useInstalledCorms";
 import { truncateAddress } from "../lib/format";
 import { CustomSelect } from "../components/shared/CustomSelect";
 
@@ -260,13 +260,15 @@ export function Dashboard() {
   const { enabled: quickActions, toggle: toggleAction, reset: resetActions, allVariants, variantLabels, variantDescriptions } = useQuickActions();
   const { needsInit, inGameTribeId, suggestedName, isInitializing, initialize } = useInitializeTribe();
   const { networkNodes, canInstall, isConfigured, isInstalling, installCorm } = useInstallCorm();
-  const { cormState } = useCormState();
+  const { installedCorms, installedNodeIds } = useInstalledCorms();
   const [customizing, setCustomizing] = useState(false);
   const [initName, setInitName] = useState("");
   const [selectedNodeId, setSelectedNodeId] = useState("");
   const installBtnRef = useRef<HTMLButtonElement>(null);
   const [installBtnHovered, setInstallBtnHovered] = useState(false);
 
+  // Filter out nodes that already have a corm installed
+  const availableNodes = networkNodes.filter((n) => !installedNodeIds.has(n.id));
   const installDisabled = isInstalling || !selectedNodeId || !canInstall || !isConfigured;
   const installDisabledReason = !canInstall
     ? "You need a Network Node to install a corm."
@@ -365,71 +367,78 @@ export function Dashboard() {
 
       <SectionLabel>Continuity Engine</SectionLabel>
       <OverviewGrid>
-        <OverviewCard style={{ maxWidth: 320 }}>
-          <CardLabel>Install Corm</CardLabel>
-          <NodeSelectWrapper>
-            <CustomSelect
-              value={selectedNodeId}
-              onChange={setSelectedNodeId}
-              disabled={isInstalling || networkNodes.length === 0}
-              placeholder={networkNodes.length === 0 ? "No Network Nodes found" : "Select a Network Node…"}
-              options={networkNodes.map((node) => ({
-                value: node.id,
-                label: `${node.name || "Unnamed Node"} (${truncateAddress(node.id)})`,
-              }))}
-            />
-          </NodeSelectWrapper>
-          <span
-            ref={installBtnRef}
-            style={{ display: "inline-block", width: "100%" }}
-            onMouseEnter={() => setInstallBtnHovered(true)}
-            onMouseLeave={() => setInstallBtnHovered(false)}
+        {/* Installed corms — one card per node with an active corm */}
+        {installedCorms.map((corm) => (
+          <ClickableCard
+            key={corm.cormStateId}
+            to={`/continuity?cormStateId=${encodeURIComponent(corm.cormStateId)}&node=${encodeURIComponent(corm.networkNodeId)}`}
           >
-            <InitButton
-              onClick={() => {
-                if (selectedNodeId) installCorm(selectedNodeId);
-              }}
-              disabled={installDisabled}
-            >
-              {isInstalling ? "Installing…" : "Install Corm"}
-            </InitButton>
-          </span>
-          <PortalTooltip
-            targetRef={installBtnRef}
-            visible={installBtnHovered && !!installDisabledReason}
-          >
-            <Meta>{installDisabledReason}</Meta>
-          </PortalTooltip>
-        </OverviewCard>
-        {cormState && (
-          <ClickableCard to="/continuity">
-            <CardLabel>Continuity Engine</CardLabel>
+            <CardLabel>{corm.nodeName}</CardLabel>
             <CardValue style={{ fontSize: 14 }}>
-              Phase {cormState.phase} — {phaseLabel(cormState.phase)}
+              Phase {corm.phase} — {phaseLabel(corm.phase)}
             </CardValue>
-          </ClickableCard>
-        )}
-        {cormState && (
-          <OverviewCard>
-            <CardLabel>Corm Status</CardLabel>
-            <StatusDetail>
-              <StatusLabel>Phase</StatusLabel>
-              <StatusValue>{phaseLabel(cormState.phase)}</StatusValue>
-            </StatusDetail>
             <StatusDetail>
               <StatusLabel>Stability</StatusLabel>
-              <StatusValue>{cormState.stability} / 100</StatusValue>
+              <StatusValue>{corm.stability} / 100</StatusValue>
             </StatusDetail>
             <StatusDetail>
               <StatusLabel>Corruption</StatusLabel>
-              <StatusValue>{cormState.corruption} / 100</StatusValue>
+              <StatusValue>{corm.corruption} / 100</StatusValue>
             </StatusDetail>
             <StatusDetail>
               <StatusLabel>Network Node</StatusLabel>
-              <StatusValue title={cormState.networkNodeId}>
-                {truncateAddress(cormState.networkNodeId)}
+              <StatusValue title={corm.networkNodeId}>
+                {truncateAddress(corm.networkNodeId)}
               </StatusValue>
             </StatusDetail>
+          </ClickableCard>
+        ))}
+
+        {/* Install new corm — only show if there are unoccupied nodes */}
+        {availableNodes.length > 0 && (
+          <OverviewCard style={{ maxWidth: 320 }}>
+            <CardLabel>Install Corm</CardLabel>
+            <NodeSelectWrapper>
+              <CustomSelect
+                value={selectedNodeId}
+                onChange={setSelectedNodeId}
+                disabled={isInstalling || availableNodes.length === 0}
+                placeholder={availableNodes.length === 0 ? "No available nodes" : "Select a Network Node…"}
+                options={availableNodes.map((node) => ({
+                  value: node.id,
+                  label: `${node.name || "Unnamed Node"} (${truncateAddress(node.id)})`,
+                }))}
+              />
+            </NodeSelectWrapper>
+            <span
+              ref={installBtnRef}
+              style={{ display: "inline-block", width: "100%" }}
+              onMouseEnter={() => setInstallBtnHovered(true)}
+              onMouseLeave={() => setInstallBtnHovered(false)}
+            >
+              <InitButton
+                onClick={() => {
+                  if (selectedNodeId) installCorm(selectedNodeId);
+                }}
+                disabled={installDisabled}
+              >
+                {isInstalling ? "Installing…" : "Install Corm"}
+              </InitButton>
+            </span>
+            <PortalTooltip
+              targetRef={installBtnRef}
+              visible={installBtnHovered && !!installDisabledReason}
+            >
+              <Meta>{installDisabledReason}</Meta>
+            </PortalTooltip>
+          </OverviewCard>
+        )}
+
+        {/* Empty state — no nodes at all */}
+        {installedCorms.length === 0 && availableNodes.length === 0 && networkNodes.length === 0 && (
+          <OverviewCard>
+            <CardLabel>Continuity Engine</CardLabel>
+            <CardValue style={{ fontSize: 13 }}>No Network Nodes found</CardValue>
           </OverviewCard>
         )}
       </OverviewGrid>

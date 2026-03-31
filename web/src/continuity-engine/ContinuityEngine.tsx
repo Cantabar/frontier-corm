@@ -13,7 +13,9 @@
 
 import { useRef } from "react";
 import styled from "styled-components";
+import { useSearchParams } from "react-router-dom";
 import { useIdentity } from "../hooks/useIdentity";
+import { useInstalledCorms } from "../hooks/useInstalledCorms";
 import { config } from "../config";
 import { LoadingSpinner } from "../components/shared/LoadingSpinner";
 import { CormStateBar } from "./CormStateBar";
@@ -46,9 +48,17 @@ const NoWallet = styled.div`
 export function ContinuityEngine() {
   const { address, isLoading } = useIdentity();
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const [searchParams] = useSearchParams();
+  const { installedCorms } = useInstalledCorms();
+
+  // Resolve corm state ID and network node from URL params or first installed corm
+  const urlCormStateId = searchParams.get("cormStateId") || undefined;
+  const urlNodeId = searchParams.get("node") || undefined;
+  const activeCormStateId = urlCormStateId || installedCorms[0]?.cormStateId || config.cormStateId || undefined;
+  const activeNodeId = urlNodeId || installedCorms[0]?.networkNodeId || undefined;
 
   // Bridge on-chain state into the continuity-engine iframe
-  useCormStateBridge(iframeRef);
+  useCormStateBridge(iframeRef, activeCormStateId);
 
   if (isLoading) {
     return (
@@ -66,11 +76,14 @@ export function ContinuityEngine() {
     );
   }
 
-  const puzzleUrl = `${config.continuityEngineUrl}?player=${encodeURIComponent(address)}`;
+  let puzzleUrl = `${config.continuityEngineUrl}?player=${encodeURIComponent(address)}`;
+  if (activeNodeId) {
+    puzzleUrl += `&node=${encodeURIComponent(activeNodeId)}`;
+  }
 
   return (
     <Wrapper>
-      <CormStateBar />
+      <CormStateBar objectId={activeCormStateId} />
       <Frame ref={iframeRef} src={puzzleUrl} title="Continuity Engine" allow="clipboard-write" />
     </Wrapper>
   );
@@ -83,9 +96,17 @@ export function ContinuityEngine() {
 export function ContinuityEngineDapp({ entityId }: { entityId?: string }) {
   const { address, isLoading } = useIdentity();
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const { installedCorms } = useInstalledCorms();
+
+  // For SSU context the entity_id is the network node; for browser, fall back to first installed
+  const activeNodeId = entityId || installedCorms[0]?.networkNodeId || undefined;
+  const activeCormStateId = installedCorms.find((c) => c.networkNodeId === activeNodeId)?.cormStateId
+    || installedCorms[0]?.cormStateId
+    || config.cormStateId
+    || undefined;
 
   // Bridge on-chain state into the continuity-engine iframe
-  useCormStateBridge(iframeRef);
+  useCormStateBridge(iframeRef, activeCormStateId);
 
   if (isLoading) {
     return (
@@ -104,11 +125,14 @@ export function ContinuityEngineDapp({ entityId }: { entityId?: string }) {
   }
 
   const basePath = entityId ? `/ssu/${entityId}` : "";
-  const puzzleUrl = `${config.continuityEngineUrl}${basePath}?player=${encodeURIComponent(address)}`;
+  let puzzleUrl = `${config.continuityEngineUrl}${basePath}?player=${encodeURIComponent(address)}`;
+  if (activeNodeId) {
+    puzzleUrl += `&node=${encodeURIComponent(activeNodeId)}`;
+  }
 
   return (
     <Wrapper>
-      <CormStateBar />
+      <CormStateBar objectId={activeCormStateId} />
       <Frame ref={iframeRef} src={puzzleUrl} title="Continuity Engine" allow="clipboard-write" />
     </Wrapper>
   );

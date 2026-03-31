@@ -184,6 +184,7 @@ Only `types.json` and `groups.json` are copied from `fsd_built/` — the rest of
 - Multi-environment support via per-environment chain clients
 - HTMX server-rendered UI with SSE log streaming
 - In-game SSU iframe embedding support (`/ssu/{entity_id}/` routes)
+- Network node auto-bind: the `node` query parameter (e.g. `?player=0x...&node=0x...`) is read by the session middleware on new session creation and sets `NetworkNodeID` on the session automatically. This allows the web app to pass the player's installed corm's network node ID through the iframe URL, skipping the Phase 2 manual bind form when the corm is already linked.
 - Phase-aware root routing: `GET /` redirects to the correct phase handler (`/phase0`, `/puzzle`, or `/phase2`) based on session state, preserving query parameters for cookie-loss resilience
 - Cross-origin iframe cookie support (`SameSite=None; Secure` via `SECURE_COOKIES=true`)
 - Debug terminal commands for development troubleshooting:

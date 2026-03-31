@@ -77,6 +77,8 @@ export function useInstallCorm(): InstallCormState {
           queryClient.invalidateQueries({ queryKey: ["cormState"] }),
           queryClient.invalidateQueries({ queryKey: ["recentEvents"] }),
           queryClient.invalidateQueries({ queryKey: ["stats"] }),
+          // Refresh installed corms discovery (queryEvents for CormStateCreatedEvent)
+          queryClient.invalidateQueries({ queryKey: ["sui.queryEvents"] }),
         ]);
 
         push({
