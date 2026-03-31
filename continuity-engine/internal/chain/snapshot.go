@@ -2,8 +2,10 @@ package chain
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strings"
 	"sync"
 	"time"
 
@@ -185,8 +187,8 @@ func (c *Client) GetCormInventory(ctx context.Context, cormID string) ([]Invento
 }
 
 // GetNodeSSUs returns SSUs belonging to a network node.
-// Currently returns seed data or nil — full implementation requires
-// indexer integration for network node → SSU mapping.
+// Reads the on-chain network node object to discover connected assemblies,
+// then filters for StorageUnit types. Falls back to seed data or nil.
 func (c *Client) GetNodeSSUs(ctx context.Context, networkNodeID string) ([]SSUInfo, error) {
 	if c.seedMode {
 		// Use a valid-looking 64-hex-char Sui object ID so the real contract
@@ -196,17 +198,42 @@ func (c *Client) GetNodeSSUs(ctx context.Context, networkNodeID string) ([]SSUIn
 			{ObjectID: seedSSU, OwnerAddr: "0x00000000000000000000000000000000000000000000000000005eed00000001"},
 		}, nil
 	}
-	// TODO: Query indexer or SUI RPC (getDynamicFields) for SSUs on this
-	// network node. Until implemented, non-seed environments will trigger
-	// the build_ssu directive flow.
-	slog.Debug(fmt.Sprintf("snapshot: GetNodeSSUs stub for node %s — returning nil (indexer integration pending)", networkNodeID))
-	return nil, nil
+
+	objects, err := c.getConnectedAssemblyObjects(ctx, networkNodeID)
+	if err != nil {
+		slog.Warn(fmt.Sprintf("snapshot: GetNodeSSUs RPC failed for node %s: %v", networkNodeID, err))
+		return nil, nil
+	}
+
+	var ssus []SSUInfo
+	for _, obj := range objects {
+		if obj.Data == nil || obj.Data.Content == nil || obj.Data.Content.Data.MoveObject == nil {
+			continue
+		}
+		objType := obj.Data.Content.Data.MoveObject.Type
+		if !strings.Contains(objType, "storage_unit::StorageUnit") {
+			continue
+		}
+		objID := obj.Data.ObjectId.String()
+
+		// Extract owner address from the object's Owner field if available.
+		ownerAddr := ""
+		if obj.Data.Owner != nil {
+			if obj.Data.Owner.AddressOwner != nil {
+				ownerAddr = obj.Data.Owner.AddressOwner.String()
+			}
+		}
+
+		ssus = append(ssus, SSUInfo{ObjectID: objID, OwnerAddr: ownerAddr})
+	}
+
+	slog.Info(fmt.Sprintf("snapshot: GetNodeSSUs for node %s → %d SSUs from %d connected assemblies", networkNodeID, len(ssus), len(objects)))
+	return ssus, nil
 }
 
 // GetNodeAssemblies returns manufacturing facilities on a network node.
-// Seed mode returns starter-tier facilities (Field Refinery, Field Printer,
-// Mini Printer, Mini Berth) that all players have from the tutorial.
-// Full implementation requires indexer integration.
+// Reads the on-chain network node object to discover connected assemblies,
+// then extracts type_id fields. Falls back to seed data or nil.
 func (c *Client) GetNodeAssemblies(ctx context.Context, networkNodeID string) ([]AssemblyInfo, error) {
 	if c.seedMode {
 		return []AssemblyInfo{
@@ -216,6 +243,140 @@ func (c *Client) GetNodeAssemblies(ctx context.Context, networkNodeID string) ([
 			{ObjectID: "seed_miniberth_" + networkNodeID, TypeID: FacilityMiniBerth, TypeName: "Mini Berth"},
 		}, nil
 	}
-	// TODO: Query indexer for assemblies on this network node
-	return nil, nil
+
+	objects, err := c.getConnectedAssemblyObjects(ctx, networkNodeID)
+	if err != nil {
+		slog.Warn(fmt.Sprintf("snapshot: GetNodeAssemblies RPC failed for node %s: %v", networkNodeID, err))
+		return nil, nil
+	}
+
+	var assemblies []AssemblyInfo
+	for _, obj := range objects {
+		if obj.Data == nil || obj.Data.Content == nil || obj.Data.Content.Data.MoveObject == nil {
+			continue
+		}
+
+		var fields map[string]interface{}
+		if err := json.Unmarshal(obj.Data.Content.Data.MoveObject.Fields, &fields); err != nil {
+			continue
+		}
+
+		typeID := uint64(toInt(fields["type_id"]))
+		if typeID == 0 {
+			continue
+		}
+
+		objID := obj.Data.ObjectId.String()
+		typeName := facilityIDToName(typeID)
+
+		assemblies = append(assemblies, AssemblyInfo{
+			ObjectID: objID,
+			TypeID:   typeID,
+			TypeName: typeName,
+		})
+	}
+
+	slog.Info(fmt.Sprintf("snapshot: GetNodeAssemblies for node %s → %d assemblies from %d connected", networkNodeID, len(assemblies), len(objects)))
+	return assemblies, nil
+}
+
+// --- Network node assembly discovery helpers ---
+
+// getConnectedAssemblyObjects reads a network node's connected_assembly_ids
+// from chain, then batch-fetches those objects. Returns nil if the node has
+// no connected assemblies or if the RPC is unavailable.
+func (c *Client) getConnectedAssemblyObjects(ctx context.Context, networkNodeID string) ([]suiclient.SuiObjectResponse, error) {
+	if networkNodeID == "" {
+		return nil, nil
+	}
+
+	nodeObjID, err := sui.ObjectIdFromHex(networkNodeID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid network node ID: %w", err)
+	}
+
+	// Read the network node object to get connected_assembly_ids.
+	nodeResp, err := c.rpc.GetObject(ctx, &suiclient.GetObjectRequest{
+		ObjectId: nodeObjID,
+		Options: &suiclient.SuiObjectDataOptions{
+			ShowContent: true,
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("get network node object: %w", err)
+	}
+	if nodeResp.Data == nil || nodeResp.Data.Content == nil || nodeResp.Data.Content.Data.MoveObject == nil {
+		return nil, nil
+	}
+
+	var nodeFields map[string]interface{}
+	if err := json.Unmarshal(nodeResp.Data.Content.Data.MoveObject.Fields, &nodeFields); err != nil {
+		return nil, fmt.Errorf("parse network node fields: %w", err)
+	}
+
+	assemblyIDs := parseConnectedAssemblyIDs(nodeFields)
+	if len(assemblyIDs) == 0 {
+		return nil, nil
+	}
+
+	// Batch-fetch all connected assembly objects.
+	objIDs := make([]*sui.ObjectId, 0, len(assemblyIDs))
+	for _, idStr := range assemblyIDs {
+		oid, err := sui.ObjectIdFromHex(idStr)
+		if err != nil {
+			slog.Debug(fmt.Sprintf("snapshot: skip invalid assembly ID %q: %v", idStr, err))
+			continue
+		}
+		objIDs = append(objIDs, oid)
+	}
+	if len(objIDs) == 0 {
+		return nil, nil
+	}
+
+	resp, err := c.rpc.MultiGetObjects(ctx, &suiclient.MultiGetObjectsRequest{
+		ObjectIds: objIDs,
+		Options: &suiclient.SuiObjectDataOptions{
+			ShowType:    true,
+			ShowContent: true,
+			ShowOwner:   true,
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("multi-get assembly objects: %w", err)
+	}
+
+	return resp, nil
+}
+
+// parseConnectedAssemblyIDs extracts the connected_assembly_ids array from
+// a network node's parsed content fields. The on-chain field is a vector of
+// Sui object IDs.
+func parseConnectedAssemblyIDs(fields map[string]interface{}) []string {
+	raw, ok := fields["connected_assembly_ids"]
+	if !ok {
+		return nil
+	}
+
+	arr, ok := raw.([]interface{})
+	if !ok {
+		return nil
+	}
+
+	result := make([]string, 0, len(arr))
+	for _, v := range arr {
+		if s, ok := v.(string); ok && s != "" {
+			result = append(result, s)
+		}
+	}
+	return result
+}
+
+// facilityIDToName returns the human-readable name for a facility type ID.
+func facilityIDToName(typeID uint64) string {
+	for name, id := range facilityNameToID {
+		if id == typeID {
+			return name
+		}
+	}
+	return fmt.Sprintf("Assembly %d", typeID)
 }
