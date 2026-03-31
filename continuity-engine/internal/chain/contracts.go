@@ -226,6 +226,7 @@ func (c *Client) CreateContracts(ctx context.Context, cormID string, paramsList 
 	if len(escrowAmounts) > 0 {
 		// Try to find an existing coin, fall back to minting inline.
 		var coinArg suiptb.Argument
+		var mintedInline bool
 		cormCoinRef, err := c.findOwnedCoin(ctx, c.CORMCoinType(), totalEscrow)
 		if err == nil {
 			coinArg = ptb.MustObj(suiptb.ObjectArg{ImmOrOwnedObject: cormCoinRef})
@@ -236,6 +237,7 @@ func (c *Client) CreateContracts(ctx context.Context, cormID string, paramsList 
 				return nil, fmt.Errorf("mint CORM for batch escrow: %w", mintErr)
 			}
 			coinArg = mintedCoin
+			mintedInline = true
 		}
 
 		amountArgs := make([]suiptb.Argument, len(escrowAmounts))
@@ -253,6 +255,20 @@ func (c *Client) CreateContracts(ctx context.Context, cormID string, paramsList 
 			escrowArgs[origIdx] = suiptb.Argument{
 				NestedResult: &suiptb.NestedResult{Cmd: splitCmdIdx, Result: uint16(i)},
 			}
+		}
+
+		// When the source coin was minted inline (a PTB command result),
+		// SplitCoins only borrows it by &mut — the coin is not consumed.
+		// Coin<CORM_COIN> lacks `drop`, so we must explicitly consume it
+		// via TransferObjects to avoid UnusedValueWithoutDrop.
+		// Object inputs (ImmOrOwnedObject) are auto-returned by Sui.
+		if mintedInline {
+			ptb.Command(suiptb.Command{
+				TransferObjects: &suiptb.ProgrammableTransferObjects{
+					Objects: []suiptb.Argument{coinArg},
+					Address: ptb.MustPure(c.signer.Address()),
+				},
+			})
 		}
 	}
 
