@@ -180,7 +180,7 @@ echo "Generated $PUB_FILE"
 # web env file cleanup, a stale VITE_CORM_CONFIG_ID (created under a
 # previous package deployment) survives a republish and causes
 # TypeMismatch errors at runtime.
-STALE_VARS=("${ENV_VARS[@]}" "${VITE_VARS[@]}" VITE_TRIBE_REGISTRY_ID VITE_CORM_CONFIG_ID VITE_METADATA_REGISTRY_ID)
+STALE_VARS=("${ENV_VARS[@]}" "${VITE_VARS[@]}" VITE_TRIBE_REGISTRY_ID VITE_CORM_CONFIG_ID VITE_METADATA_REGISTRY_ID COIN_AUTHORITY_OBJECT_ID CORM_CONFIG_OBJECT_ID)
 echo "Clearing stale contract IDs from $ENV_FILE..."
 for var in "${STALE_VARS[@]}"; do
   if grep -q "^${var}=" "$ENV_FILE" 2>/dev/null; then
@@ -303,6 +303,40 @@ for i in "${!PACKAGES[@]}"; do
     fi
   fi
 
+  if [ "$pkg" = "corm_state" ]; then
+    echo "  Querying CoinAuthority shared object ID..."
+
+    # Try extracting from fresh publish result first
+    COIN_AUTHORITY_ID=""
+    if [ -f /tmp/publish-result-clean.json ]; then
+      COIN_AUTHORITY_ID=$(jq -r '(.objectChanges // [])[] | select(.type == "created") | select(.objectType | contains("CoinAuthority")) | .objectId // empty' /tmp/publish-result-clean.json 2>/dev/null)
+    fi
+
+    # Fallback: query the package's publish transaction from chain
+    if [ -z "$COIN_AUTHORITY_ID" ] || [ "$COIN_AUTHORITY_ID" = "null" ]; then
+      PUBLISH_TX=$(curl -s "$SUI_RPC" -X POST \
+        -H 'Content-Type: application/json' \
+        -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"sui_getObject\",\"params\":[\"$PACKAGE_ID\",{\"showPreviousTransaction\":true}]}" \
+        | jq -r '.result.data.previousTransaction')
+      if [ -n "$PUBLISH_TX" ] && [ "$PUBLISH_TX" != "null" ]; then
+        COIN_AUTHORITY_ID=$(curl -s "$SUI_RPC" -X POST \
+          -H 'Content-Type: application/json' \
+          -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"sui_getTransactionBlock\",\"params\":[\"$PUBLISH_TX\",{\"showObjectChanges\":true}]}" \
+          | jq -r '(.result.objectChanges // [])[] | select(.type == "created") | select(.objectType | contains("CoinAuthority")) | .objectId // empty')
+      fi
+    fi
+
+    if [ -n "$COIN_AUTHORITY_ID" ] && [ "$COIN_AUTHORITY_ID" != "null" ]; then
+      echo "  COIN_AUTHORITY_OBJECT_ID=$COIN_AUTHORITY_ID"
+      write_env_var "COIN_AUTHORITY_OBJECT_ID" "$COIN_AUTHORITY_ID" "$ENV_FILE"
+      if [ -f "$WEB_ENV_FILE" ]; then
+        write_env_var "COIN_AUTHORITY_OBJECT_ID" "$COIN_AUTHORITY_ID" "$WEB_ENV_FILE"
+      fi
+    else
+      echo "  WARNING: Could not extract CoinAuthority ID from publish transaction" >&2
+    fi
+  fi
+
   if [ "$pkg" = "assembly_metadata" ]; then
     echo "  Querying MetadataRegistry shared object ID..."
     METADATA_REGISTRY_ID=$(
@@ -383,6 +417,7 @@ if [ -n "$CORM_AUTH_PKG" ] && [ -n "$CORM_STATE_PKG" ]; then
       if [ -n "$CORM_CONFIG_ID" ] && [ "$CORM_CONFIG_ID" != "null" ]; then
         echo "  VITE_CORM_CONFIG_ID=$CORM_CONFIG_ID"
         write_env_var "VITE_CORM_CONFIG_ID" "$CORM_CONFIG_ID" "$ENV_FILE"
+        write_env_var "CORM_CONFIG_OBJECT_ID" "$CORM_CONFIG_ID" "$ENV_FILE"
         if [ -f "$WEB_ENV_FILE" ]; then
           write_env_var "VITE_CORM_CONFIG_ID" "$CORM_CONFIG_ID" "$WEB_ENV_FILE"
         fi

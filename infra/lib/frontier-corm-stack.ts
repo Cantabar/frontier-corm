@@ -206,6 +206,16 @@ export class FrontierCormStack extends cdk.Stack {
     const assemblyMetadataPackageId: string =
       this.node.tryGetContext("assemblyMetadataPackageId") ?? "";
 
+    // Additional package/object IDs for the continuity-engine chain client.
+    const cormAuthPackageId: string =
+      this.node.tryGetContext("cormAuthPackageId") ?? "";
+    const cormConfigObjectId: string =
+      this.node.tryGetContext("cormConfigObjectId") ?? "";
+    const coinAuthorityObjectId: string =
+      this.node.tryGetContext("coinAuthorityObjectId") ?? "";
+    const cormCharacterId: string =
+      this.node.tryGetContext("cormCharacterId") ?? "";
+
     // ================================================================
     // S3 — Frontend (static site)
     // ================================================================
@@ -425,6 +435,11 @@ export class FrontierCormStack extends cdk.Stack {
         DB_PORT: db.dbInstanceEndpointPort,
         DB_NAME: "frontier_corm",
         CORM_STATE_PACKAGE_ID: cormStatePackageId,
+        TRUSTLESS_CONTRACTS_PACKAGE_ID: trustlessContractsPackageId,
+        CORM_AUTH_PACKAGE_ID: cormAuthPackageId,
+        CORM_CONFIG_OBJECT_ID: cormConfigObjectId,
+        COIN_AUTHORITY_OBJECT_ID: coinAuthorityObjectId,
+        CORM_CHARACTER_ID: cormCharacterId,
         SEED_CHAIN_DATA: cormStatePackageId ? "false" : "true",
         ITEM_REGISTRY_PATH: "/data/registry",
         ITEM_VALUES_PATH: "/data/item-values.json",

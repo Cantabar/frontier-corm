@@ -89,10 +89,15 @@ func Load() Config {
 	} else {
 		// Backward-compatible single-environment fallback
 		cfg.Environments = []EnvironmentConfig{{
-			Name:               "default",
-			SUIRpcURL:          envOrDefault("SUI_RPC_URL", "http://127.0.0.1:9000"),
-			SUIPrivateKey:      os.Getenv("SUI_PRIVATE_KEY"),
-			CormStatePackageID: os.Getenv("CORM_STATE_PACKAGE_ID"),
+			Name:                        "default",
+			SUIRpcURL:                   envOrDefault("SUI_RPC_URL", "http://127.0.0.1:9000"),
+			SUIPrivateKey:               os.Getenv("SUI_PRIVATE_KEY"),
+			CormStatePackageID:          os.Getenv("CORM_STATE_PACKAGE_ID"),
+			TrustlessContractsPackageID: os.Getenv("TRUSTLESS_CONTRACTS_PACKAGE_ID"),
+			CormAuthPackageID:           os.Getenv("CORM_AUTH_PACKAGE_ID"),
+			CormConfigObjectID:          os.Getenv("CORM_CONFIG_OBJECT_ID"),
+			CoinAuthorityObjectID:       os.Getenv("COIN_AUTHORITY_OBJECT_ID"),
+			CormCharacterID:             os.Getenv("CORM_CHARACTER_ID"),
 		}}
 	}
 

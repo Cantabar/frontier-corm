@@ -95,8 +95,8 @@ All via environment variables:
 - `TRUSTLESS_CONTRACTS_PACKAGE_ID` — deployed trustless_contracts package ID
 - `CORM_AUTH_PACKAGE_ID` — deployed corm_auth package ID
 - `CORM_CONFIG_OBJECT_ID` — shared CormConfig object ID (for corm install)
-- `COIN_AUTHORITY_OBJECT_ID` — shared CoinAuthority object ID (for CORM minting)
-- `CORM_CHARACTER_ID` — brain's on-chain Character object ID (for posting contracts)
+- `COIN_AUTHORITY_OBJECT_ID` — shared CoinAuthority object ID (for CORM minting); auto-populated by `publish-contracts.sh` from the `corm_state` publish transaction
+- `CORM_CHARACTER_ID` — brain's on-chain Character object ID (for posting contracts); set manually after Character creation
 - `ITEM_REGISTRY_PATH`, `ITEM_VALUES_PATH` — item data paths
 - `CORM_PER_LUX`, `CORM_FLOOR_PER_UNIT` — pricing config
 - `CONTRACT_GENERATION_COOLDOWN_MS` — min time between contract generation per corm

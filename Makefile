@@ -82,12 +82,20 @@ deploy-infra: ## Deploy CDK stack for ENV (infra only)
 	$(eval TRIBE_PKG := $(shell grep '^PACKAGE_TRIBE=' .env.$(ENV) 2>/dev/null | cut -d= -f2))
 	$(eval TC_PKG := $(shell grep '^PACKAGE_TRUSTLESS_CONTRACTS=' .env.$(ENV) 2>/dev/null | cut -d= -f2))
 	$(eval AM_PKG := $(shell grep '^PACKAGE_ASSEMBLY_METADATA=' .env.$(ENV) 2>/dev/null | cut -d= -f2))
+	$(eval CA_PKG := $(shell grep '^PACKAGE_CORM_AUTH=' .env.$(ENV) 2>/dev/null | cut -d= -f2))
+	$(eval CORM_CFG_OBJ := $(shell grep '^CORM_CONFIG_OBJECT_ID=' .env.$(ENV) 2>/dev/null | cut -d= -f2))
+	$(eval COIN_AUTH_OBJ := $(shell grep '^COIN_AUTHORITY_OBJECT_ID=' .env.$(ENV) 2>/dev/null | cut -d= -f2))
+	$(eval CORM_CHAR := $(shell grep '^CORM_CHARACTER_ID=' .env.$(ENV) 2>/dev/null | cut -d= -f2))
 	cd infra && npx cdk deploy $(STACK_NAME) --require-approval never \
 		-c appEnv=$(ENV) -c suiNetwork=testnet \
 		-c cormStatePackageId=$(CORM_STATE_PKG) \
 		-c tribePackageId=$(TRIBE_PKG) \
 		-c trustlessContractsPackageId=$(TC_PKG) \
-		-c assemblyMetadataPackageId=$(AM_PKG)
+		-c assemblyMetadataPackageId=$(AM_PKG) \
+		-c cormAuthPackageId=$(CA_PKG) \
+		-c cormConfigObjectId=$(CORM_CFG_OBJ) \
+		-c coinAuthorityObjectId=$(COIN_AUTH_OBJ) \
+		-c cormCharacterId=$(CORM_CHAR)
 
 # ── Docker Images ──────────────────────────────────────────────────
 
