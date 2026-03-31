@@ -21,6 +21,7 @@ type WorldSnapshot struct {
 	NodeSSUs        []SSUInfo       // SSUs on this network node
 	NodeAssemblies  []AssemblyInfo  // manufacturing facilities on this network node
 	ActiveContracts int             // count of open contracts for this corm
+	Degraded        bool            // true if any Phase 1 RPC call failed; data may be incomplete
 }
 
 // SSUInfo identifies an SSU on a network node.
@@ -61,6 +62,9 @@ func BuildSnapshot(ctx context.Context, client *Client, cormID, playerAddr, netw
 		balance, err := client.GetCORMBalance(subCtx, cormID)
 		if err != nil {
 			slog.Info(fmt.Sprintf("snapshot: corm balance: %v", err))
+			mu.Lock()
+			snap.Degraded = true
+			mu.Unlock()
 			return
 		}
 		mu.Lock()
@@ -75,6 +79,9 @@ func BuildSnapshot(ctx context.Context, client *Client, cormID, playerAddr, netw
 		ssus, err := client.GetNodeSSUs(subCtx, networkNodeID)
 		if err != nil {
 			slog.Info(fmt.Sprintf("snapshot: node SSUs: %v", err))
+			mu.Lock()
+			snap.Degraded = true
+			mu.Unlock()
 			return
 		}
 		mu.Lock()
@@ -89,6 +96,9 @@ func BuildSnapshot(ctx context.Context, client *Client, cormID, playerAddr, netw
 		assemblies, err := client.GetNodeAssemblies(subCtx, networkNodeID)
 		if err != nil {
 			slog.Info(fmt.Sprintf("snapshot: node assemblies: %v", err))
+			mu.Lock()
+			snap.Degraded = true
+			mu.Unlock()
 			return
 		}
 		mu.Lock()
@@ -199,7 +209,7 @@ func (c *Client) GetNodeSSUs(ctx context.Context, networkNodeID string) ([]SSUIn
 	objects, err := c.getConnectedAssemblyObjects(ctx, networkNodeID)
 	if err != nil {
 		slog.Warn(fmt.Sprintf("snapshot: GetNodeSSUs RPC failed for node %s: %v", networkNodeID, err))
-		return nil, nil
+		return nil, fmt.Errorf("get node SSUs: %w", err)
 	}
 
 	var ssus []SSUInfo
@@ -244,7 +254,7 @@ func (c *Client) GetNodeAssemblies(ctx context.Context, networkNodeID string) ([
 	objects, err := c.getConnectedAssemblyObjects(ctx, networkNodeID)
 	if err != nil {
 		slog.Warn(fmt.Sprintf("snapshot: GetNodeAssemblies RPC failed for node %s: %v", networkNodeID, err))
-		return nil, nil
+		return nil, fmt.Errorf("get node assemblies: %w", err)
 	}
 
 	var assemblies []AssemblyInfo

@@ -153,6 +153,13 @@ func attemptContractFill(ctx context.Context, h *Handler, environment, cormID st
 	networkNodeID := evt.NetworkNodeID
 	snapshot := chain.BuildSnapshot(ctx, h.chainClient, chainStateID, player.Address, networkNodeID)
 
+	// --- RPC health gate: skip contract generation if snapshot data is unreliable ---
+	if snapshot.Degraded {
+		slog.Warn(fmt.Sprintf("phase2: snapshot degraded (RPC failure), skipping contract generation for corm %s", cormID))
+		ClearContractCooldown(cormID)
+		return
+	}
+
 	// --- SSU gate: block all contract generation if no storage unit exists ---
 	if !HasValidSSU(snapshot) {
 		buildSSUMu.Lock()
