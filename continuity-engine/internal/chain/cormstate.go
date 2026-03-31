@@ -221,11 +221,26 @@ func (c *Client) signAndExecute(
 ) (*suiclient.SuiTransactionBlockResponse, error) {
 	pt := ptb.Finish()
 
+	// Query gas coins owned by the signer. The SUI protocol requires
+	// explicit gas coin references in signed transactions — passing nil
+	// produces a transaction with no gas source, which the network rejects
+	// with "Invalid withdraw reservation".
+	gasCoins, err := c.rpc.GetSuiCoinsOwnedByAddress(ctx, c.signer.Address())
+	if err != nil {
+		return nil, fmt.Errorf("query gas coins: %w", err)
+	}
+	if len(gasCoins) == 0 {
+		return nil, fmt.Errorf("signer %s has no SUI coins for gas", c.signer.AddressString())
+	}
+
+	// Use the first (largest balance) coin for gas payment.
+	gasPayment := []*sui.ObjectRef{gasCoins[0].Ref()}
+
 	// Build transaction data
 	txData := suiptb.NewTransactionData(
 		c.signer.Address(),
 		pt,
-		nil, // gas payment (auto-select)
+		gasPayment,
 		50_000_000, // gas budget (50M MIST = 0.05 SUI)
 		1000, // gas price (reference)
 	)
