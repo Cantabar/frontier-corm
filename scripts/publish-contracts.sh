@@ -149,7 +149,7 @@ echo "Chain ID: $CHAIN_ID"
 # The world-contracts repo (github.com/evefrontier/world-contracts) uses
 # "testnet_stillness" / "testnet_utopia" as environment names in its
 # Published.toml. Our corm packages must use matching names so that
-# `sui client publish --environment` can resolve the world dependency
+# `sui client publish --build-env` can resolve the world dependency
 # as already-published rather than bundling it inline.
 case "$ENV" in
   stillness) BUILD_ENV="testnet_stillness" ;;
@@ -230,7 +230,7 @@ for i in "${!PACKAGES[@]}"; do
 
     sui client publish "$pkg_path" \
       --gas-budget "$GAS_BUDGET" \
-      --environment "$BUILD_ENV" \
+      --build-env "$BUILD_ENV" \
       --with-unpublished-dependencies \
       --json > /tmp/publish-result.json 2>&1 || true
     # Note: CLI may return non-zero even on success (e.g. version mismatch warnings).

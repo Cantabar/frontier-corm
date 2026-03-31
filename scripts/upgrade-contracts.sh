@@ -181,7 +181,7 @@ for pkg in "${PACKAGES[@]}"; do
   sui client upgrade "$pkg_path" \
     --upgrade-capability "$UPGRADE_CAP" \
     --gas-budget "$GAS_BUDGET" \
-    --environment "$BUILD_ENV" \
+    --build-env "$BUILD_ENV" \
     --json > /tmp/upgrade-result.json 2>&1 || true
 
   # Strip non-JSON lines (e.g. [warning] messages)
