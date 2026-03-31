@@ -20,6 +20,7 @@ type EnvironmentConfig struct {
 	// Additional package IDs for on-chain contract calls.
 	TrustlessContractsPackageID string `json:"trustless_contracts_package_id"`
 	CormAuthPackageID           string `json:"corm_auth_package_id"`
+	WorldPackageID              string `json:"world_package_id"` // Eve Frontier world contracts (character, storage_unit, inventory)
 
 	// Shared object IDs required for on-chain operations.
 	CormConfigObjectID    string `json:"corm_config_object_id"`    // CormConfig shared object (for install)
@@ -95,6 +96,7 @@ func Load() Config {
 			CormStatePackageID:          os.Getenv("CORM_STATE_PACKAGE_ID"),
 			TrustlessContractsPackageID: os.Getenv("TRUSTLESS_CONTRACTS_PACKAGE_ID"),
 			CormAuthPackageID:           os.Getenv("CORM_AUTH_PACKAGE_ID"),
+			WorldPackageID:              os.Getenv("WORLD_PACKAGE_ID"),
 			CormConfigObjectID:          os.Getenv("CORM_CONFIG_OBJECT_ID"),
 			CoinAuthorityObjectID:       os.Getenv("COIN_AUTHORITY_OBJECT_ID"),
 			CormCharacterID:             os.Getenv("CORM_CHARACTER_ID"),

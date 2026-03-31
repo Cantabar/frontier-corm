@@ -43,27 +43,31 @@ func (c *Client) CreateContract(ctx context.Context, cormID string, params Contr
 	switch params.ContractType {
 	case "coin_for_item":
 		return c.createCoinForItem(ctx, cormID, params)
+	case "coin_for_coin":
+		return c.createCoinForCoin(ctx, cormID, params)
 	case "item_for_coin":
-		// item_for_coin requires withdrawing items from SSU — needs CormAuth extension.
-		// Stub until SSU interaction is wired.
-		return c.createContractStub(cormID, params)
+		if !c.CanCreateItemContracts() {
+			return c.createContractStub(cormID, params)
+		}
+		return c.createItemForCoin(ctx, cormID, params)
 	case "item_for_item":
-		// item_for_item requires withdrawing items from SSU — needs CormAuth extension.
-		return c.createContractStub(cormID, params)
+		if !c.CanCreateItemContracts() {
+			return c.createContractStub(cormID, params)
+		}
+		return c.createItemForItem(ctx, cormID, params)
 	case "corm_giveaway":
-		// corm_giveaway is coin_for_item with wanted_amount=0 (item_for_coin where items are free).
-		// Implemented as item_for_coin::create with wanted_amount=0.
-		return c.createContractStub(cormID, params)
+		// Giveaway is coin_for_coin with wanted_amount=0 (per coin_for_coin.move special case).
+		return c.createCoinForCoin(ctx, cormID, params)
 	default:
 		return c.createContractStub(cormID, params)
 	}
 }
 
-// createCoinForItem creates a CoinForItem<CORM_COIN> contract on-chain.
-// The corm locks CORM as escrow, wanting items deposited by the player.
-func (c *Client) createCoinForItem(ctx context.Context, cormID string, params ContractParams) (string, error) {
-	// Build the CORM_COIN type tag for the generic <C> parameter
-	cormCoinTypeTag := sui.TypeTag{
+// --- Shared PTB helpers ---
+
+// cormCoinTypeTag returns the TypeTag for the CORM_COIN generic parameter.
+func (c *Client) cormCoinTypeTag() sui.TypeTag {
+	return sui.TypeTag{
 		Struct: &sui.StructTag{
 			Address:    sui.MustAddressFromHex(c.cormStatePkg.String()),
 			Module:     "corm_coin",
@@ -71,85 +75,114 @@ func (c *Client) createCoinForItem(ctx context.Context, cormID string, params Co
 			TypeParams: []sui.TypeTag{},
 		},
 	}
+}
 
-	destSSU, err := sui.ObjectIdFromHex(params.DestinationSSUID)
+// characterArg resolves the brain's Character as a shared object PTB argument.
+// Character objects in Eve Frontier are shared objects (required because
+// fill() lets a filler reference the poster's Character in a separate tx).
+func (c *Client) characterArg(ctx context.Context, ptb *suiptb.ProgrammableTransactionBuilder, mutable bool) (suiptb.Argument, error) {
+	charData, err := c.getSharedObjectRef(ctx, c.cormCharacterID)
 	if err != nil {
-		return "", fmt.Errorf("invalid destination SSU: %w", err)
+		return suiptb.Argument{}, fmt.Errorf("get Character ref: %w", err)
 	}
+	return ptb.MustObj(suiptb.ObjectArg{
+		SharedObject: charData.SharedObjectArg(mutable),
+	}), nil
+}
 
-	// Resolve the brain's Character object
-	charRef, err := c.getOwnedObjectRef(ctx, c.cormCharacterID)
-	if err != nil {
-		return "", fmt.Errorf("get Character ref: %w", err)
-	}
-
-	// Build PTB
-	ptb := suiptb.NewTransactionDataTransactionBuilder()
-
-	// Split escrow CORM from gas coin (the brain's CORM holdings)
-	// First, find a CORM coin owned by the signer
-	cormCoinRef, err := c.findOwnedCoin(ctx, c.CORMCoinType(), params.CORMEscrowAmount)
-	if err != nil {
-		return "", fmt.Errorf("find CORM coin for escrow: %w", err)
-	}
-
-	coinArg := ptb.MustObj(suiptb.ObjectArg{ImmOrOwnedObject: cormCoinRef})
-	escrowAmountArg := ptb.MustPure(params.CORMEscrowAmount)
-	splitResult := ptb.Command(suiptb.Command{
-		SplitCoins: &suiptb.ProgrammableSplitCoins{
-			Coin:    coinArg,
-			Amounts: []suiptb.Argument{escrowAmountArg},
-		},
-	})
-
-	// character (immutable ref)
-	charArg := ptb.MustObj(suiptb.ObjectArg{ImmOrOwnedObject: charRef})
-
-	// Build allowed_characters vector
-	allowedChars := []sui.ObjectId{}
-	if params.PlayerCharacterID != "" {
-		pCharID, err := sui.ObjectIdFromHex(params.PlayerCharacterID)
-		if err == nil {
-			allowedChars = append(allowedChars, *pCharID)
-		}
-	}
-
-	// Arguments for coin_for_item::create<CORM_COIN>
-	wantedTypeArg := ptb.MustPure(params.WantedTypeID)
-	wantedQtyArg := ptb.MustPure(params.WantedQuantity)
-	destSSUArg := ptb.MustPure(destSSU)
-	allowPartialArg := ptb.MustPure(params.AllowPartial)
-	useOwnerInvArg := ptb.MustPure(false) // deposit to poster's player inventory
-	deadlineArg := ptb.MustPure(uint64(params.DeadlineMs))
-	allowedCharsArg := ptb.MustPure(allowedChars)
-	allowedTribesArg := ptb.MustPure([]uint32{}) // no tribe restriction
-
-	// Clock (shared, immutable)
-	clockArg := ptb.MustObj(suiptb.ObjectArg{
+// clockArg returns the SUI Clock as an immutable shared object PTB argument.
+func clockArg(ptb *suiptb.ProgrammableTransactionBuilder) suiptb.Argument {
+	return ptb.MustObj(suiptb.ObjectArg{
 		SharedObject: &suiptb.SharedObjectArg{
 			Id:                   SuiClockObjectID,
 			InitialSharedVersion: sui.SequenceNumber(1),
 			Mutable:              false,
 		},
 	})
+}
+
+// splitCORMCoin finds a CORM coin and splits the requested amount in the PTB.
+// Returns the split-off coin argument.
+func (c *Client) splitCORMCoin(ctx context.Context, ptb *suiptb.ProgrammableTransactionBuilder, amount uint64) (suiptb.Argument, error) {
+	cormCoinRef, err := c.findOwnedCoin(ctx, c.CORMCoinType(), amount)
+	if err != nil {
+		return suiptb.Argument{}, fmt.Errorf("find CORM coin for escrow: %w", err)
+	}
+	coinArg := ptb.MustObj(suiptb.ObjectArg{ImmOrOwnedObject: cormCoinRef})
+	amountArg := ptb.MustPure(amount)
+	return ptb.Command(suiptb.Command{
+		SplitCoins: &suiptb.ProgrammableSplitCoins{
+			Coin:    coinArg,
+			Amounts: []suiptb.Argument{amountArg},
+		},
+	}), nil
+}
+
+// allowedCharsArg builds the allowed_characters vector<ID> PTB argument.
+func allowedCharsArg(ptb *suiptb.ProgrammableTransactionBuilder, playerCharacterID string) suiptb.Argument {
+	allowedChars := []sui.ObjectId{}
+	if playerCharacterID != "" {
+		pCharID, err := sui.ObjectIdFromHex(playerCharacterID)
+		if err == nil {
+			allowedChars = append(allowedChars, *pCharID)
+		}
+	}
+	return ptb.MustPure(allowedChars)
+}
+
+// extractCreatedContract finds a contract object ID from transaction ObjectChanges.
+func extractCreatedContract(resp *suiclient.SuiTransactionBlockResponse, typeSubstring string) string {
+	for _, change := range resp.ObjectChanges {
+		if change.Data.Created != nil {
+			if containsStr(string(change.Data.Created.ObjectType), typeSubstring) {
+				return change.Data.Created.ObjectId.String()
+			}
+		}
+	}
+	return ""
+}
+
+// --- CoinForItem ---
+
+// createCoinForItem creates a CoinForItem<CORM_COIN> contract on-chain.
+// The corm locks CORM as escrow, wanting items deposited by the player.
+func (c *Client) createCoinForItem(ctx context.Context, cormID string, params ContractParams) (string, error) {
+	destSSU, err := sui.ObjectIdFromHex(params.DestinationSSUID)
+	if err != nil {
+		return "", fmt.Errorf("invalid destination SSU: %w", err)
+	}
+
+	ptb := suiptb.NewTransactionDataTransactionBuilder()
+
+	// Character (shared, immutable borrow)
+	charArg, err := c.characterArg(ctx, ptb, false)
+	if err != nil {
+		return "", err
+	}
+
+	// Split escrow CORM
+	escrowArg, err := c.splitCORMCoin(ctx, ptb, params.CORMEscrowAmount)
+	if err != nil {
+		return "", err
+	}
 
 	ptb.ProgrammableMoveCall(
 		c.trustlessContractsPkg,
 		"coin_for_item",
 		"create",
-		[]sui.TypeTag{cormCoinTypeTag},
+		[]sui.TypeTag{c.cormCoinTypeTag()},
 		[]suiptb.Argument{
 			charArg,
-			splitResult, // escrow_coin (the split-off Coin<CORM_COIN>)
-			wantedTypeArg,
-			wantedQtyArg,
-			destSSUArg,
-			allowPartialArg,
-			useOwnerInvArg,
-			deadlineArg,
-			allowedCharsArg,
-			allowedTribesArg,
-			clockArg,
+			escrowArg,
+			ptb.MustPure(params.WantedTypeID),
+			ptb.MustPure(params.WantedQuantity),
+			ptb.MustPure(destSSU),
+			ptb.MustPure(params.AllowPartial),
+			ptb.MustPure(false), // use_owner_inventory
+			ptb.MustPure(uint64(params.DeadlineMs)),
+			allowedCharsArg(ptb, params.PlayerCharacterID),
+			ptb.MustPure([]uint32{}), // allowed_tribes
+			clockArg(ptb),
 		},
 	)
 
@@ -158,17 +191,7 @@ func (c *Client) createCoinForItem(ctx context.Context, cormID string, params Co
 		return "", fmt.Errorf("execute coin_for_item::create: %w", err)
 	}
 
-	// Extract contract object ID from ObjectChanges
-	contractID := ""
-	for _, change := range resp.ObjectChanges {
-		if change.Data.Created != nil {
-			if containsStr(string(change.Data.Created.ObjectType), "coin_for_item::CoinForItemContract") {
-				contractID = change.Data.Created.ObjectId.String()
-				break
-			}
-		}
-	}
-
+	contractID := extractCreatedContract(resp, "coin_for_item::CoinForItemContract")
 	if contractID == "" {
 		return "", fmt.Errorf("contract object not found in transaction effects")
 	}
@@ -177,6 +200,368 @@ func (c *Client) createCoinForItem(ctx context.Context, cormID string, params Co
 		contractID, params.CORMEscrowAmount, params.WantedTypeID, params.WantedQuantity, params.PlayerAddress))
 	return contractID, nil
 }
+
+// --- CoinForCoin ---
+
+// createCoinForCoin creates a CoinForCoin<CORM_COIN, CORM_COIN> contract.
+// When CORMWantedAmount == 0 this becomes a free giveaway (corm_giveaway).
+func (c *Client) createCoinForCoin(ctx context.Context, cormID string, params ContractParams) (string, error) {
+	ptb := suiptb.NewTransactionDataTransactionBuilder()
+
+	// Character (shared, immutable borrow)
+	charArg, err := c.characterArg(ctx, ptb, false)
+	if err != nil {
+		return "", err
+	}
+
+	// Split escrow CORM
+	escrowArg, err := c.splitCORMCoin(ctx, ptb, params.CORMEscrowAmount)
+	if err != nil {
+		return "", err
+	}
+
+	// coin_for_coin::create<CE, CF> — both are CORM_COIN for corm giveaways
+	cormTag := c.cormCoinTypeTag()
+	ptb.ProgrammableMoveCall(
+		c.trustlessContractsPkg,
+		"coin_for_coin",
+		"create",
+		[]sui.TypeTag{cormTag, cormTag},
+		[]suiptb.Argument{
+			charArg,
+			escrowArg,
+			ptb.MustPure(params.CORMWantedAmount), // 0 for giveaway
+			ptb.MustPure(params.AllowPartial),
+			ptb.MustPure(uint64(params.DeadlineMs)),
+			allowedCharsArg(ptb, params.PlayerCharacterID),
+			ptb.MustPure([]uint32{}), // allowed_tribes
+			clockArg(ptb),
+		},
+	)
+
+	resp, err := c.signAndExecute(ctx, ptb)
+	if err != nil {
+		return "", fmt.Errorf("execute coin_for_coin::create: %w", err)
+	}
+
+	contractID := extractCreatedContract(resp, "coin_for_coin::CoinForCoinContract")
+	if contractID == "" {
+		return "", fmt.Errorf("contract object not found in transaction effects")
+	}
+
+	logType := "CoinForCoin"
+	if params.CORMWantedAmount == 0 {
+		logType = "CORMGiveaway"
+	}
+	slog.Info(fmt.Sprintf("chain: Create%s %s escrow=%d wanted=%d player=%s",
+		logType, contractID, params.CORMEscrowAmount, params.CORMWantedAmount, params.PlayerAddress))
+	return contractID, nil
+}
+
+// --- ItemForCoin ---
+
+// createItemForCoin creates an ItemForCoin<CORM_COIN> contract on-chain.
+// The corm offers items from its SSU inventory, wanting CORM in return.
+// PTB sequence: borrow_owner_cap → withdraw_by_owner → return_owner_cap → create.
+func (c *Client) createItemForCoin(ctx context.Context, cormID string, params ContractParams) (string, error) {
+	sourceSSU, err := sui.ObjectIdFromHex(params.SourceSSUID)
+	if err != nil {
+		return "", fmt.Errorf("invalid source SSU: %w", err)
+	}
+
+	// Discover the OwnerCap<StorageUnit> held by the brain's Character for this SSU.
+	ownerCapRef, err := c.findOwnerCapForSSU(ctx, sourceSSU)
+	if err != nil {
+		return "", fmt.Errorf("find OwnerCap for SSU %s: %w", params.SourceSSUID, err)
+	}
+
+	// Resolve shared objects
+	charData, err := c.getSharedObjectRef(ctx, c.cormCharacterID)
+	if err != nil {
+		return "", fmt.Errorf("get Character ref: %w", err)
+	}
+	ssuData, err := c.getSharedObjectRef(ctx, sourceSSU)
+	if err != nil {
+		return "", fmt.Errorf("get SSU ref: %w", err)
+	}
+
+	ptb := suiptb.NewTransactionDataTransactionBuilder()
+
+	// Character (shared, mutable — borrow_owner_cap takes &mut Character)
+	charMutArg := ptb.MustObj(suiptb.ObjectArg{SharedObject: charData.SharedObjectArg(true)})
+
+	// SSU (shared, mutable — create takes &mut StorageUnit)
+	ssuArg := ptb.MustObj(suiptb.ObjectArg{SharedObject: ssuData.SharedObjectArg(true)})
+
+	// Step 1: character::borrow_owner_cap<StorageUnit>(character, receiving_ticket)
+	// The OwnerCap was transferred to the Character — use Receiving input.
+	ownerCapReceivingArg := ptb.MustObj(suiptb.ObjectArg{Receiving: ownerCapRef})
+
+	storageUnitTypeTag := c.storageUnitTypeTag()
+	borrowResult := ptb.Command(suiptb.Command{
+		MoveCall: &suiptb.ProgrammableMoveCall{
+			Package:       c.worldPkg,
+			Module:        "character",
+			Function:      "borrow_owner_cap",
+			TypeArguments: []sui.TypeTag{storageUnitTypeTag},
+			Arguments:     []suiptb.Argument{charMutArg, ownerCapReceivingArg},
+		},
+	})
+	// borrowResult returns (OwnerCap<StorageUnit>, Receipt) — access via NestedResult
+	borrowCmdIdx := *borrowResult.Result
+	ownerCapArg := suiptb.Argument{NestedResult: &suiptb.NestedResult{Cmd: borrowCmdIdx, Result: 0}}
+	receiptArg := suiptb.Argument{NestedResult: &suiptb.NestedResult{Cmd: borrowCmdIdx, Result: 1}}
+
+	// Step 2: storage_unit::withdraw_by_owner(ssu, character, owner_cap, type_id, quantity)
+	// Character here is &Character (immutable borrow) — but we already have it as mutable
+	// from step 1 and SUI allows &mut to degrade to & within the same PTB.
+	withdrawResult := ptb.Command(suiptb.Command{
+		MoveCall: &suiptb.ProgrammableMoveCall{
+			Package:       c.worldPkg,
+			Module:        "storage_unit",
+			Function:      "withdraw_by_owner",
+			TypeArguments: []sui.TypeTag{},
+			Arguments: []suiptb.Argument{
+				ssuArg,
+				charMutArg,
+				ownerCapArg,
+				ptb.MustPure(params.OfferedTypeID),
+				ptb.MustPure(params.OfferedQuantity),
+			},
+		},
+	})
+	itemArg := withdrawResult // Result is inventory::Item
+
+	// Step 3: character::return_owner_cap(character, owner_cap, receipt)
+	ptb.Command(suiptb.Command{
+		MoveCall: &suiptb.ProgrammableMoveCall{
+			Package:       c.worldPkg,
+			Module:        "character",
+			Function:      "return_owner_cap",
+			TypeArguments: []sui.TypeTag{storageUnitTypeTag},
+			Arguments:     []suiptb.Argument{charMutArg, ownerCapArg, receiptArg},
+		},
+	})
+
+	// Step 4: item_for_coin::create<CORM_COIN>(character, source_ssu, item, ...)
+	ptb.ProgrammableMoveCall(
+		c.trustlessContractsPkg,
+		"item_for_coin",
+		"create",
+		[]sui.TypeTag{c.cormCoinTypeTag()},
+		[]suiptb.Argument{
+			charMutArg, // &Character (immutable borrow, degraded from &mut)
+			ssuArg,
+			itemArg,
+			ptb.MustPure(params.CORMWantedAmount),
+			ptb.MustPure(params.AllowPartial),
+			ptb.MustPure(uint64(params.DeadlineMs)),
+			allowedCharsArg(ptb, params.PlayerCharacterID),
+			ptb.MustPure([]uint32{}), // allowed_tribes
+			clockArg(ptb),
+		},
+	)
+
+	resp, err := c.signAndExecute(ctx, ptb)
+	if err != nil {
+		return "", fmt.Errorf("execute item_for_coin::create: %w", err)
+	}
+
+	contractID := extractCreatedContract(resp, "item_for_coin::ItemForCoinContract")
+	if contractID == "" {
+		return "", fmt.Errorf("contract object not found in transaction effects")
+	}
+
+	slog.Info(fmt.Sprintf("chain: CreateItemForCoin %s offered_type=%d offered_qty=%d wanted_corm=%d player=%s",
+		contractID, params.OfferedTypeID, params.OfferedQuantity, params.CORMWantedAmount, params.PlayerAddress))
+	return contractID, nil
+}
+
+// --- ItemForItem ---
+
+// createItemForItem creates an ItemForItem contract on-chain.
+// The corm offers items from its SSU, wanting different items deposited at a destination SSU.
+// PTB sequence: borrow_owner_cap → withdraw_by_owner → return_owner_cap → create.
+func (c *Client) createItemForItem(ctx context.Context, cormID string, params ContractParams) (string, error) {
+	sourceSSU, err := sui.ObjectIdFromHex(params.SourceSSUID)
+	if err != nil {
+		return "", fmt.Errorf("invalid source SSU: %w", err)
+	}
+	destSSU, err := sui.ObjectIdFromHex(params.DestinationSSUID)
+	if err != nil {
+		return "", fmt.Errorf("invalid destination SSU: %w", err)
+	}
+
+	// Discover OwnerCap
+	ownerCapRef, err := c.findOwnerCapForSSU(ctx, sourceSSU)
+	if err != nil {
+		return "", fmt.Errorf("find OwnerCap for SSU %s: %w", params.SourceSSUID, err)
+	}
+
+	// Resolve shared objects
+	charData, err := c.getSharedObjectRef(ctx, c.cormCharacterID)
+	if err != nil {
+		return "", fmt.Errorf("get Character ref: %w", err)
+	}
+	ssuData, err := c.getSharedObjectRef(ctx, sourceSSU)
+	if err != nil {
+		return "", fmt.Errorf("get SSU ref: %w", err)
+	}
+
+	ptb := suiptb.NewTransactionDataTransactionBuilder()
+
+	charMutArg := ptb.MustObj(suiptb.ObjectArg{SharedObject: charData.SharedObjectArg(true)})
+	ssuArg := ptb.MustObj(suiptb.ObjectArg{SharedObject: ssuData.SharedObjectArg(true)})
+
+	// Step 1: borrow_owner_cap
+	ownerCapReceivingArg := ptb.MustObj(suiptb.ObjectArg{Receiving: ownerCapRef})
+	storageUnitTypeTag := c.storageUnitTypeTag()
+	borrowResult := ptb.Command(suiptb.Command{
+		MoveCall: &suiptb.ProgrammableMoveCall{
+			Package:       c.worldPkg,
+			Module:        "character",
+			Function:      "borrow_owner_cap",
+			TypeArguments: []sui.TypeTag{storageUnitTypeTag},
+			Arguments:     []suiptb.Argument{charMutArg, ownerCapReceivingArg},
+		},
+	})
+	borrowCmdIdx := *borrowResult.Result
+	ownerCapArg := suiptb.Argument{NestedResult: &suiptb.NestedResult{Cmd: borrowCmdIdx, Result: 0}}
+	receiptArg := suiptb.Argument{NestedResult: &suiptb.NestedResult{Cmd: borrowCmdIdx, Result: 1}}
+
+	// Step 2: withdraw_by_owner
+	withdrawResult := ptb.Command(suiptb.Command{
+		MoveCall: &suiptb.ProgrammableMoveCall{
+			Package:       c.worldPkg,
+			Module:        "storage_unit",
+			Function:      "withdraw_by_owner",
+			TypeArguments: []sui.TypeTag{},
+			Arguments: []suiptb.Argument{
+				ssuArg,
+				charMutArg,
+				ownerCapArg,
+				ptb.MustPure(params.OfferedTypeID),
+				ptb.MustPure(params.OfferedQuantity),
+			},
+		},
+	})
+	itemArg := withdrawResult
+
+	// Step 3: return_owner_cap
+	ptb.Command(suiptb.Command{
+		MoveCall: &suiptb.ProgrammableMoveCall{
+			Package:       c.worldPkg,
+			Module:        "character",
+			Function:      "return_owner_cap",
+			TypeArguments: []sui.TypeTag{storageUnitTypeTag},
+			Arguments:     []suiptb.Argument{charMutArg, ownerCapArg, receiptArg},
+		},
+	})
+
+	// Step 4: item_for_item::create(character, source_ssu, item, ...)
+	ptb.ProgrammableMoveCall(
+		c.trustlessContractsPkg,
+		"item_for_item",
+		"create",
+		[]sui.TypeTag{},
+		[]suiptb.Argument{
+			charMutArg,
+			ssuArg,
+			itemArg,
+			ptb.MustPure(params.WantedTypeID),
+			ptb.MustPure(params.WantedQuantity),
+			ptb.MustPure(destSSU),
+			ptb.MustPure(params.AllowPartial),
+			ptb.MustPure(false), // use_owner_inventory
+			ptb.MustPure(uint64(params.DeadlineMs)),
+			allowedCharsArg(ptb, params.PlayerCharacterID),
+			ptb.MustPure([]uint32{}), // allowed_tribes
+			clockArg(ptb),
+		},
+	)
+
+	resp, err := c.signAndExecute(ctx, ptb)
+	if err != nil {
+		return "", fmt.Errorf("execute item_for_item::create: %w", err)
+	}
+
+	contractID := extractCreatedContract(resp, "item_for_item::ItemForItemContract")
+	if contractID == "" {
+		return "", fmt.Errorf("contract object not found in transaction effects")
+	}
+
+	slog.Info(fmt.Sprintf("chain: CreateItemForItem %s offered_type=%d offered_qty=%d wanted_type=%d wanted_qty=%d player=%s",
+		contractID, params.OfferedTypeID, params.OfferedQuantity, params.WantedTypeID, params.WantedQuantity, params.PlayerAddress))
+	return contractID, nil
+}
+
+// --- OwnerCap Discovery ---
+
+// findOwnerCapForSSU queries objects received by the brain's Character to find
+// an OwnerCap<StorageUnit> associated with the given SSU. Returns the ObjectRef
+// for use as a Receiving input in PTB.
+func (c *Client) findOwnerCapForSSU(ctx context.Context, ssuID *sui.ObjectId) (*sui.ObjectRef, error) {
+	ownerCapType := fmt.Sprintf("%s::access::OwnerCap<%s::storage_unit::StorageUnit>", c.worldPkg.String(), c.worldPkg.String())
+	ownerCapStructTag := &sui.StructTag{
+		Address: sui.MustAddressFromHex(c.worldPkg.String()),
+		Module:  "access",
+		Name:    "OwnerCap",
+		TypeParams: []sui.TypeTag{{
+			Struct: &sui.StructTag{
+				Address: sui.MustAddressFromHex(c.worldPkg.String()),
+				Module:  "storage_unit",
+				Name:    "StorageUnit",
+			},
+		}},
+	}
+
+	// Query objects owned by (transferred to) the Character object.
+	// In SUI, objects transferred to another object are queryable via
+	// GetOwnedObjects with the receiving object's ID as the owner address.
+	charAddr := sui.MustAddressFromHex(c.cormCharacterID.String())
+	resp, err := c.rpc.GetOwnedObjects(ctx, &suiclient.GetOwnedObjectsRequest{
+		Address: charAddr,
+		Query: &suiclient.SuiObjectResponseQuery{
+			Filter: &suiclient.SuiObjectDataFilter{
+				StructType: ownerCapStructTag,
+			},
+			Options: &suiclient.SuiObjectDataOptions{
+				ShowContent: true,
+			},
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("query OwnerCaps: %w", err)
+	}
+
+	// Find the OwnerCap whose associated SSU matches.
+	// The OwnerCap's `id` field in content may not directly reference the SSU,
+	// but in Eve Frontier the OwnerCap is transferred to the Character when
+	// the Character becomes the SSU owner. For now, return the first match;
+	// multi-SSU support can filter by SSU ID from content fields.
+	_ = ownerCapType // for error messages
+	for _, obj := range resp.Data {
+		if obj.Data == nil {
+			continue
+		}
+		return obj.Data.Ref(), nil
+	}
+
+	return nil, fmt.Errorf("no OwnerCap<StorageUnit> found for Character %s", c.cormCharacterID)
+}
+
+// storageUnitTypeTag returns the TypeTag for world::storage_unit::StorageUnit.
+func (c *Client) storageUnitTypeTag() sui.TypeTag {
+	return sui.TypeTag{
+		Struct: &sui.StructTag{
+			Address: sui.MustAddressFromHex(c.worldPkg.String()),
+			Module:  "storage_unit",
+			Name:    "StorageUnit",
+		},
+	}
+}
+
+// --- Coin Lookup ---
 
 // findOwnedCoin finds a Coin of the given type owned by the signer with
 // at least `minBalance` value. Returns the ObjectRef for use in PTB.
@@ -198,15 +583,6 @@ func (c *Client) findOwnedCoin(ctx context.Context, coinType string, minBalance 
 	}
 
 	return nil, fmt.Errorf("no %s coin with balance >= %d", coinType, minBalance)
-}
-
-// getOwnedObjectRef fetches an owned object's ref by ID.
-func (c *Client) getOwnedObjectRef(ctx context.Context, objID *sui.ObjectId) (*sui.ObjectRef, error) {
-	data, err := c.getSharedObjectRef(ctx, objID)
-	if err != nil {
-		return nil, err
-	}
-	return data.Ref(), nil
 }
 
 // createContractStub logs and returns a placeholder contract ID.

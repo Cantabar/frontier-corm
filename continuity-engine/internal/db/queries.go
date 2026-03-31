@@ -25,10 +25,12 @@ func (d *DB) ResolveSessionCorm(ctx context.Context, environment, sessionID stri
 	return cormID, err
 }
 
-// LinkSessionCorm associates a session with a corm.
+// LinkSessionCorm associates a session with a corm. If the session is
+// already linked to a different corm, the link is updated. This is
+// necessary for corm mismatch corrections to persist.
 func (d *DB) LinkSessionCorm(ctx context.Context, environment, sessionID, cormID string) error {
 	_, err := d.Pool.Exec(ctx,
-		"INSERT INTO corm_sessions (environment, session_id, corm_id) VALUES ($1, $2, $3) ON CONFLICT (environment, session_id) DO NOTHING",
+		"INSERT INTO corm_sessions (environment, session_id, corm_id) VALUES ($1, $2, $3) ON CONFLICT (environment, session_id) DO UPDATE SET corm_id = $3",
 		environment, sessionID, cormID,
 	)
 	return err

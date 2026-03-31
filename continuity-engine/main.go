@@ -56,6 +56,7 @@ func main() {
 			PackageID:                   env.CormStatePackageID,
 			TrustlessContractsPackageID: env.TrustlessContractsPackageID,
 			CormAuthPackageID:           env.CormAuthPackageID,
+			WorldPackageID:              env.WorldPackageID,
 			CormConfigObjectID:          env.CormConfigObjectID,
 			CoinAuthorityObjectID:       env.CoinAuthorityObjectID,
 			CormCharacterID:             env.CormCharacterID,

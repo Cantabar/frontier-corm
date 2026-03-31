@@ -172,6 +172,16 @@ func attemptContractFill(ctx context.Context, h *Handler, environment, cormID st
 			} else {
 				snapshot.CormCORMBalance = minted
 				slog.Info(fmt.Sprintf("phase2: minted %d bootstrap CORM for corm %s", minted, cormID))
+
+				// Verify the minted coin is visible to the RPC before proceeding.
+				// A load-balanced RPC may return stale data immediately after mint.
+				verifiedBalance, _ := h.chainClient.GetCORMBalance(ctx, chainStateID)
+				if verifiedBalance == 0 {
+					slog.Info(fmt.Sprintf("phase2: minted CORM not yet visible for %s, deferring contract creation", cormID))
+					ClearContractCooldown(cormID)
+					sendEmptyStateFeedback(ctx, h, cormID, evt.SessionID, traits, snapshot)
+					return
+				}
 			}
 		} else if snapshot.CormCORMBalance == 0 {
 			slog.Warn(fmt.Sprintf("phase2: cannot bootstrap CORM for corm %s (no on-chain state ID)", cormID))

@@ -22,9 +22,10 @@ type ClientConfig struct {
 
 	TrustlessContractsPackageID string
 	CormAuthPackageID           string
+	WorldPackageID              string // Eve Frontier world contracts (character, storage_unit, inventory)
 	CormConfigObjectID          string // shared CormConfig
 	CoinAuthorityObjectID       string // shared CoinAuthority
-	CormCharacterID             string // brain's on-chain Character
+	CormCharacterID             string // brain's on-chain Character (shared object)
 }
 
 // Client wraps SUI RPC access for reading and writing on-chain state.
@@ -37,6 +38,7 @@ type Client struct {
 	cormStatePkg           *sui.PackageId
 	trustlessContractsPkg  *sui.PackageId
 	cormAuthPkg            *sui.PackageId
+	worldPkg               *sui.PackageId
 
 	// Shared object IDs (parsed at init)
 	cormConfigObjID        *sui.ObjectId
@@ -54,6 +56,7 @@ func NewClient(cfg ClientConfig, privateKey string) *Client {
 	c.cormStatePkg = mustParseObjectIdOrNil(cfg.PackageID)
 	c.trustlessContractsPkg = mustParseObjectIdOrNil(cfg.TrustlessContractsPackageID)
 	c.cormAuthPkg = mustParseObjectIdOrNil(cfg.CormAuthPackageID)
+	c.worldPkg = mustParseObjectIdOrNil(cfg.WorldPackageID)
 
 	// Parse shared object IDs
 	c.cormConfigObjID = mustParseObjectIdOrNil(cfg.CormConfigObjectID)
@@ -95,6 +98,13 @@ func (c *Client) HasSigner() bool {
 // will always fail, so callers should skip generation entirely.
 func (c *Client) CanCreateContracts() bool {
 	return c.signer != nil && c.trustlessContractsPkg != nil && c.cormStatePkg != nil && c.cormCharacterID != nil
+}
+
+// CanCreateItemContracts returns true if the client can create item-based
+// contracts (item_for_coin, item_for_item) which additionally require the
+// world package and corm_auth package for SSU withdrawal via OwnerCap.
+func (c *Client) CanCreateItemContracts() bool {
+	return c.CanCreateContracts() && c.worldPkg != nil && c.cormAuthPkg != nil
 }
 
 // CanUpdateCormState returns true if the client has the config needed to
