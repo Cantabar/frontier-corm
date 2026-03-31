@@ -128,15 +128,6 @@ export function getContractContext(contractId: string) {
   return get<ArchivedEvent>(`/events/contract-context/${contractId}`);
 }
 
-// ---- Assembly Metadata ----
-
-export function getAssemblyMetadata(assemblyIds: string[]) {
-  if (assemblyIds.length === 0) return Promise.resolve({ metadata: [] as { assembly_id: string; name: string; description: string; owner: string }[] });
-  return get<{ metadata: { assembly_id: string; name: string; description: string; owner: string }[] }>(
-    `/metadata${qs({ assemblyIds: assemblyIds.join(",") })}`,
-  );
-}
-
 // ---- Event Metadata ----
 
 export function getEventTypes() {

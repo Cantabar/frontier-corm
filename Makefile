@@ -83,7 +83,6 @@ deploy-infra: ## Deploy CDK stack for ENV (infra only)
 	$(eval CORM_STATE_PKG := $(shell grep '^VITE_CORM_STATE_PACKAGE_ID=' .env.$(ENV) 2>/dev/null | cut -d= -f2))
 	$(eval TRIBE_PKG := $(shell grep '^PACKAGE_TRIBE=' .env.$(ENV) 2>/dev/null | cut -d= -f2))
 	$(eval TC_PKG := $(shell grep '^PACKAGE_TRUSTLESS_CONTRACTS=' .env.$(ENV) 2>/dev/null | cut -d= -f2))
-	$(eval AM_PKG := $(shell grep '^PACKAGE_ASSEMBLY_METADATA=' .env.$(ENV) 2>/dev/null | cut -d= -f2))
 	$(eval CA_PKG := $(shell grep '^PACKAGE_CORM_AUTH=' .env.$(ENV) 2>/dev/null | cut -d= -f2))
 	$(eval CORM_CFG_OBJ := $(shell grep '^CORM_CONFIG_OBJECT_ID=' .env.$(ENV) 2>/dev/null | cut -d= -f2))
 	$(eval COIN_AUTH_OBJ := $(shell grep '^COIN_AUTHORITY_OBJECT_ID=' .env.$(ENV) 2>/dev/null | cut -d= -f2))
@@ -93,7 +92,6 @@ deploy-infra: ## Deploy CDK stack for ENV (infra only)
 		-c cormStatePackageId=$(CORM_STATE_PKG) \
 		-c tribePackageId=$(TRIBE_PKG) \
 		-c trustlessContractsPackageId=$(TC_PKG) \
-		-c assemblyMetadataPackageId=$(AM_PKG) \
 		-c cormAuthPackageId=$(CA_PKG) \
 		-c cormConfigObjectId=$(CORM_CFG_OBJ) \
 		-c coinAuthorityObjectId=$(COIN_AUTH_OBJ) \

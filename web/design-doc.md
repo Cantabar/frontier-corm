@@ -113,11 +113,9 @@ All via Vite environment variables (`VITE_*`), resolved in `src/config.ts`:
 - `VITE_CORM_STATE_PACKAGE_ID` — corm_state package ID (published-at address for function calls)
 - `VITE_CORM_STATE_ORIGINAL_ID` — corm_state original package ID (for event queries and type references; defaults to PACKAGE_ID if unset)
 - `VITE_WITNESSED_CONTRACTS_PACKAGE_ID` — witnessed contracts (build_request) package ID
-- `VITE_ASSEMBLY_METADATA_PACKAGE_ID` — assembly_metadata package ID
-- `VITE_WORLD_PACKAGE_ID` — Eve Frontier world package ID
+- `VITE_WORLD_PACKAGE_ID`
 - `VITE_TRIBE_REGISTRY_ID` — TribeRegistry shared object ID
-- `VITE_METADATA_REGISTRY_ID` — MetadataRegistry shared object ID (assembly_metadata)
-- `VITE_ENERGY_CONFIG_ID` — energy config shared object ID
+- `VITE_ENERGY_CONFIG_ID`
 - `VITE_CORM_COIN_TYPE` — CORM coin type string (primary coin for contracts; derived from the **original** `corm_state` package address as `<ORIGINAL_ID>::corm_coin::CORM_COIN` — stable across upgrades)
 - `VITE_COIN_TYPE` — fallback coin type for escrow/treasury when CORM is not configured (default: `0x2::sui::SUI`)
 - `VITE_INDEXER_URL` — indexer API base URL (default: `/api/v1`)
@@ -173,7 +171,7 @@ Per-environment defaults are defined in `config.ts` and overridden by explicit `
 - Event Explorer with type/tribe/character filtering, pagination, and "World" module category for structure lifecycle events. Clicking an event row expands an inline drawer directly below it showing on-chain proof details (tx digest, event sequence, checkpoint, timestamp, verification note, raw event data) with a module-colored left accent and slide-down animation.
 - Descriptive event display names: `StatusChangedEvent` renders as "Structure Anchored", "Structure Unanchored", etc. based on the event's `action` field, via centralized `eventDisplayName()` formatter
 - Structure browser with aggregated SSU inventory
-- Assembly metadata: user-defined structure names via on-chain MetadataRegistry, inline edit UI, indexer-backed batch reads
+- Assembly metadata: user-defined structure names via world-contract-native metadata on each assembly object, inline edit UI, direct Sui object reads (no indexer dependency)
 - Structure rows use a two-zone flex layout: left-aligned info tags (type, status, energy) with fixed min-widths for vertical alignment, and right-aligned action items (location, extension, online/offline buttons) pushed to the trailing edge. Same pattern applied to NetworkNodeGroup headers.
 - Tribe member list includes a "Structures" column linking to each member's structures page (`/structures/:characterId`) for easy cross-member structure browsing
 - Location badge deep-linking: the "📍 Location" badge on structure rows and network node headers links to `/locations?structure=<id>`, scrolling to and briefly highlighting the matching POD row on the Locations page

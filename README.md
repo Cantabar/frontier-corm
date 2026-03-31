@@ -13,7 +13,7 @@ Browser                         Off-chain                          On-chain (Sui
 │              │          │  ├─ Location API│              │  ├─ tribe            │
 │              │          │  ├─ ZK Proofs   │              │  ├─ trustless_*      │
 │              │──────────│  ├─ Witness Svc │── fulfill ──►│  ├─ witnessed_*      │
-│              │  dapp-kit│  └─ Cleanup     │── expire ──►│  └─ assembly_metadata│
+│              │  dapp-kit│  └─ Cleanup     │── expire ──►│  └─ corm_state       │
 │              │─────────►│                 │              └──────────────────────┘
 └──────┬───────┘          └─────────────────┘
        │ iframe                    ▲ Postgres (pgvector)
@@ -30,7 +30,7 @@ Browser                         Off-chain                          On-chain (Sui
 
 | Directory | Description | Details |
 |-----------|-------------|---------|
-| `contracts/` | Sui Move smart contracts — corm identity, tribes, trustless exchanges, witnessed bounties | [design-doc](contracts/design-doc.md) |
+| `contracts/` | Sui Move smart contracts — corm identity, tribes, trustless exchanges, witnessed bounties (note: `assembly_metadata` is deprecated in favour of world-native metadata) | [design-doc](contracts/design-doc.md) |
 | `continuity-engine/` | Go game server + reasoning engine — three-phase Continuity Engine, deterministic trait evolution, on-chain writes | [design-doc](continuity-engine/design-doc.md) |
 | `indexer/` | TypeScript event archiver + REST API — checkpoint proofs, reputation, shadow locations, ZK proofs | [design-doc](indexer/design-doc.md) |
 | `web/` | React SPA — tribes, contracts, forge planner, locations, Continuity Engine iframe | [design-doc](web/design-doc.md) |
@@ -139,7 +139,7 @@ make test-contracts    # Sui Move contract tests only
 | Service | Framework | Run | Coverage |
 |---------|-----------|-----|----------|
 | `continuity-engine/` | Go `testing` | `make test-go` | Ciphers, puzzle generation, HTTP handlers, contract generation, trait reduction, transitions, trap movement |
-| `contracts/` | Sui Move (`#[test]`) | `make test-contracts` | All 6 packages: corm_auth, corm_state, tribe, trustless_contracts, witnessed_contracts, assembly_metadata |
+|| `contracts/` | Sui Move (`#[test]`) | `make test-contracts` | All 6 packages: corm_auth, corm_state, tribe, trustless_contracts, witnessed_contracts, assembly_metadata (deprecated) |
 | `dev-tools/` | Sui Move (`#[test]`) | `cd dev-tools/transfer_exploit_poc && sui move test` | Transfer exploit PoC security validation |
 
 **Services without tests:** `indexer/`, `web/`, `infra/`, `static-data/`, `training-data/`.

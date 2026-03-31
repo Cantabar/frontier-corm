@@ -203,10 +203,7 @@ export class FrontierCormStack extends cdk.Stack {
       this.node.tryGetContext("tribePackageId") ?? "";
     const trustlessContractsPackageId: string =
       this.node.tryGetContext("trustlessContractsPackageId") ?? "";
-    const assemblyMetadataPackageId: string =
-      this.node.tryGetContext("assemblyMetadataPackageId") ?? "";
-
-    // Additional package/object IDs for the continuity-engine chain client.
+    // Additional package/object IDs
     const cormAuthPackageId: string =
       this.node.tryGetContext("cormAuthPackageId") ?? "";
     const cormConfigObjectId: string =
@@ -382,7 +379,6 @@ export class FrontierCormStack extends cdk.Stack {
         DB_NAME: "frontier_corm",
         PACKAGE_TRIBE: tribePackageId,
         PACKAGE_TRUSTLESS_CONTRACTS: trustlessContractsPackageId,
-        PACKAGE_ASSEMBLY_METADATA: assemblyMetadataPackageId,
         SUI_GRAPHQL_URL: suiGraphqlUrl,
       },
       secrets: {

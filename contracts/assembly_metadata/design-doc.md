@@ -1,8 +1,10 @@
-# Assembly Metadata
+# Assembly Metadata (DEPRECATED)
+
+> **Deprecated:** This package is superseded by the world-contract-native `metadata: Option<Metadata>` field on each assembly object. Structure names are now read directly from the Sui object and updated via `update_metadata_name` in each assembly's world module. The on-chain `MetadataRegistry` remains but is no longer written to or read from.
 
 ## Overview
 
-The assembly_metadata package provides an on-chain registry for user-defined structure metadata (names, descriptions). It allows players to assign human-readable names to their structures (SSU, Gate, Turret, NetworkNode, Assembly) which are displayed in the web UI for easier identification.
+The assembly_metadata package provided an on-chain registry for user-defined structure metadata (names, descriptions). It has been replaced by native metadata on each assembly object in the Eve Frontier world contracts (v0.0.16+).
 
 ## Architecture
 

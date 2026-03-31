@@ -206,33 +206,6 @@ export function createRouter(pool: pg.Pool): Router {
     res.json(hydrateEventData(event));
   });
 
-  // ---- Assembly Metadata ----
-
-  /**
-   * GET /metadata?assemblyIds=id1,id2,...
-   * Returns materialized metadata snapshots for the requested assembly IDs.
-   */
-  router.get("/metadata", async (req: Request, res: Response) => {
-    const raw = req.query.assemblyIds as string | undefined;
-    if (!raw) {
-      res.status(400).json({ error: "assemblyIds query param required" });
-      return;
-    }
-    const ids = raw.split(",").filter(Boolean);
-    if (ids.length === 0) {
-      res.json({ metadata: [] });
-      return;
-    }
-    // Cap to 200 IDs per request
-    const capped = ids.slice(0, 200);
-    const placeholders = capped.map((_, i) => `$${i + 1}`).join(", ");
-    const result = await pool.query(
-      `SELECT assembly_id, name, description, owner FROM metadata_snapshots WHERE assembly_id IN (${placeholders})`,
-      capped,
-    );
-    res.json({ metadata: result.rows });
-  });
-
   // ---- Event Type Metadata ----
 
   /**

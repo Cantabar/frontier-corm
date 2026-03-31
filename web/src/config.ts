@@ -76,7 +76,6 @@ export const config = {
     cormAuth: import.meta.env.VITE_CORM_AUTH_PACKAGE_ID ?? "0x0",
     cormState: import.meta.env.VITE_CORM_STATE_PACKAGE_ID ?? "0x0",
     world: import.meta.env.VITE_WORLD_PACKAGE_ID ?? "0x0",
-    assemblyMetadata: import.meta.env.VITE_ASSEMBLY_METADATA_PACKAGE_ID ?? "0x0",
     witnessedContracts: import.meta.env.VITE_WITNESSED_CONTRACTS_PACKAGE_ID ?? "0x0",
   },
 
@@ -127,6 +126,4 @@ export const config = {
   /** CormConfig shared object ID (created by admin via create_config) */
   cormConfigId: import.meta.env.VITE_CORM_CONFIG_ID ?? "",
 
-  /** MetadataRegistry shared object ID (assembly_metadata package) */
-  metadataRegistryId: import.meta.env.VITE_METADATA_REGISTRY_ID ?? "",
 } as const;

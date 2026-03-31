@@ -29,7 +29,6 @@ import {
   buildCleanupCompletedContract,
   buildCleanupCompletedItemContract,
   buildCleanupMultiInputContract,
-  buildCleanupAssemblyMetadata,
   isItemContract,
 } from "./cleanup-transactions.js";
 import { logger } from "../logger.js";
@@ -153,44 +152,7 @@ export class CleanupWorker {
       enqueued++;
     }
 
-    // ── Metadata cleanup: StatusChangedEvent with action UNANCHORED ──────
-    const unanchoredEvents = await this.pool.query(
-      `SELECT primary_id, event_data, timestamp_ms
-       FROM events
-       WHERE event_name = 'StatusChangedEvent'
-       ORDER BY id ASC`,
-    );
-
-    for (const row of unanchoredEvents.rows as { primary_id: string; event_data: string; timestamp_ms: string }[]) {
-      if (existingIds.has(row.primary_id)) continue;
-      const eventData = typeof row.event_data === "string" ? JSON.parse(row.event_data) : row.event_data;
-      // Only enqueue if action is UNANCHORED
-      const action = eventData.action;
-      const isUnanchored = action === "UNANCHORED" ||
-        (typeof action === "object" && action !== null && "variant" in action && action.variant === "UNANCHORED");
-      if (!isUnanchored) continue;
-
-      // Only enqueue if metadata exists for this assembly
-      const metaCheck = await this.pool.query(
-        `SELECT 1 FROM metadata_snapshots WHERE assembly_id = $1 LIMIT 1`,
-        [row.primary_id],
-      );
-      if (metaCheck.rows.length === 0) continue;
-
-      await insertCleanupJob(
-        this.pool,
-        row.primary_id,
-        "assembly_metadata",
-        "MetadataCleanup",
-        null,
-        null,
-        new Date(Number(row.timestamp_ms)).toISOString(),
-      );
-      existingIds.add(row.primary_id);
-      enqueued++;
-    }
-
-    if (enqueued > 0) {
+    if
       log.info(`Enqueued ${enqueued} new cleanup job(s)`);
     }
   }
@@ -285,9 +247,7 @@ export class CleanupWorker {
     // 2. Build the cleanup transaction
     let tx: Transaction;
 
-    if (job.contract_module === "assembly_metadata") {
-      tx = buildCleanupAssemblyMetadata(this.config, job.contract_id);
-    } else if (job.contract_module === "trustless_contracts" && job.contract_type === "MultiInput") {
+    if (job.contract_module === "trustless_contracts" && job.contract_type === "MultiInput") {
       tx = buildCleanupMultiInputContract(this.config, job.contract_id);
     } else if (isItemContract(job.contract_type)) {
       // Item-bearing trustless contract needs poster + SSU

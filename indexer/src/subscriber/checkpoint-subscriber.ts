@@ -113,23 +113,7 @@ export class CheckpointSubscriber {
       }
     }
 
-    // Assembly Metadata events
-    const assemblyMetadata = this.config.packageIds.assemblyMetadata;
-    if (assemblyMetadata) {
-      for (const name of [
-        "MetadataCreatedEvent", "MetadataUpdatedEvent", "MetadataDeletedEvent",
-      ]) {
-        eventModuleMap[name] = { packageId: assemblyMetadata, module: "assembly_metadata" };
-      }
-    }
-
-    // World status events (for metadata cleanup on unanchor)
-    const worldPkg = this.config.packageIds.world;
-    if (worldPkg) {
-      eventModuleMap["StatusChangedEvent"] = { packageId: worldPkg, module: "status" };
-    }
-
-    for (const [name, { packageId, module }] of Object.entries(eventModuleMap)) {
+    for
       if (packageId) {
         filters.push(`${packageId}::${module}::${name}`);
       }

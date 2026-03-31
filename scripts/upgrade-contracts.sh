@@ -23,7 +23,7 @@ VALID_ENVS=("utopia" "stillness")
 if [ $# -lt 1 ]; then
   echo "Usage: $0 <environment> [package ...]"
   echo "  Environments: ${VALID_ENVS[*]}"
-  echo "  Packages (optional, default=all): tribe corm_auth trustless_contracts witnessed_contracts corm_state assembly_metadata"
+  echo "  Packages (optional, default=all): tribe corm_auth trustless_contracts witnessed_contracts corm_state"
   exit 1
 fi
 
@@ -51,14 +51,13 @@ SUI_RPC="https://fullnode.testnet.sui.io:443"
 # corm_auth has no internal deps; tribe depends only on world.
 # corm_state depends on corm_auth. trustless_contracts and witnessed_contracts
 # depend on corm_auth + world. assembly_metadata depends on corm_auth + world.
-ALL_PACKAGES=("tribe" "corm_auth" "trustless_contracts" "witnessed_contracts" "corm_state" "assembly_metadata")
+ALL_PACKAGES=("tribe" "corm_auth" "trustless_contracts" "witnessed_contracts" "corm_state")
 declare -A ENV_VAR_MAP=(
   [tribe]="PACKAGE_TRIBE"
   [corm_auth]="PACKAGE_CORM_AUTH"
   [trustless_contracts]="PACKAGE_TRUSTLESS_CONTRACTS"
   [witnessed_contracts]="PACKAGE_WITNESSED_CONTRACTS"
   [corm_state]="PACKAGE_CORM_STATE"
-  [assembly_metadata]="PACKAGE_ASSEMBLY_METADATA"
 )
 declare -A VITE_VAR_MAP=(
   [tribe]="VITE_TRIBE_PACKAGE_ID"
@@ -66,7 +65,6 @@ declare -A VITE_VAR_MAP=(
   [trustless_contracts]="VITE_TRUSTLESS_CONTRACTS_PACKAGE_ID"
   [witnessed_contracts]="VITE_WITNESSED_CONTRACTS_PACKAGE_ID"
   [corm_state]="VITE_CORM_STATE_PACKAGE_ID"
-  [assembly_metadata]="VITE_ASSEMBLY_METADATA_PACKAGE_ID"
 )
 # Packages that need VITE_*_ORIGINAL_ID vars (for type references after upgrade).
 # On Sui, struct types (events, objects, coins) are anchored to the original

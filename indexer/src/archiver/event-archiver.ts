@@ -70,7 +70,6 @@ export class EventArchiver {
     };
 
     await insertEvent(this.pool, archived);
-    await this.materializeMetadata(input.eventName, input.eventData);
     this.eventCount++;
 
     if (this.eventCount % 100 === 0) {
@@ -83,41 +82,6 @@ export class EventArchiver {
     return this.eventCount;
   }
 
-  /**
-   * Materialize assembly metadata snapshots from create/update/delete events.
-   * Uses upsert/delete to keep the metadata_snapshots table current.
-   */
-  private async materializeMetadata(
-    eventName: EventTypeName,
-    data: Record<string, unknown>,
-  ): Promise<void> {
-    switch (eventName) {
-      case "MetadataCreatedEvent":
-      case "MetadataUpdatedEvent":
-        await this.pool.query(
-          `INSERT INTO metadata_snapshots (assembly_id, name, description, owner, updated_at)
-           VALUES ($1, $2, $3, $4, NOW())
-           ON CONFLICT (assembly_id) DO UPDATE SET
-             name = EXCLUDED.name,
-             description = EXCLUDED.description,
-             owner = COALESCE(EXCLUDED.owner, metadata_snapshots.owner),
-             updated_at = NOW()`,
-          [
-            String(data.assembly_id ?? ""),
-            String(data.name ?? ""),
-            String(data.description ?? ""),
-            String(data.owner ?? ""),
-          ],
-        );
-        break;
-      case "MetadataDeletedEvent":
-        await this.pool.query(
-          `DELETE FROM metadata_snapshots WHERE assembly_id = $1`,
-          [String(data.assembly_id ?? "")],
-        );
-        break;
-    }
-  }
 }
 
 // ============================================================
@@ -282,24 +246,6 @@ function extractDenormalisedFields(
         primaryId: str(data.contract_id),
         tribeId: "",
         characterId: str(data.poster_id),
-      };
-
-    // -- Assembly Metadata events --
-    case "MetadataCreatedEvent":
-    case "MetadataUpdatedEvent":
-    case "MetadataDeletedEvent":
-      return {
-        primaryId: str(data.assembly_id),
-        tribeId: "",
-        characterId: str(data.owner ?? ""),
-      };
-
-    // -- World status events --
-    case "StatusChangedEvent":
-      return {
-        primaryId: str(data.assembly_id),
-        tribeId: "",
-        characterId: null,
       };
 
     default:

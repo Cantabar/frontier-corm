@@ -1603,11 +1603,10 @@ function buildStructureToggle(
 }
 
 // ============================================================
-// Assembly Metadata
+// Assembly Metadata (world-native)
 // ============================================================
 
-export interface CreateAssemblyMetadataParams {
-  registryId: string;
+export interface UpdateMetadataNameParams {
   characterId: string;
   structureId: string;
   ownerCapId: string;
@@ -1615,21 +1614,24 @@ export interface CreateAssemblyMetadataParams {
   ownerCapDigest: string;
   moveType: StructureMoveType;
   name: string;
-  description: string;
 }
 
 /**
- * Build a PTB that creates an assembly metadata entry.
+ * Build a PTB that updates the on-chain metadata name of a structure.
+ *
+ * Each assembly type (Assembly, Gate, StorageUnit, Turret, NetworkNode)
+ * exposes `update_metadata_name(obj, owner_cap, name)` in the world package.
+ * Metadata is initialised at anchor time so no create step is needed.
  *
  * Steps:
  * 1. Borrow OwnerCap<T> from Character
- * 2. Call assembly_metadata::create_metadata<T>(registry, owner_cap, assembly_id, name, description)
+ * 2. Call {module}::update_metadata_name(structure, owner_cap, name)
  * 3. Return OwnerCap<T> to Character
  */
-export function buildCreateAssemblyMetadata(params: CreateAssemblyMetadataParams): Transaction {
+export function buildUpdateMetadataName(params: UpdateMetadataNameParams): Transaction {
   const tx = new Transaction();
   const pkg = worldPkg();
-  const { typeArg } = structureMoveInfo(params.moveType);
+  const { module: mod, typeArg } = structureMoveInfo(params.moveType);
 
   // 1. Borrow OwnerCap<T> from Character
   const [ownerCap, receipt] = tx.moveCall({
@@ -1647,16 +1649,13 @@ export function buildCreateAssemblyMetadata(params: CreateAssemblyMetadataParams
     ],
   });
 
-  // 2. Create metadata entry
+  // 2. Update metadata name on the structure object
   tx.moveCall({
-    target: `${packages.assemblyMetadata}::assembly_metadata::create_metadata`,
-    typeArguments: [typeArg],
+    target: `${pkg}::${mod}::update_metadata_name`,
     arguments: [
-      tx.object(params.registryId),
+      tx.object(params.structureId),
       ownerCap,
-      tx.pure.id(params.structureId),
       tx.pure.string(params.name),
-      tx.pure.string(params.description),
     ],
   });
 
@@ -1671,48 +1670,6 @@ export function buildCreateAssemblyMetadata(params: CreateAssemblyMetadataParams
     ],
   });
 
-  return tx;
-}
-
-/**
- * Build a PTB that updates an assembly metadata entry.
- * Only the original owner can update.
- */
-export function buildUpdateAssemblyMetadata(params: {
-  registryId: string;
-  structureId: string;
-  name: string;
-  description: string;
-}): Transaction {
-  const tx = new Transaction();
-  tx.moveCall({
-    target: `${packages.assemblyMetadata}::assembly_metadata::update_metadata`,
-    arguments: [
-      tx.object(params.registryId),
-      tx.pure.id(params.structureId),
-      tx.pure.string(params.name),
-      tx.pure.string(params.description),
-    ],
-  });
-  return tx;
-}
-
-/**
- * Build a PTB that deletes an assembly metadata entry.
- * Only the original owner can delete.
- */
-export function buildDeleteAssemblyMetadata(params: {
-  registryId: string;
-  structureId: string;
-}): Transaction {
-  const tx = new Transaction();
-  tx.moveCall({
-    target: `${packages.assemblyMetadata}::assembly_metadata::delete_metadata`,
-    arguments: [
-      tx.object(params.registryId),
-      tx.pure.id(params.structureId),
-    ],
-  });
   return tx;
 }
 
