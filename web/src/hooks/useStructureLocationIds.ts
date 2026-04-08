@@ -44,9 +44,9 @@ export function useStructureLocationIds(): UseStructureLocationIdsReturn {
     }
   }, [tribeId, getAuthHeader]);
 
-  useEffect(() => {
-    fetchIds();
-  }, [fetchIds]);
+  // NOTE: No auto-fetch on mount. Callers must trigger `refetch()` explicitly
+  // after the user has authenticated (to avoid an unexpected wallet signing
+  // prompt on page load).
 
   return { locationIds, isLoading, refetch: fetchIds };
 }

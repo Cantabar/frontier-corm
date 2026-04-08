@@ -23,6 +23,7 @@ import { ProximityProofModal } from "../components/locations/ProximityProofModal
 import { LoadingSpinner } from "../components/shared/LoadingSpinner";
 import { EmptyState } from "../components/shared/EmptyState";
 import { PrimaryButton, SecondaryButton, DangerButton } from "../components/shared/Button";
+import { AuthPromptModal } from "../components/shared/AuthPromptModal";
 import { CopyableId } from "../components/shared/CopyableId";
 import { solarSystemName } from "../lib/solarSystems";
 import { truncateAddress, timeAgo } from "../lib/format";
@@ -292,21 +293,28 @@ export function LocationsPage() {
   const [resetLoading, setResetLoading] = useState(false);
   const [resetError, setResetError] = useState<string | null>(null);
 
-  // Fetch TLK status when tribe is known
-  useEffect(() => {
-    if (tribeId) {
-      tlk.fetchStatus(tribeId);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tribeId]);
+  // Deferred auth: don't sign on mount — wait for user to click "Connect"
+  const [locationAuth, setLocationAuth] = useState<"idle" | "prompting" | "verifying" | "authenticated">("idle");
 
-  // Fetch PODs when TLK is unlocked
+  async function handleLocationAuth() {
+    setLocationAuth("verifying");
+    try {
+      await getAuthHeader();
+      // Auth succeeded — fetch TLK status
+      if (tribeId) tlk.fetchStatus(tribeId);
+      setLocationAuth("authenticated");
+    } catch {
+      setLocationAuth("idle");
+    }
+  }
+
+  // Fetch PODs when TLK is unlocked (only after auth)
   useEffect(() => {
-    if (tribeId && tlk.tlkBytes) {
+    if (locationAuth === "authenticated" && tribeId && tlk.tlkBytes) {
       fetchPods(tribeId, tlk.tlkBytes);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tribeId, tlk.tlkBytes]);
+  }, [locationAuth, tribeId, tlk.tlkBytes]);
 
   // Scroll to highlighted structure once pods are loaded
   useEffect(() => {
@@ -502,6 +510,43 @@ export function LocationsPage() {
       <Page>
         <Title>Locations</Title>
         <ConnectPrompt>Connect your wallet to manage locations.</ConnectPrompt>
+      </Page>
+    );
+  }
+
+  // Before auth: show connect prompt
+  if (locationAuth !== "authenticated") {
+    return (
+      <Page>
+        <Header>
+          <Title>{isSoloMode ? "Solo Locations" : "Tribe Locations"}</Title>
+        </Header>
+        <EmptyState
+          title="Identity verification required"
+          description="The Shadow Location Network requires identity verification to manage encrypted structure locations. Click below to connect."
+        />
+        <div style={{ display: "flex", justifyContent: "center", marginTop: 16 }}>
+          <PrimaryButton onClick={() => setLocationAuth("prompting")}>
+            Connect to Location Network
+          </PrimaryButton>
+        </div>
+
+        {/* Auth prompt modal */}
+        {locationAuth === "prompting" && (
+          <AuthPromptModal
+            context="locations"
+            onConfirm={handleLocationAuth}
+            onCancel={() => setLocationAuth("idle")}
+          />
+        )}
+        {locationAuth === "verifying" && (
+          <AuthPromptModal
+            context="locations"
+            loading
+            onConfirm={handleLocationAuth}
+            onCancel={() => {}}
+          />
+        )}
       </Page>
     );
   }

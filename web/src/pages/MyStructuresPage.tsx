@@ -9,6 +9,8 @@ import { useIdentity } from "../hooks/useIdentity";
 import { useStructureLocationIds } from "../hooks/useStructureLocationIds";
 import { useCharacterProfile } from "../hooks/useCharacterProfile";
 import { useTlkStatus } from "../hooks/useTlkStatus";
+import { useLocationPods } from "../hooks/useLocationPods";
+import { AuthPromptModal } from "../components/shared/AuthPromptModal";
 import { LoadingSpinner } from "../components/shared/LoadingSpinner";
 import { EmptyState } from "../components/shared/EmptyState";
 import { SsuInventoryPanel } from "../components/structures/SsuInventoryPanel";
@@ -71,6 +73,45 @@ const ConnectPrompt = styled.div`
   padding: ${({ theme }) => theme.spacing.xxl};
   color: ${({ theme }) => theme.colors.text.muted};
   font-size: 16px;
+`;
+
+const LocationAuthBanner = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.md};
+  padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.lg};
+  border-radius: ${({ theme }) => theme.radii.md};
+  margin-bottom: ${({ theme }) => theme.spacing.lg};
+  font-size: 13px;
+  border: 1px solid ${({ theme }) => theme.colors.primary.main}44;
+  background: ${({ theme }) => theme.colors.primary.main}11;
+`;
+
+const LocationAuthText = styled.span`
+  flex: 1;
+  color: ${({ theme }) => theme.colors.text.secondary};
+`;
+
+const LocationAuthButton = styled.button`
+  padding: ${({ theme }) => theme.spacing.xs} ${({ theme }) => theme.spacing.md};
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: ${({ theme }) => theme.radii.sm};
+  border: 1px solid ${({ theme }) => theme.colors.primary.main};
+  background: transparent;
+  color: ${({ theme }) => theme.colors.primary.main};
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+
+  &:hover:not(:disabled) {
+    background: ${({ theme }) => theme.colors.primary.subtle};
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
 `;
 
 const SummaryGrid = styled.div`
@@ -471,14 +512,25 @@ export function MyStructuresPage() {
   const { locationIds, refetch: refetchLocations } = useStructureLocationIds();
   const { profile: targetProfile } = useCharacterProfile(isOwner ? null : targetCharacterId);
   const tlk = useTlkStatus();
+  const { getAuthHeader } = useLocationPods();
   const [addLocationForId, setAddLocationForId] = useState<string | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
 
-  // Fetch TLK status when tribe is known (owner-only)
-  useEffect(() => {
-    if (isOwner && tribeId) tlk.fetchStatus(tribeId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOwner, tribeId]);
+  // Deferred auth: don't sign on mount — wait for user to click "Show Locations"
+  const [locationAuth, setLocationAuth] = useState<"idle" | "prompting" | "verifying" | "authenticated">("idle");
+
+  async function handleLocationAuth() {
+    setLocationAuth("verifying");
+    try {
+      await getAuthHeader();
+      // Auth succeeded — fetch location data
+      refetchLocations();
+      if (isOwner && tribeId) tlk.fetchStatus(tribeId);
+      setLocationAuth("authenticated");
+    } catch {
+      setLocationAuth("idle");
+    }
+  }
 
   const [typeFilter, setTypeFilter] = useState<AssemblyTypeFilter>("all");
   const [statusFilter, setStatusFilter] = useState<AssemblyStatus | "all">("all");
@@ -624,6 +676,35 @@ export function MyStructuresPage() {
         </SummaryCard>
       </SummaryGrid>
 
+      {/* Location auth banner (owner-only, before auth) */}
+      {isOwner && tribeId && locationAuth === "idle" && (
+        <LocationAuthBanner>
+          <LocationAuthText>
+            Verify your identity to see location data for your structures.
+          </LocationAuthText>
+          <LocationAuthButton onClick={() => setLocationAuth("prompting")}>
+            Show Locations
+          </LocationAuthButton>
+        </LocationAuthBanner>
+      )}
+
+      {/* Auth prompt modal */}
+      {locationAuth === "prompting" && (
+        <AuthPromptModal
+          context="structures"
+          onConfirm={handleLocationAuth}
+          onCancel={() => setLocationAuth("idle")}
+        />
+      )}
+      {locationAuth === "verifying" && (
+        <AuthPromptModal
+          context="structures"
+          loading
+          onConfirm={handleLocationAuth}
+          onCancel={() => {}}
+        />
+      )}
+
       {/* Filters */}
       <FilterRow>
         {(["all", "Storage", "Gate", "Defense", "Industry", "Core", "Hangar", "Misc"] as AssemblyTypeFilter[]).map((t) => (
@@ -680,7 +761,7 @@ export function MyStructuresPage() {
               characterId={isOwner ? myCharacterId : null}
               onRefresh={refetch}
               onRefreshNodes={refetchNodes}
-              hasLocation={key !== UNCONNECTED_KEY && locationIds.has(key)}
+              hasLocation={locationAuth === "authenticated" && key !== UNCONNECTED_KEY && locationIds.has(key)}
               isOwner={isOwner}
             >
               <Grid>
@@ -693,9 +774,9 @@ export function MyStructuresPage() {
                     onRefreshNodes={refetchNodes}
                     selectedSsuId={selectedSsuId}
                     onToggleSelect={setSelectedSsuId}
-                    hasLocation={locationIds.has(s.id)}
-                    hasTribeId={!!tribeId}
-                    tlkUnlocked={!!tlk.tlkBytes}
+                    hasLocation={locationAuth === "authenticated" && locationIds.has(s.id)}
+                    hasTribeId={locationAuth === "authenticated" && !!tribeId}
+                    tlkUnlocked={locationAuth === "authenticated" && !!tlk.tlkBytes}
                     onAddLocation={(id) => setAddLocationForId(id)}
                     isOwner={isOwner}
                   />
@@ -715,9 +796,9 @@ export function MyStructuresPage() {
               onRefreshNodes={refetchNodes}
               selectedSsuId={selectedSsuId}
               onToggleSelect={setSelectedSsuId}
-              hasLocation={locationIds.has(s.id)}
-              hasTribeId={!!tribeId}
-              tlkUnlocked={!!tlk.tlkBytes}
+              hasLocation={locationAuth === "authenticated" && locationIds.has(s.id)}
+              hasTribeId={locationAuth === "authenticated" && !!tribeId}
+              tlkUnlocked={locationAuth === "authenticated" && !!tlk.tlkBytes}
               onAddLocation={(id) => setAddLocationForId(id)}
               isOwner={isOwner}
             />
