@@ -23,7 +23,7 @@
 #   make build              Build all TypeScript projects locally
 #   make clean              Remove all build artifacts
 
-.PHONY: local local-down local-reset \
+.PHONY: local local-down local-reset local-stillness \
         infra-init deploy-env deploy-infra deploy-images deploy-frontend teardown \
         ecr-login deploy-indexer deploy-continuity \
         deploy-utopia deploy-stillness \
@@ -73,7 +73,10 @@ local-down: ## Stop local dev (keep data)
 local-reset: ## Stop local dev + delete all data
 	docker compose down -v
 
-# ── Infrastructure ─────────────────────────────────────────────────
+local-stillness: ## Start local dev against Stillness testnet
+	bash scripts/start-stillness-local.sh
+
+# ── Infrastructure
 
 infra-init: ## First-time CDK + npm setup
 	npm --prefix infra ci

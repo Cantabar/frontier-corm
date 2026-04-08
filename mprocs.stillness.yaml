@@ -1,0 +1,75 @@
+# Frontier Corm — Local Dev against Stillness testnet (mprocs)
+#
+# Run:      make local-stillness
+#   — or —  mprocs --config mprocs.stillness.yaml
+#
+# Prerequisites:
+#   - .env.stillness populated with testnet package IDs (publish-contracts.sh)
+#   - Active Sui CLI address on testnet with a funded keypair
+#   - Docker (for Postgres)
+#
+# This config runs only the services needed to develop locally while
+# reading/writing to the Stillness testnet. No local Sui node, no contract
+# deployment — those are already live on testnet.
+
+procs:
+  # ── Postgres (via docker compose) ────────────────────────────────
+  postgres:
+    shell: |
+      trap 'docker compose down postgres && docker volume rm frontier-corm_pgdata' EXIT
+      docker compose up postgres
+    stop: "SIGTERM"
+
+  # ── Indexer (event subscriber + API on :3100) ────────────────────
+  indexer:
+    shell: |
+      echo "Waiting for postgres..."
+      until docker exec frontier-corm-postgres-1 pg_isready -U corm -d frontier_corm -q 2>/dev/null; do
+        sleep 1
+      done
+      echo "Loading package IDs from .env.stillness"
+      set -a && . ./.env.stillness && set +a
+      echo "Dependencies ready — starting indexer against Stillness testnet"
+      npm --prefix indexer run dev
+    env:
+      SUI_RPC_URL: "https://fullnode.testnet.sui.io:443"
+      DATABASE_URL: "postgresql://corm:corm@localhost:5432/frontier_corm"
+      API_PORT: "3100"
+      POLL_INTERVAL_MS: "2000"
+    stop: "SIGTERM"
+
+  # ── Web UI (Vite dev on :5173, proxies /api → local indexer) ─────
+  web:
+    shell: |
+      echo "Starting Vite dev server (mode=stillness, local services)"
+      VITE_INDEXER_URL=/api/v1 \
+      VITE_CONTINUITY_ENGINE_URL=http://localhost:3300 \
+      VITE_WEB_UI_HOST=http://localhost:5173 \
+      npm --prefix web run dev -- --mode stillness
+    stop: "SIGTERM"
+
+  # ── Continuity Engine (Go + HTMX on :3300) ──────────────────────
+  continuity-engine:
+    shell: |
+      echo "Waiting for postgres..."
+      until docker exec frontier-corm-postgres-1 pg_isready -U corm -d frontier_corm -q 2>/dev/null; do
+        sleep 1
+      done
+      echo "Loading contract IDs from .env.stillness"
+      set -a && . ./.env.stillness && set +a
+      # Derive SUI private key from active Sui keypair if not set
+      if [ -z "$SUI_PRIVATE_KEY" ]; then
+        SUI_PRIVATE_KEY=$(sui keytool export --key-identity "$(sui client active-address)" --json 2>/dev/null | jq -r '.exportedPrivateKey')
+        export SUI_PRIVATE_KEY
+        echo "Derived SUI_PRIVATE_KEY from active Sui address"
+      fi
+      echo "Dependencies ready — starting continuity-engine against Stillness testnet (air live-reload)"
+      cd continuity-engine
+      air
+    env:
+      PORT: "3300"
+      DATABASE_URL: "postgresql://corm:corm@localhost:5432/frontier_corm"
+      SUI_RPC_URL: "https://fullnode.testnet.sui.io:443"
+      EVENT_COALESCE_MS: "300"
+      SEED_CHAIN_DATA: "false"
+    stop: "SIGTERM"

@@ -137,7 +137,8 @@ Per-environment defaults are defined in `config.ts` and overridden by explicit `
 
 ## Deployment
 
-- **Local:** `npm run dev` via `mprocs.yaml` (Vite dev server on :5173, proxies `/api` → indexer)
+- **Local (localnet):** `npm run dev` via `mprocs.yaml` (Vite dev server on :5173, proxies `/api` → indexer)
+- **Local (testnet):** `make local-stillness` runs `mprocs.stillness.yaml` — Vite in `--mode stillness` with env overrides pointing indexer and CE URLs to localhost. Uses all testnet package IDs from `web/.env.stillness` but routes `/api` and `/puzzle` through the Vite proxy to local services.
 - **Production:** Static build deployed to S3 behind CloudFront
   - Build: `npm run build -- --mode utopia|stillness`
   - Deploy: `make deploy-frontend ENV=utopia|stillness` (S3 sync + CloudFront invalidation)
