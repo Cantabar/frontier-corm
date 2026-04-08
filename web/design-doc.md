@@ -60,7 +60,7 @@ Client-side privacy-preserving location sharing with ZK proof generation. The se
 
 ### Forge Planner
 
-- **Forge Planner Page** (`pages/ForgePlanner`) — three-tab interface: Blueprints (browse game blueprints), Planner (optimizer + build queue), Orders (active multi-input contracts with create/detail modals).
+- **Forge Planner Page** (`pages/ForgePlanner`) — three-tab interface: Blueprints (browse game blueprints), Planner (optimizer + build queue), Orders (active multi-input contracts with create/detail modals). Blueprint search matches blueprint names, IDs, and product (output) item names.
 - **Blueprints Hook** (`hooks/useBlueprints`) — loads blueprint data from `/blueprints.json`, converts to `RecipeData[]` for the optimizer.
 - **Optimizer Hook** (`hooks/useOptimizer`) — browser-side recipe tree resolution and gap analysis. Resolves a target item + quantity to a full dependency tree, collects leaf materials, and compares against inventory for a shopping list.
 - **BOM Library** (`lib/bom.ts`) — Bill of Materials expansion at configurable depth (0 = finished items, 1 = direct inputs, ∞ = raw materials). Used by both optimizer UI and multi-input contract creation to generate slot lists.

@@ -481,18 +481,21 @@ export function BlueprintBrowser({ blueprints, onResolve }: Props) {
       list = list.filter((b) => b.slotType === activeSlot);
     }
 
-    // Text search
+    // Text search (blueprint name, ID, or product name)
     const q = query.toLowerCase().trim();
     if (q) {
       list = list.filter(
         (b) =>
           b.primaryName.toLowerCase().includes(q) ||
-          String(b.blueprintId).includes(q),
+          String(b.blueprintId).includes(q) ||
+          b.outputs.some((o) =>
+            getItem(o.typeId)?.name?.toLowerCase().includes(q),
+          ),
       );
     }
 
     return list;
-  }, [blueprints, activeTab, activeGroup, activeFacility, activeTier, activeSlot, groupBy, query]);
+  }, [blueprints, activeTab, activeGroup, activeFacility, activeTier, activeSlot, groupBy, query, getItem]);
 
   // Sorted list
   const sorted = useMemo(() => {
@@ -580,7 +583,7 @@ export function BlueprintBrowser({ blueprints, onResolve }: Props) {
 
         {/* Search */}
         <Search
-          placeholder="Search blueprints…"
+          placeholder="Search blueprints or products…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
