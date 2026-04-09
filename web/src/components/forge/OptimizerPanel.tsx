@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import styled from "styled-components";
-import { useOptimizer, type ResolvedNode, type GapAnalysis } from "../../hooks/useOptimizer";
+import styled, { css } from "styled-components";
+import { useOptimizer, type ResolvedNode, type GapAnalysis, type RecipeLookup } from "../../hooks/useOptimizer";
 import type { RecipeData } from "../../lib/types";
+import type { BlueprintRecipe } from "../../hooks/useBlueprints";
 import { ItemPickerField } from "../shared/ItemPickerField";
 import { PrimaryButton, SecondaryButton } from "../shared/Button";
 import { useItems } from "../../hooks/useItems";
@@ -9,6 +10,27 @@ import { useIdentity } from "../../hooks/useIdentity";
 import { useMyStructures } from "../../hooks/useStructures";
 import { useAggregatedSsuInventory } from "../../hooks/useAggregatedSsuInventory";
 import { SsuInventoryToggle } from "./SsuInventoryToggle";
+
+/* ------------------------------------------------------------------ */
+/* Depth-phase colors (progressively muted per depth tier)             */
+/* ------------------------------------------------------------------ */
+
+const DEPTH_COLORS = [
+  "#00E5FF", // depth 0 — target (electric cyan)
+  "#69F0AE", // depth 1 — forge green
+  "#7C4DFF", // depth 2 — violet
+  "#FFD740", // depth 3 — amber
+  "#FF8A65", // depth 4 — coral
+  "#80CBC4", // depth 5+ — teal
+];
+
+function depthColor(depth: number): string {
+  return DEPTH_COLORS[Math.min(depth, DEPTH_COLORS.length - 1)];
+}
+
+/* ------------------------------------------------------------------ */
+/* Styled components                                                   */
+/* ------------------------------------------------------------------ */
 
 const Panel = styled.section`
   background: ${({ theme }) => theme.colors.surface.raised};
@@ -54,24 +76,163 @@ const Divider = styled.hr`
   margin: ${({ theme }) => theme.spacing.md} 0;
 `;
 
-const TreeNode = styled.div<{ $depth: number }>`
-  padding-left: ${({ $depth }) => $depth * 16}px;
+/* ── Visual Tree ─────────────────────────────────────────────── */
+
+const TreeContainer = styled.div`
   font-size: 13px;
-  color: ${({ theme }) => theme.colors.text.secondary};
-  line-height: 1.6;
+  line-height: 1;
 `;
 
-const CraftBadge = styled.span`
-  font-size: 11px;
+/** Wrapper for each node. Draws connector rails via nested ::before. */
+const TreeRow = styled.div<{ $depth: number; $isLast: boolean; $color: string; $satisfied: boolean }>`
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0 4px ${({ $depth }) => $depth * 24}px;
+  min-height: 28px;
+
+  ${({ $satisfied }) =>
+    $satisfied &&
+    css`
+      opacity: 0.55;
+    `}
+
+  /* Horizontal connector from rail to node content */
+  ${({ $depth, $color }) =>
+    $depth > 0 &&
+    css`
+      &::before {
+        content: "";
+        position: absolute;
+        left: ${($depth - 1) * 24 + 11}px;
+        top: 0;
+        width: 13px;
+        height: 50%;
+        border-left: 1px solid ${$color};
+        border-bottom: 1px solid ${$color};
+        pointer-events: none;
+      }
+    `}
+
+  /* Vertical rail continuation for non-last siblings */
+  ${({ $depth, $isLast, $color }) =>
+    $depth > 0 &&
+    !$isLast &&
+    css`
+      &::after {
+        content: "";
+        position: absolute;
+        left: ${($depth - 1) * 24 + 11}px;
+        top: 50%;
+        width: 0;
+        height: 50%;
+        border-left: 1px solid ${$color};
+        pointer-events: none;
+      }
+    `}
+`;
+
+const NodeIcon = styled.img`
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  flex-shrink: 0;
+`;
+
+const NodeIconPlaceholder = styled.div`
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  background: ${({ theme }) => theme.colors.surface.bg};
+  border: 1px solid ${({ theme }) => theme.colors.surface.border};
+`;
+
+const NodeName = styled.span`
   font-weight: 600;
-  color: ${({ theme }) => theme.colors.module.forge};
+  color: ${({ theme }) => theme.colors.text.primary};
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+`;
+
+const NodeQty = styled.span`
+  color: ${({ theme }) => theme.colors.text.secondary};
+  white-space: nowrap;
+`;
+
+const CraftBadge = styled.span<{ $color: string }>`
+  font-size: 10px;
+  font-weight: 600;
+  color: ${({ $color }) => $color};
+  white-space: nowrap;
 `;
 
 const RawBadge = styled.span`
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   color: ${({ theme }) => theme.colors.text.muted};
+  white-space: nowrap;
 `;
+
+const InventoryBadge = styled.span`
+  font-size: 10px;
+  font-weight: 600;
+  color: ${({ theme }) => theme.colors.success};
+  white-space: nowrap;
+`;
+
+const FacilityPill = styled.span`
+  font-size: 9px;
+  font-weight: 600;
+  color: ${({ theme }) => theme.colors.text.muted};
+  background: ${({ theme }) => theme.colors.surface.bg};
+  border: 1px solid ${({ theme }) => theme.colors.surface.border};
+  padding: 0 4px;
+  white-space: nowrap;
+`;
+
+const BlueprintSelect = styled.select`
+  font-size: 9px;
+  font-weight: 600;
+  color: ${({ theme }) => theme.colors.text.secondary};
+  background: ${({ theme }) => theme.colors.surface.bg};
+  border: 1px solid ${({ theme }) => theme.colors.surface.border};
+  padding: 0 2px;
+  cursor: pointer;
+  max-width: 140px;
+
+  &:focus {
+    outline: none;
+    border-color: ${({ theme }) => theme.colors.primary.main};
+  }
+`;
+
+const CollapseToggle = styled.button`
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 10px;
+  color: ${({ theme }) => theme.colors.text.muted};
+  cursor: pointer;
+  width: 14px;
+  text-align: center;
+  flex-shrink: 0;
+  &:hover {
+    color: ${({ theme }) => theme.colors.text.primary};
+  }
+`;
+
+const DepthLabel = styled.span<{ $color: string }>`
+  font-size: 9px;
+  font-weight: 700;
+  color: ${({ $color }) => $color};
+  opacity: 0.6;
+  white-space: nowrap;
+  margin-right: 2px;
+`;
+
+/* ── Gap Analysis (unchanged) ────────────────────────────────── */
 
 const GapRow = styled.div`
   display: flex;
@@ -119,25 +280,135 @@ const ProgressBarInner = styled.div<{ $pct: number }>`
   transition: width 0.3s ease;
 `;
 
-function renderTree(node: ResolvedNode, getItemName: (id: number) => string, depth = 0): JSX.Element[] {
-  const badge = node.isCraftable ? (
-    <CraftBadge> ({node.runs}× {node.quantityPerRun}/run)</CraftBadge>
-  ) : (
-    <RawBadge> [RAW]</RawBadge>
+/* ------------------------------------------------------------------ */
+/* Visual tree renderer (recursive component)                          */
+/* ------------------------------------------------------------------ */
+
+function VisualTreeNode({
+  node,
+  depth,
+  isLast,
+  getItemIcon,
+  getItemName,
+  collapsed,
+  onToggleCollapse,
+  allRecipesMap,
+  selectedRecipes,
+  onSelectRecipe,
+}: {
+  node: ResolvedNode;
+  depth: number;
+  isLast: boolean;
+  getItemIcon: (id: number) => string;
+  getItemName: (id: number) => string;
+  collapsed: Set<string>;
+  onToggleCollapse: (key: string) => void;
+  allRecipesMap: Map<number, BlueprintRecipe[]>;
+  selectedRecipes: Map<number, number>;
+  onSelectRecipe: (outputTypeId: number, blueprintId: number) => void;
+}) {
+  const color = depthColor(depth);
+  const parentColor = depth > 0 ? depthColor(depth - 1) : color;
+  const icon = getItemIcon(node.typeId);
+  const nodeKey = `${node.typeId}-${depth}`;
+  const isCollapsed = collapsed.has(nodeKey);
+  const hasChildren = node.children.length > 0;
+
+  // Blueprint alternatives for this output
+  const alternatives = allRecipesMap.get(node.typeId);
+  const hasAlternatives = alternatives && alternatives.length > 1 && node.isCraftable;
+
+  return (
+    <>
+      <TreeRow
+        $depth={depth}
+        $isLast={isLast}
+        $color={parentColor}
+        $satisfied={node.satisfiedFromInventory && !node.isCraftable}
+      >
+        {/* Depth tier indicator */}
+        {depth > 0 && <DepthLabel $color={color}>L{depth}</DepthLabel>}
+
+        {/* Collapse toggle */}
+        {hasChildren ? (
+          <CollapseToggle onClick={() => onToggleCollapse(nodeKey)}>
+            {isCollapsed ? "▸" : "▾"}
+          </CollapseToggle>
+        ) : (
+          <span style={{ width: 14, flexShrink: 0 }} />
+        )}
+
+        {/* Item icon */}
+        {icon ? (
+          <NodeIcon src={`/${icon}`} alt="" loading="lazy" />
+        ) : (
+          <NodeIconPlaceholder />
+        )}
+
+        {/* Name + quantity */}
+        <NodeName>{getItemName(node.typeId)}</NodeName>
+        <NodeQty>×{node.quantityNeeded}</NodeQty>
+
+        {/* Status badges */}
+        {node.satisfiedFromInventory && !node.isCraftable && (
+          <InventoryBadge>✓ IN SSU</InventoryBadge>
+        )}
+        {node.satisfiedFromInventory && node.isCraftable && (
+          <InventoryBadge>partial SSU</InventoryBadge>
+        )}
+        {node.isCraftable && (
+          <CraftBadge $color={color}>
+            {node.runs}× {node.quantityPerRun}/run
+          </CraftBadge>
+        )}
+        {!node.isCraftable && !node.satisfiedFromInventory && (
+          <RawBadge>RAW</RawBadge>
+        )}
+
+        {/* Facility pill */}
+        {node.facilityName && <FacilityPill>{node.facilityName}</FacilityPill>}
+
+        {/* Blueprint selector (when alternatives exist) */}
+        {hasAlternatives && (
+          <BlueprintSelect
+            value={selectedRecipes.get(node.typeId) ?? alternatives![0].blueprintId}
+            onChange={(e) => onSelectRecipe(node.typeId, Number(e.target.value))}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {alternatives!.map((r) => (
+              <option key={r.blueprintId} value={r.blueprintId}>
+                BP#{r.blueprintId} — {r.facilityName}
+              </option>
+            ))}
+          </BlueprintSelect>
+        )}
+      </TreeRow>
+
+      {/* Children (if not collapsed) */}
+      {hasChildren &&
+        !isCollapsed &&
+        node.children.map((child, i) => (
+          <VisualTreeNode
+            key={`${child.typeId}-${depth + 1}-${i}`}
+            node={child}
+            depth={depth + 1}
+            isLast={i === node.children.length - 1}
+            getItemIcon={getItemIcon}
+            getItemName={getItemName}
+            collapsed={collapsed}
+            onToggleCollapse={onToggleCollapse}
+            allRecipesMap={allRecipesMap}
+            selectedRecipes={selectedRecipes}
+            onSelectRecipe={onSelectRecipe}
+          />
+        ))}
+    </>
   );
-
-  const elements = [
-    <TreeNode key={`${node.typeId}-${depth}`} $depth={depth}>
-      {getItemName(node.typeId)} ×{node.quantityNeeded}{badge}
-    </TreeNode>,
-  ];
-
-  for (const child of node.children) {
-    elements.push(...renderTree(child, getItemName, depth + 1));
-  }
-
-  return elements;
 }
+
+/* ------------------------------------------------------------------ */
+/* Gap analysis renderer                                               */
+/* ------------------------------------------------------------------ */
 
 function renderGaps(
   gaps: GapAnalysis,
@@ -182,18 +453,30 @@ function renderGaps(
   );
 }
 
+/* ------------------------------------------------------------------ */
+/* Main component                                                      */
+/* ------------------------------------------------------------------ */
+
 export function OptimizerPanel({
   recipes,
   initialTarget,
+  allRecipesMap,
 }: {
   recipes: RecipeData[];
   initialTarget?: number | null;
+  allRecipesMap: Map<number, BlueprintRecipe[]>;
 }) {
   const { result, optimize, clear } = useOptimizer(recipes);
   const { getItem } = useItems();
   const { address } = useIdentity();
   const [targetType, setTargetType] = useState("");
   const [quantity, setQuantity] = useState("1");
+
+  // Blueprint selection per output typeId
+  const [selectedRecipes, setSelectedRecipes] = useState<Map<number, number>>(new Map());
+
+  // Tree collapse state
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   // SSU inventory state
   const [ssuInventoryEnabled, setSsuInventoryEnabled] = useState(false);
@@ -246,32 +529,77 @@ export function OptimizerPanel({
   const emptyInventory = useMemo(() => new Map<number, number>(), []);
   const effectiveInventory = ssuInventoryEnabled ? aggregatedInventory : emptyInventory;
 
+  // Build recipe lookup that respects user's blueprint selections
+  const recipeLookup = useCallback<RecipeLookup>(
+    (typeId: number) => {
+      const alternatives = allRecipesMap.get(typeId);
+      if (!alternatives || alternatives.length === 0) return undefined;
+      const selectedBp = selectedRecipes.get(typeId);
+      if (selectedBp != null) {
+        return alternatives.find((r) => r.blueprintId === selectedBp) ?? alternatives[0];
+      }
+      return alternatives[0];
+    },
+    [allRecipesMap, selectedRecipes],
+  );
+
+  // Run optimization with current settings
+  const runOptimize = useCallback(
+    (typeId: number, qty: number) => {
+      optimize(typeId, qty, effectiveInventory, recipeLookup);
+      setCollapsed(new Set());
+    },
+    [optimize, effectiveInventory, recipeLookup],
+  );
+
   // Auto-fill and resolve when a blueprint's "Resolve in Optimizer" is clicked
   useEffect(() => {
     if (initialTarget != null && recipes.length > 0) {
       setTargetType(String(initialTarget));
       setQuantity("1");
-      optimize(initialTarget, 1, effectiveInventory);
+      runOptimize(initialTarget, 1);
     }
-  }, [initialTarget, recipes.length, optimize, effectiveInventory]);
+  }, [initialTarget, recipes.length, runOptimize]);
 
-  // Re-run optimization when inventory data changes
+  // Re-run optimization when inventory or recipe selection changes
   useEffect(() => {
     if (result && targetType) {
-      optimize(Number(targetType), Number(quantity), effectiveInventory);
+      optimize(Number(targetType), Number(quantity), effectiveInventory, recipeLookup);
     }
-    // Only re-run when inventory changes, not on every result change
+    // Only re-run when inventory/recipe selection changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [effectiveInventory]);
+  }, [effectiveInventory, recipeLookup]);
 
   function getItemName(typeId: number): string {
     return getItem(typeId)?.name ?? `Type ${typeId}`;
   }
 
+  function getItemIcon(typeId: number): string {
+    return getItem(typeId)?.icon ?? "";
+  }
+
   function handleOptimize() {
     const typeId = Number(targetType);
     if (!typeId) return;
-    optimize(typeId, Number(quantity), effectiveInventory);
+    runOptimize(typeId, Number(quantity));
+  }
+
+  function handleSelectRecipe(outputTypeId: number, blueprintId: number) {
+    setSelectedRecipes((prev) => {
+      const next = new Map(prev);
+      next.set(outputTypeId, blueprintId);
+      return next;
+    });
+    // Re-run after selection change (handled by effect on recipeLookup)
+  }
+
+  function handleToggleCollapse(key: string) {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
   }
 
   return (
@@ -314,7 +642,20 @@ export function OptimizerPanel({
         <>
           <Divider />
           <SectionTitle>Dependency Tree</SectionTitle>
-          {renderTree(result.tree, getItemName)}
+          <TreeContainer>
+            <VisualTreeNode
+              node={result.tree}
+              depth={0}
+              isLast
+              getItemIcon={getItemIcon}
+              getItemName={getItemName}
+              collapsed={collapsed}
+              onToggleCollapse={handleToggleCollapse}
+              allRecipesMap={allRecipesMap}
+              selectedRecipes={selectedRecipes}
+              onSelectRecipe={handleSelectRecipe}
+            />
+          </TreeContainer>
 
           <Divider />
           <SectionTitle>Gap Analysis</SectionTitle>

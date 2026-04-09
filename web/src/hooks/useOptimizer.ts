@@ -3,14 +3,18 @@
  *
  * Performs recipe tree resolution and gap analysis in-memory
  * using recipe data fetched from the registry.
+ *
+ * v2: intermediate-aware resolution (stops expanding when SSU inventory
+ * satisfies a node), blueprint/facility selection per tree node.
  */
 
 import { useMemo, useState, useCallback } from "react";
 import type { RecipeData, InputRequirement } from "../lib/types";
+import type { BlueprintRecipe } from "./useBlueprints";
 import { buildRecipeMap } from "../lib/bom";
 
 /* ------------------------------------------------------------------ */
-/* Types (mirrored from CLI optimizer)                                 */
+/* Types                                                               */
 /* ------------------------------------------------------------------ */
 
 export interface ResolvedNode {
@@ -19,6 +23,12 @@ export interface ResolvedNode {
   runs: number;
   quantityPerRun: number;
   isCraftable: boolean;
+  /** True when SSU inventory fully covers this node (children not expanded). */
+  satisfiedFromInventory: boolean;
+  /** Blueprint used for this crafting step (undefined for raw materials). */
+  blueprintId?: number;
+  /** Facility required for this crafting step. */
+  facilityName?: string;
   children: ResolvedNode[];
 }
 
@@ -44,30 +54,70 @@ export interface GapAnalysis {
 
 export type Inventory = Map<number, number>;
 
+/** Callback that picks the active recipe for a given output typeId. */
+export type RecipeLookup = (typeId: number) => BlueprintRecipe | RecipeData | undefined;
+
 /* ------------------------------------------------------------------ */
-/* Resolver (ported from recipe-resolver.ts)                           */
+/* Resolver                                                            */
 /* ------------------------------------------------------------------ */
 
 function resolveNode(
-  recipeMap: Map<number, RecipeData>,
+  getRecipe: RecipeLookup,
   typeId: number,
   quantityNeeded: number,
+  inventory: Inventory,
   visited: Set<number>,
 ): ResolvedNode {
-  const recipe = recipeMap.get(typeId);
-
-  if (!recipe || visited.has(typeId)) {
-    return { typeId, quantityNeeded, runs: 0, quantityPerRun: 0, isCraftable: false, children: [] };
+  // Check if inventory fully satisfies this node (intermediate-aware).
+  const onHand = inventory.get(typeId) ?? 0;
+  if (onHand >= quantityNeeded) {
+    // Consume from inventory and stop recursing.
+    inventory.set(typeId, onHand - quantityNeeded);
+    return {
+      typeId,
+      quantityNeeded,
+      runs: 0,
+      quantityPerRun: 0,
+      isCraftable: false,
+      satisfiedFromInventory: true,
+      children: [],
+    };
   }
 
-  const runs = Math.ceil(quantityNeeded / recipe.outputQuantity);
+  // Partially satisfied — reduce what we need to craft.
+  let remaining = quantityNeeded;
+  let fromInventory = false;
+  if (onHand > 0) {
+    remaining -= onHand;
+    inventory.set(typeId, 0);
+    fromInventory = true;
+  }
+
+  const recipe = getRecipe(typeId);
+
+  if (!recipe || visited.has(typeId)) {
+    return {
+      typeId,
+      quantityNeeded,
+      runs: 0,
+      quantityPerRun: 0,
+      isCraftable: false,
+      satisfiedFromInventory: false,
+      children: [],
+    };
+  }
+
+  const runs = Math.ceil(remaining / recipe.outputQuantity);
   visited.add(typeId);
 
   const children = recipe.inputs.map((input: InputRequirement) => {
-    return resolveNode(recipeMap, input.typeId, input.quantity * runs, visited);
+    return resolveNode(getRecipe, input.typeId, input.quantity * runs, inventory, visited);
   });
 
   visited.delete(typeId);
+
+  // Extract blueprint metadata if available.
+  const bpRecipe = recipe as BlueprintRecipe;
 
   return {
     typeId,
@@ -75,11 +125,18 @@ function resolveNode(
     runs,
     quantityPerRun: recipe.outputQuantity,
     isCraftable: true,
+    satisfiedFromInventory: fromInventory,
+    blueprintId: bpRecipe.blueprintId,
+    facilityName: bpRecipe.facilityName,
     children,
   };
 }
 
 function collectLeaves(node: ResolvedNode, acc: Map<number, number>) {
+  // Inventory-satisfied nodes are "virtual leaves" — already covered.
+  if (node.satisfiedFromInventory && !node.isCraftable) {
+    return;
+  }
   if (!node.isCraftable) {
     acc.set(node.typeId, (acc.get(node.typeId) ?? 0) + node.quantityNeeded);
     return;
@@ -132,8 +189,17 @@ export function useOptimizer(recipes: RecipeData[]) {
   } | null>(null);
 
   const optimize = useCallback(
-    (targetTypeId: number, targetQuantity: number, inventory: Inventory = new Map()) => {
-      const tree = resolveNode(recipeMap, targetTypeId, targetQuantity, new Set());
+    (
+      targetTypeId: number,
+      targetQuantity: number,
+      inventory: Inventory = new Map(),
+      recipeLookup?: RecipeLookup,
+    ) => {
+      // Clone inventory so consumption during resolution doesn't mutate caller's map.
+      const inv = new Map(inventory);
+
+      const getRecipe: RecipeLookup = recipeLookup ?? ((id) => recipeMap.get(id));
+      const tree = resolveNode(getRecipe, targetTypeId, targetQuantity, inv, new Set());
 
       const leafMap = new Map<number, number>();
       collectLeaves(tree, leafMap);
@@ -141,6 +207,7 @@ export function useOptimizer(recipes: RecipeData[]) {
         .map(([typeId, quantity]) => ({ typeId, quantity }))
         .sort((a, b) => b.quantity - a.quantity);
 
+      // Gap analysis uses the *original* inventory (not the consumed clone).
       const gaps = analyzeGaps(leafMaterials, inventory);
       setResult({ tree, leafMaterials, gaps });
     },

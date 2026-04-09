@@ -33,6 +33,13 @@ export interface BlueprintEntry {
   facilities: BlueprintFacility[];
 }
 
+/** RecipeData enriched with blueprint and facility metadata. */
+export interface BlueprintRecipe extends RecipeData {
+  blueprintId: number;
+  facilityName: string;
+  facilityFamily: string;
+}
+
 let cache: BlueprintEntry[] | null = null;
 let cachePromise: Promise<BlueprintEntry[]> | null = null;
 
@@ -89,5 +96,35 @@ export function useBlueprints() {
     return recipes;
   }, [blueprints]);
 
-  return { blueprints, getBlueprint, recipesForOptimizer };
+  /**
+   * All blueprints grouped by output typeId, preserving every alternative.
+   * Used by the optimizer to let the player pick a specific blueprint/facility
+   * at each node in the dependency tree.
+   */
+  const allRecipesMap = useMemo<Map<number, BlueprintRecipe[]>>(() => {
+    const map = new Map<number, BlueprintRecipe[]>();
+
+    for (const bp of blueprints) {
+      const outputTypeId = bp.outputs[0]?.typeId;
+      if (outputTypeId == null) continue;
+
+      const recipe: BlueprintRecipe = {
+        outputTypeId,
+        outputQuantity: bp.outputs[0].quantity,
+        inputs: bp.inputs.map((i) => ({ typeId: i.typeId, quantity: i.quantity })),
+        runTime: bp.runTime,
+        blueprintId: bp.blueprintId,
+        facilityName: bp.facilities[0]?.facilityName ?? "Unknown",
+        facilityFamily: bp.facilities[0]?.facilityFamily ?? "Unknown",
+      };
+
+      const existing = map.get(outputTypeId);
+      if (existing) existing.push(recipe);
+      else map.set(outputTypeId, [recipe]);
+    }
+
+    return map;
+  }, [blueprints]);
+
+  return { blueprints, getBlueprint, recipesForOptimizer, allRecipesMap };
 }

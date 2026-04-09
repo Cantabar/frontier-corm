@@ -62,8 +62,10 @@ Client-side privacy-preserving location sharing with ZK proof generation. The se
 ### Forge Planner
 
 - **Forge Planner Page** (`pages/ForgePlanner`) — three-tab interface: Blueprints (browse game blueprints), Planner (optimizer + build queue), Orders (active multi-input contracts with create/detail modals). Blueprint search matches blueprint names, IDs, and product (output) item names.
-- **Blueprints Hook** (`hooks/useBlueprints`) — loads blueprint data from `/blueprints.json`, converts to `RecipeData[]` for the optimizer.
-- **Optimizer Hook** (`hooks/useOptimizer`) — browser-side recipe tree resolution and gap analysis. Resolves a target item + quantity to a full dependency tree, collects leaf materials, and compares against inventory for a shopping list.
+- **Blueprints Hook** (`hooks/useBlueprints`) — loads blueprint data from `/blueprints.json`, converts to `RecipeData[]` for the optimizer. Also exposes `allRecipesMap: Map<typeId, BlueprintRecipe[]>` preserving all blueprint alternatives per output item (including `blueprintId`, `facilityName`, `facilityFamily`) for the per-node blueprint selector.
+- **Optimizer Hook** (`hooks/useOptimizer`) — browser-side recipe tree resolution and gap analysis. Resolves a target item + quantity to a full dependency tree, collects leaf materials, and compares against inventory for a shopping list. **Intermediate-aware:** accepts the SSU inventory during resolution and stops recursing into nodes whose required quantity is fully covered by on-hand stock, marking them `satisfiedFromInventory`. Partially-covered intermediates reduce the remaining quantity before expanding children. Accepts a `RecipeLookup` callback so callers can inject per-node blueprint selections.
+- **Blueprint Selection** (`OptimizerPanel`) — when multiple blueprints produce the same output, each craftable tree node shows a dropdown to choose which blueprint/facility to use. Changing a selection re-runs the resolver with the updated recipe. State stored as `Map<outputTypeId, blueprintId>`.
+- **Visual Dependency Tree** (`OptimizerPanel`) — replaces the flat indented-text tree with a structured visual layout: 24×24px item icons, CSS `::before`/`::after` pseudo-element connector lines (L-shaped + vertical rails), depth-tier color coding (cyan → green → violet → amber → coral → teal), `L{n}` depth labels, facility pills, inventory-satisfied badges (✓ IN SSU / partial SSU with dimmed styling), and collapse/expand toggles per craftable node.
 - **BOM Library** (`lib/bom.ts`) — Bill of Materials expansion at configurable depth (0 = finished items, 1 = direct inputs, ∞ = raw materials). Used by both optimizer UI and multi-input contract creation to generate slot lists.
 
 ### SSU dApp Landing Page
@@ -157,7 +159,7 @@ Per-environment defaults are defined in `config.ts` and overridden by explicit `
 - Coin type extraction from on-chain Move struct types (`extractCoinTypeFromObjectType`) — extracts only the first phantom type argument to avoid concatenating multi-type-param generics (e.g. `CoinForCoinContract<CE, CF>`)
 - Contract visibility filtering (character and tribe access control)
 - Dashboard with configurable quick actions (persisted to localStorage)
-- Forge Planner with blueprint browser, recipe tree optimizer, gap analysis, and multi-input order management
+- Forge Planner with blueprint browser, recipe tree optimizer (intermediate-aware, per-node blueprint/facility selection), visual dependency tree with icons and connector lines, gap analysis, and multi-input order management
 - Bill of Materials expansion at configurable depth for contract slot generation
 - Continuity Engine with on-chain CormState bridge
 - Shadow Location Network: encrypted POD management, TLK/PLK lifecycle (init/wrap/rotate/reset), solo mode (Personal Location Key for tribeless players), signature-derived X25519 keypairs, Poseidon hash commitments
@@ -199,4 +201,4 @@ All dropdown selects use a custom `CustomSelect` component (`components/shared/C
 - Real-time event streaming (WebSocket from indexer) instead of polling
 - Solo → tribe migration: auto-re-encrypt solo PODs under a tribe TLK when a solo player joins a tribe
 - Solo mutual proximity proofs: cross-namespace proof support for two solo players
-- Forge Planner: multi-recipe selection for optimizer, batch order creation
+- Forge Planner: batch order creation

@@ -113,7 +113,7 @@ function ContractCardWithLiveState({
 export function ForgePlanner() {
   const { characterId, inGameTribeId } = useIdentity();
 
-  const { blueprints, recipesForOptimizer } = useBlueprints();
+  const { blueprints, recipesForOptimizer, allRecipesMap } = useBlueprints();
   const { contracts: allContracts, isLoading: contractsLoading } = useActiveMultiInputContracts();
   const contracts = allContracts.filter((c) => canViewContract(c, { characterId, inGameTribeId }));
 
@@ -158,6 +158,7 @@ export function ForgePlanner() {
           <OptimizerPanel
             recipes={recipesForOptimizer}
             initialTarget={optimizerTarget}
+            allRecipesMap={allRecipesMap}
           />
           <BuildQueuePanel onResolveItem={handleResolveFromQueue} />
         </PlannerGrid>
