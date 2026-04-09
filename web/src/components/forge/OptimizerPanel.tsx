@@ -4,7 +4,7 @@ import { useOptimizer, type ResolvedNode, type GapAnalysis, type RecipeLookup } 
 import type { RecipeData } from "../../lib/types";
 import { type BlueprintRecipe } from "../../hooks/useBlueprints";
 import type { CraftingStyle } from "../../hooks/useCraftingStyle";
-import { buildByproductIndex, optimizeOreUsage, type OreSummary } from "../../lib/oreOptimizer";
+import { buildByproductIndex, collectRefiningDemands, optimizeOreUsage, type OreSummary } from "../../lib/oreOptimizer";
 import { ItemPickerField } from "../shared/ItemPickerField";
 import { PrimaryButton, SecondaryButton } from "../shared/Button";
 import { useItems } from "../../hooks/useItems";
@@ -664,8 +664,9 @@ export function OptimizerPanel({
   const byproductIdx = useMemo(() => buildByproductIndex(recipes), [recipes]);
   const oreSummary: OreSummary | null = useMemo(() => {
     if (!showOreSummary || !result) return null;
-    return optimizeOreUsage(result.leafMaterials, byproductIdx);
-  }, [showOreSummary, result, byproductIdx]);
+    const { demands, nonRefiningLeaves } = collectRefiningDemands(result.tree, byproductIdx);
+    return optimizeOreUsage(demands, nonRefiningLeaves, byproductIdx, effectiveInventory);
+  }, [showOreSummary, result, byproductIdx, effectiveInventory]);
 
   function getItemName(typeId: number): string {
     return getItem(typeId)?.name ?? `Type ${typeId}`;

@@ -1,16 +1,29 @@
 /**
- * oreOptimizer — post-pass ore optimization for multi-output recipes.
+ * oreOptimizer — joint cross-ore optimization for multi-output recipes.
  *
- * When multiple intermediates share a common ore source (e.g. Feldspar Crystals
- * producing both Hydrocarbon Residue and Silica Grains), the tree resolver
- * handles byproduct crediting during resolution. This module provides an
- * additional "ore summary" view that groups leaf-level demands by their
- * refining recipe and computes the minimum ore runs to satisfy all co-products,
- * surfacing surplus byproducts.
+ * When a build requires intermediates produced by multiple ores with
+ * overlapping outputs (e.g. both Feldspar Crystals and Hydrated Sulfide
+ * Matrix produce Hydrocarbon Residue), the tree resolver's DFS byproduct
+ * crediting is order-dependent and may not find the globally optimal
+ * allocation. This module extracts intermediate demands at the refining
+ * boundary and jointly optimizes ore runs across all ore types, accounting
+ * for shared byproducts.
+ *
+ * Algorithm:
+ *   1. collectRefiningDemands — walk the resolved tree and collect demands
+ *      for intermediates produced by multi-output recipes (the refining
+ *      boundary), rather than at the raw-ore leaf level.
+ *   2. optimizeOreUsage — jointly optimize ore runs:
+ *      Phase 1 (forced ores): ores that are the sole source for an
+ *        intermediate are forced; compute minimum runs.
+ *      Phase 2 (surplus propagation): credit all outputs from forced
+ *        ore runs against remaining demands.
+ *      Phase 3 (greedy fill): assign additional runs to the most
+ *        efficient ore for any remaining shared-intermediate demands.
  */
 
 import type { RecipeData } from "./types";
-import type { LeafMaterial } from "../hooks/useOptimizer";
+import type { ResolvedNode, LeafMaterial } from "../hooks/useOptimizer";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -99,126 +112,251 @@ export function buildByproductIndex(
 }
 
 /* ------------------------------------------------------------------ */
-/* Ore optimization post-pass                                          */
+/* Refining demand extraction from resolved tree                       */
 /* ------------------------------------------------------------------ */
 
+export interface RefiningDemands {
+  /** Intermediate typeId → total demand from the build. */
+  demands: Map<number, number>;
+  /** Leaf materials NOT involved in multi-output refining. */
+  nonRefiningLeaves: LeafMaterial[];
+}
+
 /**
- * Given the flat leaf material list from tree resolution, group demands
- * by their shared refining recipe and compute the minimum ore runs to
- * satisfy all co-products simultaneously.
+ * Walk the resolved tree and collect intermediate demands at the refining
+ * boundary — materials produced by multi-output recipes — rather than at
+ * the raw-ore leaf level.
  *
- * For each multi-output refining recipe that produces at least one
- * demanded leaf material, we compute:
- *   runs = max(ceil(needed_i / perRun_i)) across all demanded outputs i
- *
- * This yields the minimum runs that satisfy every co-product, and any
- * excess is reported as surplus.
+ * Refining nodes (craftable + byproducts) record their `quantityNeeded`
+ * and do NOT recurse into ore-input children (the joint optimizer derives
+ * those). Non-refining leaves are collected separately.
  */
-export function optimizeOreUsage(
-  leafMaterials: LeafMaterial[],
+export function collectRefiningDemands(
+  tree: ResolvedNode,
   byproductIndex: Map<number, RefiningSource[]>,
-): OreSummary {
-  // Build a mutable demand map from leaf materials.
-  const demand = new Map<number, number>();
-  for (const m of leafMaterials) {
-    demand.set(m.typeId, (demand.get(m.typeId) ?? 0) + m.quantity);
+): RefiningDemands {
+  const demands = new Map<number, number>();
+  const rawLeaves = new Map<number, number>();
+
+  _walkRefining(tree, byproductIndex, demands, rawLeaves);
+
+  const nonRefiningLeaves: LeafMaterial[] = Array.from(rawLeaves.entries())
+    .map(([typeId, quantity]) => ({ typeId, quantity }))
+    .sort((a, b) => b.quantity - a.quantity);
+
+  return { demands, nonRefiningLeaves };
+}
+
+function _walkRefining(
+  node: ResolvedNode,
+  byproductIndex: Map<number, RefiningSource[]>,
+  demands: Map<number, number>,
+  rawLeaves: Map<number, number>,
+): void {
+  // Craftable node with byproducts → refining step.
+  // Record intermediate demand and stop (ore inputs derived by joint optimizer).
+  if (node.isCraftable && node.byproducts && node.byproducts.length > 0) {
+    demands.set(node.typeId, (demands.get(node.typeId) ?? 0) + node.quantityNeeded);
+    return;
   }
 
-  // Track which leaf typeIds are consumed by ore optimization.
-  const consumed = new Set<number>();
+  // Normal craftable node (not refining) → recurse into children.
+  if (node.isCraftable) {
+    for (const child of node.children) {
+      _walkRefining(child, byproductIndex, demands, rawLeaves);
+    }
+    return;
+  }
 
-  // Group by recipe (use outputTypeId as key since each recipe has a unique primary output).
-  // For each recipe, collect all demanded outputs.
-  const recipeGroups = new Map<
-    number,
-    { recipe: RecipeData; demandedOutputs: { typeId: number; quantityPerRun: number; needed: number }[] }
-  >();
+  // Non-craftable node (leaf or inventory-satisfied).
+  if (byproductIndex.has(node.typeId)) {
+    // Refining intermediate — include for joint optimizer to re-evaluate.
+    demands.set(node.typeId, (demands.get(node.typeId) ?? 0) + node.quantityNeeded);
+  } else if (!node.satisfiedFromInventory) {
+    // Non-refining raw leaf (not covered by SSU).
+    rawLeaves.set(node.typeId, (rawLeaves.get(node.typeId) ?? 0) + node.quantityNeeded);
+  }
+  // else: non-refining material satisfied from SSU — skip.
+}
 
-  for (const [typeId, sources] of byproductIndex) {
-    const needed = demand.get(typeId);
-    if (needed == null || needed <= 0) continue;
+/* ------------------------------------------------------------------ */
+/* Joint cross-ore optimization                                        */
+/* ------------------------------------------------------------------ */
 
-    // Pick the first refining source for this output.
-    // (In theory a material could be produced by multiple recipes — we take the first.)
+/** Internal model for an ore type during optimization. */
+interface OreModel {
+  recipe: RecipeData;
+  oreTypeId: number;
+  inputPerRun: number;
+  outputs: { typeId: number; quantityPerRun: number }[];
+  runs: number;
+}
+
+/**
+ * Jointly optimize ore runs across all ore types to satisfy intermediate
+ * demands with minimum total ore units mined.
+ *
+ * @param refiningDemands  intermediate typeId → total demand (pre-SSU)
+ * @param nonRefiningLeaves  leaf materials not involved in multi-output refining
+ * @param byproductIndex  reverse index from `buildByproductIndex`
+ * @param ssuInventory  optional SSU inventory; on-hand intermediates are deducted
+ */
+export function optimizeOreUsage(
+  refiningDemands: Map<number, number>,
+  nonRefiningLeaves: LeafMaterial[],
+  byproductIndex: Map<number, RefiningSource[]>,
+  ssuInventory?: ReadonlyMap<number, number>,
+): OreSummary {
+  // ── Net demand after SSU deduction ──
+  const demand = new Map<number, number>();
+  for (const [typeId, qty] of refiningDemands) {
+    const net = Math.max(0, qty - (ssuInventory?.get(typeId) ?? 0));
+    if (net > 0) demand.set(typeId, net);
+  }
+
+  if (demand.size === 0) {
+    return { entries: [], totalOreUnits: 0, unoptimized: nonRefiningLeaves };
+  }
+
+  // ── Build ore models ──
+  const oreModels = new Map<number, OreModel>();
+  const intermediateToOres = new Map<number, number[]>();
+
+  for (const [typeId] of demand) {
+    const sources = byproductIndex.get(typeId);
+    if (!sources) continue;
+
     for (const source of sources) {
-      const key = source.recipe.outputTypeId;
-      let group = recipeGroups.get(key);
-      if (!group) {
-        group = { recipe: source.recipe, demandedOutputs: [] };
-        recipeGroups.set(key, group);
-      }
-      // Avoid duplicates (same typeId added from multiple sources of same recipe).
-      if (!group.demandedOutputs.some((d) => d.typeId === typeId)) {
-        group.demandedOutputs.push({
-          typeId,
-          quantityPerRun: source.quantityPerRun,
-          needed,
+      const oreTypeId = source.recipe.inputs[0]?.typeId;
+      if (oreTypeId == null) continue;
+
+      if (!oreModels.has(oreTypeId)) {
+        oreModels.set(oreTypeId, {
+          recipe: source.recipe,
+          oreTypeId,
+          inputPerRun: source.recipe.inputs[0].quantity,
+          outputs: [
+            { typeId: source.recipe.outputTypeId, quantityPerRun: source.recipe.outputQuantity },
+            ...(source.recipe.secondaryOutputs ?? []).map((so) => ({
+              typeId: so.typeId,
+              quantityPerRun: so.quantity,
+            })),
+          ],
+          runs: 0,
         });
       }
-      break; // Use first source only.
+
+      const ores = intermediateToOres.get(typeId) ?? [];
+      if (!ores.includes(oreTypeId)) ores.push(oreTypeId);
+      intermediateToOres.set(typeId, ores);
     }
   }
 
+  // ── Phase 1: Forced ores ──
+  const remaining = new Map(demand);
+
+  for (const [typeId, ores] of intermediateToOres) {
+    if (ores.length !== 1) continue;
+    const model = oreModels.get(ores[0])!;
+    const needed = remaining.get(typeId) ?? 0;
+    if (needed <= 0) continue;
+
+    const out = model.outputs.find((o) => o.typeId === typeId);
+    if (!out) continue;
+
+    model.runs = Math.max(model.runs, Math.ceil(needed / out.quantityPerRun));
+  }
+
+  // ── Phase 2: Surplus propagation from forced ores ──
+  for (const [, model] of oreModels) {
+    if (model.runs === 0) continue;
+    for (const out of model.outputs) {
+      const cur = remaining.get(out.typeId);
+      if (cur != null && cur > 0) {
+        remaining.set(out.typeId, Math.max(0, cur - out.quantityPerRun * model.runs));
+      }
+    }
+  }
+
+  // ── Phase 3: Greedy fill for remaining shared demands ──
+  for (let iter = 0; iter < 100; iter++) {
+    let bestTypeId = -1;
+    let bestQty = 0;
+    for (const [typeId, qty] of remaining) {
+      if (qty > bestQty) { bestQty = qty; bestTypeId = typeId; }
+    }
+    if (bestQty <= 0) break;
+
+    const candidateOres = intermediateToOres.get(bestTypeId);
+    if (!candidateOres || candidateOres.length === 0) break;
+
+    // Pick the most ore-efficient source.
+    let bestOreId = candidateOres[0];
+    let bestEff = 0;
+    for (const oreId of candidateOres) {
+      const m = oreModels.get(oreId)!;
+      const o = m.outputs.find((x) => x.typeId === bestTypeId);
+      if (!o) continue;
+      const eff = o.quantityPerRun / m.inputPerRun;
+      if (eff > bestEff) { bestEff = eff; bestOreId = oreId; }
+    }
+
+    const model = oreModels.get(bestOreId)!;
+    const output = model.outputs.find((o) => o.typeId === bestTypeId);
+    if (!output) break;
+
+    const additional = Math.ceil(bestQty / output.quantityPerRun);
+    model.runs += additional;
+
+    for (const out of model.outputs) {
+      const cur = remaining.get(out.typeId);
+      if (cur != null && cur > 0) {
+        remaining.set(out.typeId, Math.max(0, cur - out.quantityPerRun * additional));
+      }
+    }
+  }
+
+  // ── Build OreSummary entries ──
+  // Attribute demand to each ore by consuming from a shrinking pool.
+  const remainingForAttribution = new Map(demand);
   const entries: OreSummaryEntry[] = [];
 
-  for (const [, group] of recipeGroups) {
-    const { recipe, demandedOutputs } = group;
-    if (demandedOutputs.length === 0) continue;
+  for (const [, model] of oreModels) {
+    if (model.runs === 0) continue;
 
-    // Minimum runs to satisfy all demanded outputs.
-    const runs = Math.max(
-      ...demandedOutputs.map((d) => Math.ceil(d.needed / d.quantityPerRun)),
-    );
-
-    // Ore input: recipe.inputs[0] is the ore (refining recipes have a single ore input).
-    const oreInput = recipe.inputs[0];
-    const totalUnits = oreInput.quantity * runs;
-
-    // Build full product list (all outputs of this recipe, not just demanded ones).
-    const allOutputs: { typeId: number; quantityPerRun: number }[] = [
-      { typeId: recipe.outputTypeId, quantityPerRun: recipe.outputQuantity },
-      ...(recipe.secondaryOutputs ?? []).map((so) => ({
-        typeId: so.typeId,
-        quantityPerRun: so.quantity,
-      })),
-    ];
-
-    const products: OreProduct[] = allOutputs.map((out) => {
-      const needed = demand.get(out.typeId) ?? 0;
-      const produced = out.quantityPerRun * runs;
+    const products: OreProduct[] = model.outputs.map((out) => {
+      const produced = out.quantityPerRun * model.runs;
+      const totalNeeded = remainingForAttribution.get(out.typeId) ?? 0;
+      const attributed = Math.min(produced, totalNeeded);
+      if (totalNeeded > 0) {
+        remainingForAttribution.set(out.typeId, totalNeeded - attributed);
+      }
       return {
         typeId: out.typeId,
-        needed,
+        needed: attributed,
         produced,
-        surplus: Math.max(0, produced - needed),
+        surplus: Math.max(0, produced - attributed),
       };
     });
 
-    // Mark all outputs of this recipe as consumed.
-    for (const out of allOutputs) {
-      if (demand.has(out.typeId)) {
-        consumed.add(out.typeId);
-      }
-    }
-
     entries.push({
-      oreTypeId: oreInput.typeId,
-      totalUnits,
-      runs,
-      inputPerRun: oreInput.quantity,
+      oreTypeId: model.oreTypeId,
+      totalUnits: model.inputPerRun * model.runs,
+      runs: model.runs,
+      inputPerRun: model.inputPerRun,
       products,
     });
   }
 
-  // Sort by total ore units descending.
+  // Any remaining refining demands not covered go to unoptimized.
+  const extraUnoptimized: LeafMaterial[] = [];
+  for (const [typeId, qty] of remaining) {
+    if (qty > 0) extraUnoptimized.push({ typeId, quantity: qty });
+  }
+
   entries.sort((a, b) => b.totalUnits - a.totalUnits);
-
-  // Collect unoptimized leaf materials (not part of any multi-output recipe).
-  const unoptimized: LeafMaterial[] = leafMaterials.filter(
-    (m) => !consumed.has(m.typeId),
-  );
-
   const totalOreUnits = entries.reduce((sum, e) => sum + e.totalUnits, 0);
+  const unoptimized = [...nonRefiningLeaves, ...extraUnoptimized];
 
   return { entries, totalOreUnits, unoptimized };
 }
