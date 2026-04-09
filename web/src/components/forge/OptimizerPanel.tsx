@@ -3,6 +3,7 @@ import styled, { css } from "styled-components";
 import { useOptimizer, type ResolvedNode, type GapAnalysis, type RecipeLookup } from "../../hooks/useOptimizer";
 import type { RecipeData } from "../../lib/types";
 import type { BlueprintRecipe } from "../../hooks/useBlueprints";
+import { buildByproductIndex, optimizeOreUsage, type OreSummary } from "../../lib/oreOptimizer";
 import { ItemPickerField } from "../shared/ItemPickerField";
 import { PrimaryButton, SecondaryButton } from "../shared/Button";
 import { useItems } from "../../hooks/useItems";
@@ -232,7 +233,14 @@ const DepthLabel = styled.span<{ $color: string }>`
   margin-right: 2px;
 `;
 
-/* ── Gap Analysis (unchanged) ────────────────────────────────── */
+const ByproductBadge = styled.span`
+  font-size: 9px;
+  font-weight: 600;
+  color: ${({ theme }) => theme.colors.warning};
+  white-space: nowrap;
+`;
+
+/* ── Gap Analysis ────────────────────────────────────────────── */
 
 const GapRow = styled.div`
   display: flex;
@@ -278,6 +286,77 @@ const ProgressBarInner = styled.div<{ $pct: number }>`
         ? theme.colors.warning
         : theme.colors.danger};
   transition: width 0.3s ease;
+`;
+
+/* ── Ore Summary ─────────────────────────────────────────────── */
+
+const OreEntryCard = styled.div`
+  background: ${({ theme }) => theme.colors.surface.bg};
+  border: 1px solid ${({ theme }) => theme.colors.surface.border};
+  border-radius: ${({ theme }) => theme.radii.sm};
+  padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.md};
+  margin-bottom: ${({ theme }) => theme.spacing.sm};
+`;
+
+const OreHeader = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+`;
+
+const OreIcon = styled.img`
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  flex-shrink: 0;
+`;
+
+const OreName = styled.span`
+  font-size: 13px;
+  font-weight: 600;
+  color: ${({ theme }) => theme.colors.text.primary};
+`;
+
+const OreQty = styled.span`
+  font-size: 13px;
+  color: ${({ theme }) => theme.colors.text.secondary};
+  margin-left: auto;
+`;
+
+const ProductRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0 2px 26px;
+  font-size: 12px;
+  color: ${({ theme }) => theme.colors.text.secondary};
+`;
+
+const SurplusBadge = styled.span`
+  font-size: 10px;
+  font-weight: 600;
+  color: ${({ theme }) => theme.colors.warning};
+`;
+
+const ModeToggle = styled.button<{ $active: boolean }>`
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: ${({ theme }) => theme.radii.sm};
+  border: 1px solid ${({ $active, theme }) =>
+    $active ? theme.colors.primary.main : theme.colors.surface.border};
+  background: ${({ $active, theme }) =>
+    $active ? theme.colors.primary.main + "22" : "transparent"};
+  color: ${({ $active, theme }) =>
+    $active ? theme.colors.primary.main : theme.colors.text.muted};
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &:hover {
+    border-color: ${({ theme }) => theme.colors.primary.main};
+    color: ${({ theme }) => theme.colors.primary.main};
+  }
 `;
 
 /* ------------------------------------------------------------------ */
@@ -364,6 +443,11 @@ function VisualTreeNode({
         {!node.isCraftable && !node.satisfiedFromInventory && (
           <RawBadge>RAW</RawBadge>
         )}
+
+        {/* Byproduct badges */}
+        {node.byproducts && node.byproducts.length > 0 && node.byproducts.map((bp) => (
+          <ByproductBadge key={bp.typeId}>+{bp.quantity} {getItemName(bp.typeId)}</ByproductBadge>
+        ))}
 
         {/* Facility pill */}
         {node.facilityName && <FacilityPill>{node.facilityName}</FacilityPill>}
@@ -471,6 +555,7 @@ export function OptimizerPanel({
   const { address } = useIdentity();
   const [targetType, setTargetType] = useState("");
   const [quantity, setQuantity] = useState("1");
+  const [showOreSummary, setShowOreSummary] = useState(false);
 
   // Blueprint selection per output typeId
   const [selectedRecipes, setSelectedRecipes] = useState<Map<number, number>>(new Map());
@@ -570,6 +655,13 @@ export function OptimizerPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [effectiveInventory, recipeLookup]);
 
+  // Ore optimization (computed on demand when ore summary is visible)
+  const byproductIdx = useMemo(() => buildByproductIndex(recipes), [recipes]);
+  const oreSummary: OreSummary | null = useMemo(() => {
+    if (!showOreSummary || !result) return null;
+    return optimizeOreUsage(result.leafMaterials, byproductIdx);
+  }, [showOreSummary, result, byproductIdx]);
+
   function getItemName(typeId: number): string {
     return getItem(typeId)?.name ?? `Type ${typeId}`;
   }
@@ -658,7 +750,15 @@ export function OptimizerPanel({
           </TreeContainer>
 
           <Divider />
-          <SectionTitle>Gap Analysis</SectionTitle>
+          <Row>
+            <SectionTitle style={{ marginBottom: 0 }}>Gap Analysis</SectionTitle>
+            <ModeToggle
+              $active={showOreSummary}
+              onClick={() => setShowOreSummary((v) => !v)}
+            >
+              {showOreSummary ? "⛏ Ore Summary" : "⛏ Show Ore Summary"}
+            </ModeToggle>
+          </Row>
           {result.gaps.shoppingList.length === 0 ? (
             <Summary>
               All materials satisfied!
@@ -666,6 +766,52 @@ export function OptimizerPanel({
             </Summary>
           ) : (
             renderGaps(result.gaps, getItemName, ssuInventoryEnabled)
+          )}
+
+          {/* ── Ore Summary (when active) ── */}
+          {showOreSummary && oreSummary && oreSummary.entries.length > 0 && (
+            <>
+              <Divider />
+              <SectionTitle>Ore Summary — Minimize Mining</SectionTitle>
+              <Summary style={{ marginBottom: 8 }}>
+                Total ore to mine: <strong>{oreSummary.totalOreUnits.toLocaleString()}</strong> units
+                {oreSummary.entries.length > 1 && ` across ${oreSummary.entries.length} ore types`}
+              </Summary>
+              {oreSummary.entries.map((entry) => {
+                const oreIcon = getItemIcon(entry.oreTypeId);
+                return (
+                  <OreEntryCard key={entry.oreTypeId}>
+                    <OreHeader>
+                      {oreIcon ? (
+                        <OreIcon src={`/${oreIcon}`} alt="" loading="lazy" />
+                      ) : null}
+                      <OreName>{getItemName(entry.oreTypeId)}</OreName>
+                      <OreQty>
+                        {entry.totalUnits.toLocaleString()} units · {entry.runs}× runs
+                      </OreQty>
+                    </OreHeader>
+                    {entry.products.map((p) => (
+                      <ProductRow key={p.typeId}>
+                        <span>{getItemName(p.typeId)}</span>
+                        <span>
+                          {p.needed > 0 ? `need ${p.needed}` : "not needed"}
+                          {" → produces "}
+                          {p.produced}
+                        </span>
+                        {p.surplus > 0 && (
+                          <SurplusBadge>+{p.surplus} surplus</SurplusBadge>
+                        )}
+                      </ProductRow>
+                    ))}
+                  </OreEntryCard>
+                );
+              })}
+              {oreSummary.unoptimized.length > 0 && (
+                <Summary>
+                  + {oreSummary.unoptimized.length} other material{oreSummary.unoptimized.length > 1 ? "s" : ""} (single-output recipes)
+                </Summary>
+              )}
+            </>
           )}
         </>
       )}

@@ -29,6 +29,8 @@ export interface ResolvedNode {
   blueprintId?: number;
   /** Facility required for this crafting step. */
   facilityName?: string;
+  /** Secondary outputs (byproducts) produced by this crafting step. */
+  byproducts?: { typeId: number; quantity: number }[];
   children: ResolvedNode[];
 }
 
@@ -110,6 +112,18 @@ function resolveNode(
   const runs = Math.ceil(remaining / recipe.outputQuantity);
   visited.add(typeId);
 
+  // Credit byproducts (secondary outputs) into inventory so sibling/downstream
+  // nodes can consume them instead of requesting redundant processing runs.
+  let byproducts: { typeId: number; quantity: number }[] | undefined;
+  if (recipe.secondaryOutputs && recipe.secondaryOutputs.length > 0) {
+    byproducts = recipe.secondaryOutputs.map((so) => {
+      const produced = so.quantity * runs;
+      const existing = inventory.get(so.typeId) ?? 0;
+      inventory.set(so.typeId, existing + produced);
+      return { typeId: so.typeId, quantity: produced };
+    });
+  }
+
   const children = recipe.inputs.map((input: InputRequirement) => {
     return resolveNode(getRecipe, input.typeId, input.quantity * runs, inventory, visited);
   });
@@ -128,6 +142,7 @@ function resolveNode(
     satisfiedFromInventory: fromInventory,
     blueprintId: bpRecipe.blueprintId,
     facilityName: bpRecipe.facilityName,
+    byproducts,
     children,
   };
 }

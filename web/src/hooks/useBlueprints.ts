@@ -85,9 +85,14 @@ export function useBlueprints() {
       if (outputTypeId == null || seen.has(outputTypeId)) continue;
       seen.add(outputTypeId);
 
+      const secondaryOutputs = bp.outputs.length > 1
+        ? bp.outputs.slice(1).map((o) => ({ typeId: o.typeId, quantity: o.quantity }))
+        : undefined;
+
       recipes.push({
         outputTypeId,
         outputQuantity: bp.outputs[0].quantity,
+        secondaryOutputs,
         inputs: bp.inputs.map((i) => ({ typeId: i.typeId, quantity: i.quantity })),
         runTime: bp.runTime,
       });
@@ -108,9 +113,14 @@ export function useBlueprints() {
       const outputTypeId = bp.outputs[0]?.typeId;
       if (outputTypeId == null) continue;
 
+      const secondaryOutputs = bp.outputs.length > 1
+        ? bp.outputs.slice(1).map((o) => ({ typeId: o.typeId, quantity: o.quantity }))
+        : undefined;
+
       const recipe: BlueprintRecipe = {
         outputTypeId,
         outputQuantity: bp.outputs[0].quantity,
+        secondaryOutputs,
         inputs: bp.inputs.map((i) => ({ typeId: i.typeId, quantity: i.quantity })),
         runTime: bp.runTime,
         blueprintId: bp.blueprintId,

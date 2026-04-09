@@ -96,6 +96,8 @@ export interface InputRequirement {
 export interface RecipeData {
   outputTypeId: number;
   outputQuantity: number;
+  /** Secondary outputs produced alongside the primary (byproducts). */
+  secondaryOutputs?: { typeId: number; quantity: number }[];
   inputs: InputRequirement[];
   runTime: number;
 }
