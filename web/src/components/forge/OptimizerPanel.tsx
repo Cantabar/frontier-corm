@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import styled, { css } from "styled-components";
 import { useOptimizer, type ResolvedNode, type GapAnalysis, type RecipeLookup } from "../../hooks/useOptimizer";
 import type { RecipeData } from "../../lib/types";
-import { type BlueprintRecipe, isSalvageRecipe, SALVAGE_INPUT_TYPE_IDS } from "../../hooks/useBlueprints";
+import { type BlueprintRecipe } from "../../hooks/useBlueprints";
 import type { CraftingStyle } from "../../hooks/useCraftingStyle";
 import { buildByproductIndex, optimizeOreUsage, type OreSummary } from "../../lib/oreOptimizer";
 import { ItemPickerField } from "../shared/ItemPickerField";
@@ -620,15 +620,6 @@ export function OptimizerPanel({
   const effectiveInventory = ssuInventoryEnabled ? aggregatedInventory : emptyInventory;
 
   // Build recipe lookup that respects user's blueprint selections.
-  // Inventory-aware: when no explicit selection exists, prefer a salvage recipe
-  // only if the SSU inventory actually contains salvage materials (so they are
-  // consumed rather than planned). Otherwise fall back to alternatives[0] which
-  // is ore-based (allRecipesMap is pre-sorted: non-salvage first).
-  const hasSalvageInInventory = useMemo(
-    () => Array.from(SALVAGE_INPUT_TYPE_IDS).some((id) => (effectiveInventory.get(id) ?? 0) > 0),
-    [effectiveInventory],
-  );
-
   const recipeLookup = useCallback<RecipeLookup>(
     (typeId: number) => {
       const alternatives = allRecipesMap.get(typeId);
@@ -637,14 +628,9 @@ export function OptimizerPanel({
       if (selectedBp != null) {
         return alternatives.find((r) => r.blueprintId === selectedBp) ?? alternatives[0];
       }
-      // When SSU has salvage materials, prefer the salvage recipe if one exists.
-      if (hasSalvageInInventory) {
-        const salvageAlt = alternatives.find((r) => isSalvageRecipe(r));
-        if (salvageAlt) return salvageAlt;
-      }
       return alternatives[0];
     },
-    [allRecipesMap, selectedRecipes, hasSalvageInInventory],
+    [allRecipesMap, selectedRecipes],
   );
 
   // Run optimization with current settings

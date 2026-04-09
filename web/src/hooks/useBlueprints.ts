@@ -161,15 +161,20 @@ export function useBlueprints(craftingStyle: CraftingStyle = "field") {
    * Multi-output blueprints also generate "reoriented" recipes for their
    * secondary outputs (e.g. Feldspar → Silica Grains) so the optimizer
    * can consider them as alternatives. All candidates are sorted by ore
-   * efficiency before the first-wins dedup, and salvage recipes are
-   * deprioritized.
+   * efficiency before the first-wins dedup.
+   *
+   * Salvage-input blueprints are excluded entirely — salvaged materials
+   * are too scarce to plan around. Refined salvage outputs already in
+   * the SSU will be consumed by the inventory-aware resolver.
    */
   const recipesForOptimizer = useMemo<RecipeData[]>(() => {
     // Build candidate list: primary recipes + reoriented secondary recipes.
+    // Salvage-input blueprints are excluded.
     const candidates: RecipeData[] = [];
     for (const bp of blueprints) {
       const outputTypeId = bp.outputs[0]?.typeId;
       if (outputTypeId == null) continue;
+      if (isSalvageBlueprint(bp)) continue;
 
       const secondaryOutputs = bp.outputs.length > 1
         ? bp.outputs.slice(1).map((o) => ({ typeId: o.typeId, quantity: o.quantity }))
@@ -189,13 +194,8 @@ export function useBlueprints(craftingStyle: CraftingStyle = "field") {
       }
     }
 
-    // Sort: non-salvage first, then by ore efficiency descending.
-    candidates.sort((a, b) => {
-      const aS = isSalvageRecipe(a) ? 1 : 0;
-      const bS = isSalvageRecipe(b) ? 1 : 0;
-      if (aS !== bS) return aS - bS;
-      return oreEfficiency(b) - oreEfficiency(a);
-    });
+    // Sort by ore efficiency descending.
+    candidates.sort((a, b) => oreEfficiency(b) - oreEfficiency(a));
 
     // First-wins dedup by output typeId.
     const seen = new Set<number>();
@@ -221,10 +221,13 @@ export function useBlueprints(craftingStyle: CraftingStyle = "field") {
    * the optimizer choose e.g. Feldspar for Silica Grains instead of being
    * forced into Platinum-Palladium Matrix.
    *
+   * Salvage-input blueprints are excluded entirely — salvaged materials
+   * are too scarce to plan around. Refined salvage outputs already in
+   * the SSU will be consumed by the inventory-aware resolver.
+   *
    * Alternatives are sorted by:
    *   1. Crafting style preference (field-first or base-first)
-   *   2. Ore-based (non-salvage) recipes before salvage-input recipes
-   *   3. Ore efficiency (output per ore unit) descending
+   *   2. Ore efficiency (output per ore unit) descending
    * This ensures the default selection (`alternatives[0]`) matches the
    * player's preferred crafting route with maximum ore efficiency.
    */
@@ -234,6 +237,7 @@ export function useBlueprints(craftingStyle: CraftingStyle = "field") {
     for (const bp of blueprints) {
       const outputTypeId = bp.outputs[0]?.typeId;
       if (outputTypeId == null) continue;
+      if (isSalvageBlueprint(bp)) continue;
 
       const secondaryOutputs = bp.outputs.length > 1
         ? bp.outputs.slice(1).map((o) => ({ typeId: o.typeId, quantity: o.quantity }))
@@ -265,8 +269,7 @@ export function useBlueprints(craftingStyle: CraftingStyle = "field") {
 
     // Sort each output's alternatives:
     //   1. Crafting style (field-first or base-first)
-    //   2. Non-salvage before salvage
-    //   3. Ore efficiency descending (fewer ore units per target output)
+    //   2. Ore efficiency descending (fewer ore units per target output)
     const preferField = craftingStyle === "field";
     for (const [, recipes] of map) {
       if (recipes.length > 1) {
@@ -275,10 +278,6 @@ export function useBlueprints(craftingStyle: CraftingStyle = "field") {
           const aF = isFieldRecipe(a) ? 1 : 0;
           const bF = isFieldRecipe(b) ? 1 : 0;
           if (aF !== bF) return preferField ? bF - aF : aF - bF;
-          // Salvage tiebreak
-          const aS = isSalvageRecipe(a) ? 1 : 0;
-          const bS = isSalvageRecipe(b) ? 1 : 0;
-          if (aS !== bS) return aS - bS;
           // Ore efficiency (higher = better)
           return oreEfficiency(b) - oreEfficiency(a);
         });
