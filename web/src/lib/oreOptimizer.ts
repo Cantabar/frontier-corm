@@ -13,7 +13,11 @@
  *   1. collectRefiningDemands — walk the resolved tree and collect demands
  *      for intermediates produced by multi-output recipes (the refining
  *      boundary), rather than at the raw-ore leaf level.
- *   2. optimizeOreUsage — jointly optimize ore runs:
+ *   2. resolveToRawOre — for each recipe input that is itself produced by
+ *      a multi-output recipe, recursively resolve to the true raw ore.
+ *   3. computeCompoundOutputs — build compound per-ore-run yields across
+ *      the full chain, tracing byproducts through demand-producing recipes.
+ *   4. optimizeOreUsage — jointly optimize ore runs:
  *      Phase 1 (forced ores): ores that are the sole source for an
  *        intermediate are forced; compute minimum runs.
  *      Phase 2 (surplus propagation): credit all outputs from forced
@@ -180,6 +184,187 @@ function _walkRefining(
 }
 
 /* ------------------------------------------------------------------ */
+/* Multi-level chain resolution                                        */
+/* ------------------------------------------------------------------ */
+
+/** Result of resolving a multi-output recipe chain to its raw ore source. */
+export interface ChainResolution {
+  /** The true raw ore typeId at the bottom of the chain. */
+  rawOreTypeId: number;
+  /** Ore units consumed per run of the bottom recipe. */
+  rawInputPerRun: number;
+  /**
+   * Recipes from bottom (raw ore → first intermediate) to top
+   * (last intermediate → the resolved intermediate).
+   */
+  chain: RecipeData[];
+}
+
+/**
+ * Recursively resolve an intermediate to its raw ore source by following
+ * primary-output recipes in the byproductIndex.
+ *
+ * Returns null if `typeId` is not the primary output of any multi-output
+ * recipe (i.e. it is already a raw ore or only appears as a byproduct).
+ */
+export function resolveToRawOre(
+  typeId: number,
+  byproductIndex: Map<number, RefiningSource[]>,
+  visited?: Set<number>,
+): ChainResolution | null {
+  const v = visited ?? new Set<number>();
+
+  const sources = byproductIndex.get(typeId);
+  if (!sources) return null;
+
+  // Only follow the recipe where typeId is the PRIMARY output.
+  const primarySource = sources.find((s) => s.recipe.outputTypeId === typeId);
+  if (!primarySource) return null;
+
+  const recipe = primarySource.recipe;
+  const inputTypeId = recipe.inputs[0]?.typeId;
+  if (inputTypeId == null || v.has(typeId)) return null;
+
+  v.add(typeId);
+  const deeper = resolveToRawOre(inputTypeId, byproductIndex, v);
+  v.delete(typeId);
+
+  if (deeper) {
+    return {
+      rawOreTypeId: deeper.rawOreTypeId,
+      rawInputPerRun: deeper.rawInputPerRun,
+      chain: [...deeper.chain, recipe],
+    };
+  }
+
+  // If the recursive call returned null but inputTypeId has a primary-output
+  // recipe, the null was caused by a cycle — propagate it.
+  const inputSources = byproductIndex.get(inputTypeId);
+  if (inputSources?.some((s) => s.recipe.outputTypeId === inputTypeId)) {
+    return null;
+  }
+
+  return {
+    rawOreTypeId: inputTypeId,
+    rawInputPerRun: recipe.inputs[0].quantity,
+    chain: [recipe],
+  };
+}
+
+/**
+ * Build a map from recipe-input typeIds to the demand-producing recipes
+ * that consume them.  Used for byproduct-to-demand tracing.
+ */
+export function buildIntermediateInputMap(
+  demand: ReadonlyMap<number, number>,
+  byproductIndex: Map<number, RefiningSource[]>,
+): Map<number, { recipe: RecipeData }[]> {
+  const map = new Map<number, { recipe: RecipeData }[]>();
+
+  for (const [demandTypeId] of demand) {
+    const sources = byproductIndex.get(demandTypeId);
+    if (!sources) continue;
+    for (const source of sources) {
+      const inputTypeId = source.recipe.inputs[0]?.typeId;
+      if (inputTypeId == null) continue;
+      const list = map.get(inputTypeId) ?? [];
+      if (!list.some((e) => e.recipe === source.recipe)) {
+        list.push({ recipe: source.recipe });
+      }
+      map.set(inputTypeId, list);
+    }
+  }
+
+  return map;
+}
+
+/**
+ * Compute compound outputs per raw-ore run for a (possibly multi-level)
+ * refining chain, including byproduct-to-demand tracing.
+ *
+ * For multi-level chains the yield of each intermediate is cascaded through
+ * successive recipe ratios.  Byproducts at each level that are not consumed
+ * by the next recipe are traced: if a byproduct is the input to a
+ * demand-producing recipe, the final demanded output (and its secondaries)
+ * replace the raw byproduct in the output set.
+ */
+export function computeCompoundOutputs(
+  topRecipe: RecipeData,
+  resolution: ChainResolution | null,
+  intermediateInputMap: Map<number, { recipe: RecipeData }[]>,
+  demand: ReadonlyMap<number, number>,
+): { typeId: number; quantityPerRun: number }[] {
+  // ── Compute raw outputs per ore-run through the recipe chain ──
+  const rawOutputs = new Map<number, number>();
+
+  if (!resolution) {
+    // Single-level: outputs are the topRecipe's outputs directly.
+    rawOutputs.set(topRecipe.outputTypeId, topRecipe.outputQuantity);
+    for (const so of topRecipe.secondaryOutputs ?? []) {
+      rawOutputs.set(so.typeId, (rawOutputs.get(so.typeId) ?? 0) + so.quantity);
+    }
+  } else {
+    // Multi-level: process chain + topRecipe from bottom to top.
+    const allRecipes = [...resolution.chain, topRecipe];
+    let scaleFactor = 1;
+
+    for (let i = 0; i < allRecipes.length; i++) {
+      const recipe = allRecipes[i];
+      const outputs = [
+        { typeId: recipe.outputTypeId, qty: recipe.outputQuantity * scaleFactor },
+        ...(recipe.secondaryOutputs ?? []).map((so) => ({
+          typeId: so.typeId,
+          qty: so.quantity * scaleFactor,
+        })),
+      ];
+
+      for (const { typeId, qty } of outputs) {
+        // If this output feeds the next recipe in the chain, consume it.
+        if (i + 1 < allRecipes.length && typeId === allRecipes[i + 1].inputs[0]?.typeId) {
+          scaleFactor = qty / allRecipes[i + 1].inputs[0].quantity;
+        } else {
+          rawOutputs.set(typeId, (rawOutputs.get(typeId) ?? 0) + qty);
+        }
+      }
+    }
+  }
+
+  // ── Byproduct-to-demand tracing ──
+  const traced = new Map<number, number>();
+  for (const [typeId, qty] of rawOutputs) {
+    // Outputs that are already demanded stay as-is.
+    if (demand.has(typeId)) {
+      traced.set(typeId, (traced.get(typeId) ?? 0) + qty);
+      continue;
+    }
+
+    // Check if this byproduct feeds into a demand-producing recipe.
+    const consumers = intermediateInputMap.get(typeId);
+    if (consumers && consumers.length > 0) {
+      const { recipe } = consumers[0];
+      const inputPerRun = recipe.inputs[0]?.quantity ?? 1;
+      const runs = qty / inputPerRun;
+      // Add all outputs of the consuming recipe.
+      traced.set(
+        recipe.outputTypeId,
+        (traced.get(recipe.outputTypeId) ?? 0) + recipe.outputQuantity * runs,
+      );
+      for (const so of recipe.secondaryOutputs ?? []) {
+        traced.set(so.typeId, (traced.get(so.typeId) ?? 0) + so.quantity * runs);
+      }
+    } else {
+      // Not traceable to any demand — keep the raw byproduct.
+      traced.set(typeId, (traced.get(typeId) ?? 0) + qty);
+    }
+  }
+
+  return Array.from(traced.entries()).map(([typeId, quantityPerRun]) => ({
+    typeId,
+    quantityPerRun,
+  }));
+}
+
+/* ------------------------------------------------------------------ */
 /* Joint cross-ore optimization                                        */
 /* ------------------------------------------------------------------ */
 
@@ -218,37 +403,59 @@ export function optimizeOreUsage(
     return { entries: [], totalOreUnits: 0, unoptimized: nonRefiningLeaves };
   }
 
-  // ── Build ore models ──
+  // ── Build ore models (with multi-level chain resolution) ──
   const oreModels = new Map<number, OreModel>();
-  const intermediateToOres = new Map<number, number[]>();
+  const intermediateInputMap = buildIntermediateInputMap(demand, byproductIndex);
 
   for (const [typeId] of demand) {
     const sources = byproductIndex.get(typeId);
     if (!sources) continue;
 
     for (const source of sources) {
-      const oreTypeId = source.recipe.inputs[0]?.typeId;
-      if (oreTypeId == null) continue;
+      const directInputTypeId = source.recipe.inputs[0]?.typeId;
+      if (directInputTypeId == null) continue;
 
-      if (!oreModels.has(oreTypeId)) {
-        oreModels.set(oreTypeId, {
-          recipe: source.recipe,
-          oreTypeId,
-          inputPerRun: source.recipe.inputs[0].quantity,
-          outputs: [
-            { typeId: source.recipe.outputTypeId, quantityPerRun: source.recipe.outputQuantity },
-            ...(source.recipe.secondaryOutputs ?? []).map((so) => ({
-              typeId: so.typeId,
-              quantityPerRun: so.quantity,
-            })),
-          ],
+      // Resolve through multi-output recipe chains to find the true raw ore.
+      const resolution = resolveToRawOre(directInputTypeId, byproductIndex);
+      const rawOreTypeId = resolution ? resolution.rawOreTypeId : directInputTypeId;
+      const rawInputPerRun = resolution
+        ? resolution.rawInputPerRun
+        : source.recipe.inputs[0].quantity;
+      const bottomRecipe = resolution ? resolution.chain[0] : source.recipe;
+
+      if (!oreModels.has(rawOreTypeId)) {
+        oreModels.set(rawOreTypeId, {
+          recipe: bottomRecipe,
+          oreTypeId: rawOreTypeId,
+          inputPerRun: rawInputPerRun,
+          outputs: computeCompoundOutputs(source.recipe, resolution, intermediateInputMap, demand),
           runs: 0,
         });
+      } else {
+        // Same raw ore reached from a different demand — merge new outputs.
+        const existing = oreModels.get(rawOreTypeId)!;
+        const newOutputs = computeCompoundOutputs(
+          source.recipe, resolution, intermediateInputMap, demand,
+        );
+        for (const out of newOutputs) {
+          if (!existing.outputs.some((o) => o.typeId === out.typeId)) {
+            existing.outputs.push(out);
+          }
+        }
       }
+    }
+  }
 
-      const ores = intermediateToOres.get(typeId) ?? [];
-      if (!ores.includes(oreTypeId)) ores.push(oreTypeId);
-      intermediateToOres.set(typeId, ores);
+  // Build intermediateToOres from ore model output sets so that cross-chain
+  // byproduct connections are captured (e.g. FC produces both FCS and Tholin).
+  const intermediateToOres = new Map<number, number[]>();
+  for (const [rawOreId, model] of oreModels) {
+    for (const out of model.outputs) {
+      if (demand.has(out.typeId)) {
+        const ores = intermediateToOres.get(out.typeId) ?? [];
+        if (!ores.includes(rawOreId)) ores.push(rawOreId);
+        intermediateToOres.set(out.typeId, ores);
+      }
     }
   }
 
