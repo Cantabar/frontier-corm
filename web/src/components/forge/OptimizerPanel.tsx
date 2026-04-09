@@ -3,6 +3,7 @@ import styled, { css } from "styled-components";
 import { useOptimizer, type ResolvedNode, type GapAnalysis, type RecipeLookup } from "../../hooks/useOptimizer";
 import type { RecipeData } from "../../lib/types";
 import { type BlueprintRecipe, isSalvageRecipe, SALVAGE_INPUT_TYPE_IDS } from "../../hooks/useBlueprints";
+import type { CraftingStyle } from "../../hooks/useCraftingStyle";
 import { buildByproductIndex, optimizeOreUsage, type OreSummary } from "../../lib/oreOptimizer";
 import { ItemPickerField } from "../shared/ItemPickerField";
 import { PrimaryButton, SecondaryButton } from "../shared/Button";
@@ -545,10 +546,14 @@ export function OptimizerPanel({
   recipes,
   initialTarget,
   allRecipesMap,
+  craftingStyle,
+  onCraftingStyleChange,
 }: {
   recipes: RecipeData[];
   initialTarget?: number | null;
   allRecipesMap: Map<number, BlueprintRecipe[]>;
+  craftingStyle: CraftingStyle;
+  onCraftingStyleChange: (style: CraftingStyle) => void;
 }) {
   const { result, optimize, clear } = useOptimizer(recipes);
   const { getItem } = useItems();
@@ -729,6 +734,29 @@ export function OptimizerPanel({
             Clear
           </SecondaryButton>
         )}
+      </Row>
+
+      {/* Crafting style selector */}
+      <Row>
+        <span style={{ fontSize: 12, color: "var(--color-text-muted, #888)", marginRight: 4 }}>Crafting Route:</span>
+        <ModeToggle
+          $active={craftingStyle === "field"}
+          onClick={() => {
+            onCraftingStyleChange("field");
+            setSelectedRecipes(new Map());
+          }}
+        >
+          ⛺ Field
+        </ModeToggle>
+        <ModeToggle
+          $active={craftingStyle === "base"}
+          onClick={() => {
+            onCraftingStyleChange("base");
+            setSelectedRecipes(new Map());
+          }}
+        >
+          🏭 Base
+        </ModeToggle>
       </Row>
 
       <SsuInventoryToggle

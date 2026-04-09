@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import type { RecipeData } from "../lib/types";
+import type { CraftingStyle } from "./useCraftingStyle";
 
 /* ── Salvage classification ──────────────────────────────────── */
 
@@ -14,6 +15,20 @@ export function isSalvageBlueprint(bp: BlueprintEntry): boolean {
 /** True when any of a recipe's inputs are salvage items. */
 export function isSalvageRecipe(recipe: RecipeData): boolean {
   return recipe.inputs.some((i) => SALVAGE_INPUT_TYPE_IDS.has(i.typeId));
+}
+
+/* ── Field / Base facility classification ────────────────────── */
+
+const FIELD_FACILITY_NAMES = new Set(["Field Refinery", "Field Printer"]);
+
+/** True when the facility name is a field-class facility. */
+export function isFieldFacility(facilityName: string): boolean {
+  return FIELD_FACILITY_NAMES.has(facilityName);
+}
+
+/** True when a BlueprintRecipe uses a field-class facility. */
+export function isFieldRecipe(recipe: BlueprintRecipe): boolean {
+  return isFieldFacility(recipe.facilityName);
 }
 
 export interface BlueprintOutput {
@@ -71,7 +86,7 @@ function fetchBlueprints(): Promise<BlueprintEntry[]> {
   return cachePromise;
 }
 
-export function useBlueprints() {
+export function useBlueprints(craftingStyle: CraftingStyle = "field") {
   const [blueprints, setBlueprints] = useState<BlueprintEntry[]>(cache ?? []);
 
   useEffect(() => {
@@ -131,9 +146,11 @@ export function useBlueprints() {
    * Used by the optimizer to let the player pick a specific blueprint/facility
    * at each node in the dependency tree.
    *
-   * Alternatives are sorted so ore-based (non-salvage) recipes come first;
-   * salvage-input recipes are pushed to the end. This ensures the default
-   * selection (`alternatives[0]`) prefers ore.
+   * Alternatives are sorted by:
+   *   1. Crafting style preference (field-first or base-first)
+   *   2. Ore-based (non-salvage) recipes before salvage-input recipes
+   * This ensures the default selection (`alternatives[0]`) matches the
+   * player's preferred crafting route.
    */
   const allRecipesMap = useMemo<Map<number, BlueprintRecipe[]>>(() => {
     const map = new Map<number, BlueprintRecipe[]>();
@@ -162,10 +179,18 @@ export function useBlueprints() {
       else map.set(outputTypeId, [recipe]);
     }
 
-    // Sort each output's alternatives: non-salvage first, salvage last.
+    // Sort each output's alternatives:
+    //   Primary: crafting style (field-first or base-first)
+    //   Secondary: non-salvage before salvage
+    const preferField = craftingStyle === "field";
     for (const [, recipes] of map) {
       if (recipes.length > 1) {
         recipes.sort((a, b) => {
+          // Field/base preference (only meaningful when one is field and the other isn't)
+          const aF = isFieldRecipe(a) ? 1 : 0;
+          const bF = isFieldRecipe(b) ? 1 : 0;
+          if (aF !== bF) return preferField ? bF - aF : aF - bF;
+          // Salvage tiebreak
           const aS = isSalvageRecipe(a) ? 1 : 0;
           const bS = isSalvageRecipe(b) ? 1 : 0;
           return aS - bS;
@@ -174,7 +199,7 @@ export function useBlueprints() {
     }
 
     return map;
-  }, [blueprints]);
+  }, [blueprints, craftingStyle]);
 
   return { blueprints, getBlueprint, recipesForOptimizer, allRecipesMap };
 }

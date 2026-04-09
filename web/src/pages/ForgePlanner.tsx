@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import styled from "styled-components";
 import { useIdentity } from "../hooks/useIdentity";
 import { useBlueprints } from "../hooks/useBlueprints";
+import { useCraftingStyle } from "../hooks/useCraftingStyle";
 import { useActiveMultiInputContracts, useMultiInputContractObject } from "../hooks/useMultiInputContracts";
 import { canViewContract } from "../lib/contractVisibility";
 import { BlueprintBrowser } from "../components/forge/BlueprintBrowser";
@@ -112,8 +113,9 @@ function ContractCardWithLiveState({
 
 export function ForgePlanner() {
   const { characterId, inGameTribeId } = useIdentity();
+  const { craftingStyle, setCraftingStyle } = useCraftingStyle();
 
-  const { blueprints, recipesForOptimizer, allRecipesMap } = useBlueprints();
+  const { blueprints, recipesForOptimizer, allRecipesMap } = useBlueprints(craftingStyle);
   const { contracts: allContracts, isLoading: contractsLoading } = useActiveMultiInputContracts();
   const contracts = allContracts.filter((c) => canViewContract(c, { characterId, inGameTribeId }));
 
@@ -159,6 +161,8 @@ export function ForgePlanner() {
             recipes={recipesForOptimizer}
             initialTarget={optimizerTarget}
             allRecipesMap={allRecipesMap}
+            craftingStyle={craftingStyle}
+            onCraftingStyleChange={setCraftingStyle}
           />
           <BuildQueuePanel onResolveItem={handleResolveFromQueue} />
         </PlannerGrid>
