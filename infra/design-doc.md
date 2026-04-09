@@ -2,7 +2,7 @@
 
 ## Overview
 
-The infra directory contains the AWS CDK stack that provisions all cloud infrastructure for Frontier Corm. A single parameterized stack supports multiple game-world environments (utopia, stillness), each with isolated resources sharing the same architecture.
+The infra directory contains the AWS CDK stacks that provision all cloud infrastructure for Frontier Corm. A full-stack parameterized stack (`FrontierCormStack`) supports multiple game-world environments (utopia, stillness), each with isolated resources sharing the same architecture. A lightweight frontend-only stack (`FrontierCormFrontendStack`) supports environments that reuse an existing backend — deploying only S3, CloudFront, Route 53, and an ACM certificate.
 
 ## Architecture
 
@@ -44,10 +44,11 @@ ACM Certificate: ef-corm.com + *.ef-corm.com (DNS-validated via Route 53)
 - **Other environments:** `{env}.ef-corm.com` + `api.{env}.ef-corm.com` + `continuity-engine.{env}.ef-corm.com`
 - **Continuity Engine subdomain:** dedicated `continuity-engine.{env}.ef-corm.com` A record → ALB. Used by the SPA iframe, corm-brain WebSocket connections, and direct browser access. A host-header ALB rule routes all traffic on this domain to the continuity-engine target group (priority 5), so the Go service handles all paths including the root `/` redirect.
 - **ACM certificate:** covers `ef-corm.com` + `*.ef-corm.com`, DNS-validated via Route 53
+- **Frontend-only environments:** `post-hackathon.stillness.ef-corm.com` — S3 + CloudFront only, proxies `/api/v1/*` and `/zk/*` to `api.ef-corm.com` (Stillness ALB). Uses its own ACM cert (the wildcard `*.ef-corm.com` does not cover two-level-deep subdomains).
 
 ### Resource Naming
 
-All resources are prefixed with `fc-{env}` (e.g. `fc-utopia`, `fc-stillness`). CDK stack names follow `FrontierCorm{Env}` (e.g. `FrontierCormUtopia`).
+All resources are prefixed with `fc-{env}` (e.g. `fc-utopia`, `fc-stillness`, `fc-post-hackathon`). Full-stack CDK stack names follow `FrontierCorm{Env}` (e.g. `FrontierCormUtopia`). Frontend-only stacks use explicit names defined in `bin/app.ts` (e.g. `FrontierCormPostHackathonStack`).
 
 ### Network Layout
 
@@ -79,9 +80,11 @@ All resources are prefixed with `fc-{env}` (e.g. `fc-utopia`, `fc-stillness`). C
 
 ### CDK Context Parameters
 
-- `appEnv` — environment name: `utopia` (default) or `stillness`
+- `appEnv` — environment name: `utopia` (default), `stillness`, or `post-hackathon` (frontend-only)
 - `suiNetwork` — Sui network: `testnet` (default) or `mainnet`
 - `cormStatePackageId` — deployed corm_state Sui package ID (default empty; when set, disables `SEED_CHAIN_DATA`)
+
+Frontend-only stacks (`FrontierCormFrontendStack`) receive `frontendDomain` and `apiBackendDomain` as stack props from `bin/app.ts`. These values are defined in the `frontendOnlyEnvs` config map and are not passed via CLI context.
 
 ### Makefile Targets
 
@@ -96,6 +99,8 @@ All resources are prefixed with `fc-{env}` (e.g. `fc-utopia`, `fc-stillness`). C
 - `make logs-indexer ENV=utopia` — tail indexer CloudWatch logs
 - `make logs-continuity ENV=utopia` — tail continuity-engine CloudWatch logs
 - `make dashboard ENV=utopia` — print CloudWatch dashboard URL
+- `make deploy-post-hackathon` — deploy post-hackathon frontend-only (infra + frontend, no images)
+- `make teardown-post-hackathon` — destroy post-hackathon AWS resources
 
 ### Stack Outputs
 
@@ -124,6 +129,7 @@ No application data — this service provisions infrastructure only. Database sc
 ## Features
 
 - Single parameterized CDK stack supporting multiple game-world environments (utopia, stillness)
+- Lightweight frontend-only CDK stack (`FrontierCormFrontendStack`) for environments that reuse an existing backend (S3, CloudFront, Route 53, ACM cert only — no VPC/ECS/RDS). Used by `post-hackathon` environment.
 - VPC with 2-AZ layout, NAT gateway, public/private subnet isolation
 - ECS Fargate with 512 CPU / 1024 MB per task (indexer + continuity-engine)
 - RDS Postgres 16 (t4g.micro, gp3 20GB, single-AZ)

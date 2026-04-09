@@ -27,6 +27,7 @@
         infra-init deploy-env deploy-infra deploy-images deploy-frontend teardown \
         ecr-login deploy-indexer deploy-continuity \
         deploy-utopia deploy-stillness \
+        deploy-post-hackathon teardown-post-hackathon \
         publish-contracts publish-utopia publish-stillness \
         upgrade-contracts upgrade-utopia-contracts upgrade-stillness-contracts \
         build clean enrich-items seed-ores zk-build zk-clean \
@@ -41,11 +42,15 @@ export AWS_PROFILE
 
 # ENV selects the game-world environment: utopia (default) or stillness.
 # Each environment gets its own CDK stack, contracts, and frontend build.
+# Frontend-only environments (e.g. post-hackathon) share a backend.
 ENV ?= utopia
 
 # Derive the CDK stack name from ENV (e.g. FrontierCormUtopia)
 ENV_TITLE := $(shell echo '$(ENV)' | sed 's/./\U&/')
 STACK_NAME := FrontierCorm$(ENV_TITLE)
+
+# Frontend-only stack names (non-standard naming, override STACK_NAME)
+POST_HACKATHON_STACK := FrontierCormPostHackathonStack
 
 # Resolve values from CDK outputs (cached after first deploy)
 define get_output
@@ -186,6 +191,22 @@ deploy-utopia: ## Deploy everything for Utopia
 
 deploy-stillness: ## Deploy everything for Stillness
 	$(MAKE) deploy-env ENV=stillness
+
+deploy-post-hackathon: ## Deploy post-hackathon (frontend-only, reuses Stillness backend)
+	@test -f .env.post-hackathon || (echo "No .env.post-hackathon found." && exit 1)
+	@echo "=== Deploying post-hackathon (frontend-only) ==="
+	$(MAKE) deploy-infra ENV=post-hackathon STACK_NAME=$(POST_HACKATHON_STACK)
+	$(MAKE) deploy-frontend ENV=post-hackathon STACK_NAME=$(POST_HACKATHON_STACK)
+	@echo ""
+	@echo "=== post-hackathon Deployment Complete ==="
+	@echo "  Frontend: https://post-hackathon.stillness.ef-corm.com"
+	@echo ""
+
+teardown-post-hackathon: ## Destroy post-hackathon AWS resources
+	@echo "This will destroy ALL post-hackathon AWS resources (stack: $(POST_HACKATHON_STACK))."
+	@read -p "Type 'yes' to confirm: " confirm && [ "$$confirm" = "yes" ] || exit 1
+	cd infra && npx cdk destroy $(POST_HACKATHON_STACK) --force -c appEnv=post-hackathon
+	@echo "$(POST_HACKATHON_STACK) resources destroyed."
 
 teardown: ## Destroy all AWS resources for ENV
 	@echo "This will destroy ALL Frontier Corm $(ENV) AWS resources (stack: $(STACK_NAME))."

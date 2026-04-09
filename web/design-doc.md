@@ -97,7 +97,7 @@ Client-side privacy-preserving location sharing with ZK proof generation. The se
 ## Tech Stack
 
 - **Framework:** React 18 + TypeScript
-- **Build:** Vite (multi-mode: `--mode localnet|utopia|stillness`)
+- **Build:** Vite (multi-mode: `--mode localnet|utopia|stillness|post-hackathon`)
 - **Routing:** react-router-dom v6
 - **Styling:** styled-components + theme provider
 - **Data Fetching:** @tanstack/react-query
@@ -130,19 +130,21 @@ All via Vite environment variables (`VITE_*`), resolved in `src/config.ts`:
 - `VITE_CORM_STATE_ID` — CormState shared object ID
 - `VITE_CORM_CONFIG_ID` — CormConfig shared object ID (for permissionless corm installation)
 
-Per-environment defaults are defined in `config.ts` and overridden by explicit `VITE_*` vars. Environment files: `.env.localnet`, `.env.utopia`, `.env.stillness`. Package IDs and shared object IDs are auto-populated by `scripts/publish-contracts.sh`; any package left at `0x0` will trigger an "Unconfigured Packages" warning on page load.
+Per-environment defaults are defined in `config.ts` and overridden by explicit `VITE_*` vars. Environment files: `.env.localnet`, `.env.utopia`, `.env.stillness`, `.env.post-hackathon`. Package IDs and shared object IDs are auto-populated by `scripts/publish-contracts.sh`; any package left at `0x0` will trigger an "Unconfigured Packages" warning on page load.
 **original-id vs published-at (upgrades):** After a Sui package upgrade, struct types (events, objects, coins) remain anchored to the **original** defining package address, not the new `published-at` address. `config.packages.*` contains `published-at` values (for function call targets). `config.originalIds.*` contains `original-id` values (for event queries, type arguments, and `VITE_CORM_COIN_TYPE`). When `VITE_*_ORIGINAL_ID` is unset, `originalIds` falls back to the corresponding `packages.*` value, which is correct for packages that have never been upgraded.
 **CormConfig and package identity:** The `CormConfig` shared object is typed to the **original** `corm_state` package address. On upgrade (not republish), CormConfig remains valid because the type identity is preserved. On a full **republish** (new package IDs), the existing `CormConfig` becomes stale — the `install` function on the new package expects its own `CormConfig` type, causing a `TypeMismatch` error. After a republish, `CormConfig` must be recreated via `create_config` on the new package and `VITE_CORM_CONFIG_ID` updated. The publish script handles this automatically, but if it fails (for example, missing `CormAdminCap` or brain address), the config ID must be updated manually.
 
 **Stillness deployment status:** All contract package IDs are configured in `web/.env.stillness` and deployed to https://ef-corm.com via S3 + CloudFront.
+
+**Post-hackathon deployment:** A frontend-only deployment at `https://post-hackathon.stillness.ef-corm.com` that reuses the Stillness backend (indexer, contracts, continuity-engine). Built with `--mode post-hackathon` using `web/.env.post-hackathon` (which sets `VITE_APP_ENV=stillness` so the app uses Stillness defaults). CloudFront proxies `/api/v1/*` and `/zk/*` to `api.ef-corm.com` and `/sui-rpc` to the Sui fullnode. Deploy: `make deploy-post-hackathon`.
 
 ## Deployment
 
 - **Local (localnet):** `npm run dev` via `mprocs.yaml` (Vite dev server on :5173, proxies `/api` → indexer)
 - **Local (testnet):** `make local-stillness` runs `mprocs.stillness.yaml` — Vite in `--mode stillness` with env overrides pointing indexer and CE URLs to localhost. Uses all testnet package IDs from `web/.env.stillness` but routes `/api` and `/puzzle` through the Vite proxy to local services.
 - **Production:** Static build deployed to S3 behind CloudFront
-  - Build: `npm run build -- --mode utopia|stillness`
-  - Deploy: `make deploy-frontend ENV=utopia|stillness` (S3 sync + CloudFront invalidation)
+  - Build: `npm run build -- --mode utopia|stillness|post-hackathon`
+  - Deploy: `make deploy-frontend ENV=utopia|stillness` or `make deploy-post-hackathon` (S3 sync + CloudFront invalidation)
   - SPA routing: CloudFront 404 → `/index.html`
   - Sui RPC proxy: CloudFront routes `/sui-rpc` → `fullnode.{net}.sui.io/` (same-origin, no CORS issues)
   - Indexer API proxy: CloudFront routes `/api/v1/*` → `api.{env}.ef-corm.com` (same-origin, no CORS issues)
