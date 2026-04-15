@@ -6,6 +6,7 @@ import { useIdentity } from "../../hooks/useIdentity";
 import { useMyStructures } from "../../hooks/useStructures";
 import { useStructureStates } from "../../hooks/useStructureStates";
 import { useAggregatedSsuInventory } from "../../hooks/useAggregatedSsuInventory";
+import { useForgePlannerStorage } from "../../hooks/useForgePlannerStorage";
 import { buildCanvasLayout } from "../../lib/buildCanvasLayout";
 import type { BlueprintEntry, BlueprintRecipe } from "../../hooks/useBlueprints";
 import type { RecipeData } from "../../lib/types";
@@ -447,9 +448,12 @@ export function BuildCanvasView({
   const structures = structuresProp ?? ownStructures;
   const structuresLoading = structuresLoadingProp ?? ownStructuresLoading;
 
-  // Selected blueprint and quantity
-  const [selectedTypeId, setSelectedTypeId] = useState<number | null>(null);
-  const [quantity, setQuantity] = useState("1");
+  // Persistent storage — restores last session state from localStorage.
+  const storage = useForgePlannerStorage();
+
+  // Selected blueprint and quantity — restored from last session.
+  const [selectedTypeId, setSelectedTypeId] = useState<number | null>(storage.initial.selectedTypeId);
+  const [quantity, setQuantity] = useState(storage.initial.quantity);
 
   // Panel state
   const [openPanel, setOpenPanel] = useState<PanelId | null>(null);
@@ -459,15 +463,19 @@ export function BuildCanvasView({
     setOpenPanel((prev) => (prev === id ? null : id));
   }
 
-  // Network node selection + structure availability states
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  // Network node selection — restored from last session.
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(storage.initial.selectedNodeId);
+
+  // Structure availability states — overrides restored per node via storage callbacks.
   const { structureStates, facilityTypes, setOverride } = useStructureStates(
     selectedNodeId,
     structures,
     blueprints,
+    storage.persistOverrides,
+    storage.getOverridesForNode,
   );
 
-  // SSU inventory toggles (node-scoped)
+  // SSU inventory toggles (node-scoped) — restored per node in the effect below.
   const [ssuInventoryEnabled, setSsuInventoryEnabled] = useState(false);
   const [selectedSsuIds, setSelectedSsuIds] = useState<Set<string>>(new Set());
 
@@ -480,10 +488,18 @@ export function BuildCanvasView({
     [structures, selectedNodeId],
   );
 
-  // Reset SSU selection when the network node changes
+  // Restore per-node SSU state when the network node changes (also runs on mount).
   useEffect(() => {
-    setSelectedSsuIds(new Set());
-    setSsuInventoryEnabled(false);
+    if (!selectedNodeId) {
+      setSelectedSsuIds(new Set());
+      setSsuInventoryEnabled(false);
+      return;
+    }
+    const stored = storage.getSsuForNode(selectedNodeId);
+    setSelectedSsuIds(new Set(stored?.ids ?? []));
+    setSsuInventoryEnabled(stored?.enabled ?? false);
+    // storage.getSsuForNode reads from a ref — stable identity via useCallback([])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedNodeId]);
 
   const selectedSsuObjects = useMemo(
@@ -533,6 +549,7 @@ export function BuildCanvasView({
 
   function handleResolve(outputTypeId: number) {
     setSelectedTypeId(outputTypeId);
+    storage.persistBlueprint(outputTypeId, quantity);
     setShowBrowser(false);
     const qty = Math.max(1, parseInt(quantity, 10) || 1);
     optimize(outputTypeId, qty, effectiveInventory, recipeLookup);
@@ -540,10 +557,26 @@ export function BuildCanvasView({
 
   function handleQuantityChange(value: string) {
     setQuantity(value);
+    storage.persistBlueprint(selectedTypeId, value);
     if (selectedTypeId != null) {
       const qty = Math.max(1, parseInt(value, 10) || 1);
       optimize(selectedTypeId, qty, effectiveInventory, recipeLookup);
     }
+  }
+
+  function handleNodeChange(nodeId: string | null) {
+    setSelectedNodeId(nodeId);
+    storage.persistNodeId(nodeId);
+  }
+
+  function handleSsuEnabledChange(enabled: boolean) {
+    setSsuInventoryEnabled(enabled);
+    if (selectedNodeId) storage.persistSsuState(selectedNodeId, enabled, selectedSsuIds);
+  }
+
+  function handleSsuIdsChange(ids: Set<string>) {
+    setSelectedSsuIds(ids);
+    if (selectedNodeId) storage.persistSsuState(selectedNodeId, ssuInventoryEnabled, ids);
   }
 
   // Build canvas layout from optimizer result
@@ -704,7 +737,7 @@ export function BuildCanvasView({
             <NetworkNodeSelector
               structures={structures}
               selectedNodeId={selectedNodeId}
-              onSelect={setSelectedNodeId}
+              onSelect={handleNodeChange}
               isLoading={structuresLoading}
               walletConnected={!!address}
             />
@@ -720,9 +753,9 @@ export function BuildCanvasView({
               <SsuInventoryToggle
                 ssus={nodeSSUs}
                 enabled={ssuInventoryEnabled}
-                onToggle={setSsuInventoryEnabled}
+                onToggle={handleSsuEnabledChange}
                 selectedIds={selectedSsuIds}
-                onSelectionChange={setSelectedSsuIds}
+                onSelectionChange={handleSsuIdsChange}
                 isLoadingStructures={structuresLoading}
                 isLoadingInventory={inventoryLoading}
                 uniqueTypeCount={uniqueTypeCount}

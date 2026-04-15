@@ -22,6 +22,8 @@ export function useStructureStates(
   selectedNodeId: string | null,
   structures: AssemblyData[],
   blueprints: BlueprintEntry[],
+  persistOverrides?: (nodeId: string, overrides: Map<number, StructureState>) => void,
+  getStoredOverrides?: (nodeId: string) => [number, StructureState][] | undefined,
 ): {
   /** Effective state per facilityTypeId (on-chain defaults merged with overrides). */
   structureStates: Map<number, StructureState>;
@@ -34,11 +36,22 @@ export function useStructureStates(
   /** Unique facility types that appear across all blueprints. */
   facilityTypes: Array<{ facilityTypeId: number; facilityName: string }>;
 } {
-  const [overrides, setOverrides] = useState<Map<number, StructureState>>(new Map());
+  const [overrides, setOverrides] = useState<Map<number, StructureState>>(() => {
+    if (!selectedNodeId || !getStoredOverrides) return new Map();
+    const stored = getStoredOverrides(selectedNodeId);
+    return stored ? new Map(stored) : new Map();
+  });
 
-  // Reset overrides whenever the selected node changes.
+  // Restore stored overrides whenever the selected node changes.
   useEffect(() => {
-    setOverrides(new Map());
+    if (!selectedNodeId) {
+      setOverrides(new Map());
+      return;
+    }
+    const stored = getStoredOverrides?.(selectedNodeId);
+    setOverrides(stored ? new Map(stored) : new Map());
+    // getStoredOverrides reads from a ref — stable identity via useCallback([])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedNodeId]);
 
   // Derive unique facility types from all blueprints.
@@ -91,12 +104,15 @@ export function useStructureStates(
     setOverrides((prev) => {
       const next = new Map(prev);
       next.set(facilityTypeId, state);
+      if (selectedNodeId) persistOverrides?.(selectedNodeId, next);
       return next;
     });
   }
 
   function resetOverrides() {
-    setOverrides(new Map());
+    const empty = new Map<number, StructureState>();
+    setOverrides(empty);
+    if (selectedNodeId) persistOverrides?.(selectedNodeId, empty);
   }
 
   return { structureStates, overrides, setOverride, resetOverrides, facilityTypes };
