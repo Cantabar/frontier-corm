@@ -84,8 +84,8 @@ const Hint = styled.div`
 
 const QuickPickRow = styled.div`
   display: flex;
-  align-items: center;
-  gap: ${({ theme }) => theme.spacing.sm};
+  flex-direction: column;
+  gap: ${({ theme }) => theme.spacing.xs};
   padding-left: ${({ theme }) => theme.spacing.md};
   margin-bottom: ${({ theme }) => theme.spacing.sm};
 `;
@@ -240,7 +240,7 @@ export function SsuInventoryToggle({
                       checked={isChecked}
                       onChange={() => toggleSsu(ssu.id)}
                     />
-                    {label} — <CopyableId id={ssu.id} startLen={8} endLen={6} />
+                    {label} — <CopyableId id={ssu.id} startLen={6} endLen={4} />
                   </SsuRow>
                 );
               })

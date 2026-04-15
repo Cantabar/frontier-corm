@@ -1,16 +1,18 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import styled from "styled-components";
 import { useOptimizer, type RecipeLookup } from "../../hooks/useOptimizer";
 import { useItems } from "../../hooks/useItems";
 import { useIdentity } from "../../hooks/useIdentity";
 import { useMyStructures } from "../../hooks/useStructures";
 import { useStructureStates } from "../../hooks/useStructureStates";
+import { useAggregatedSsuInventory } from "../../hooks/useAggregatedSsuInventory";
 import { buildCanvasLayout } from "../../lib/buildCanvasLayout";
 import type { BlueprintEntry, BlueprintRecipe } from "../../hooks/useBlueprints";
 import type { RecipeData } from "../../lib/types";
 import type { CraftingStyle } from "../../hooks/useCraftingStyle";
 import { NetworkNodeSelector } from "./NetworkNodeSelector";
 import { StructureToggleList } from "./StructureToggleList";
+import { SsuInventoryToggle } from "./SsuInventoryToggle";
 import { BlueprintBrowser } from "./BlueprintBrowser";
 import { BuildCanvas, type CanvasTransform } from "./canvas/BuildCanvas";
 
@@ -98,13 +100,14 @@ const PanelTab = styled.button<{ $active: boolean }>`
 
 const TAB_STRIP_WIDTH = 28;
 const DRAWER_WIDTH = 280;
+const STRUCTURES_DRAWER_WIDTH = 320;
 
-const PanelDrawer = styled.div`
+const PanelDrawer = styled.div<{ $width?: number }>`
   position: absolute;
   left: ${TAB_STRIP_WIDTH}px;
   top: 0;
   bottom: 0;
-  width: ${DRAWER_WIDTH}px;
+  width: ${({ $width }) => $width ?? DRAWER_WIDTH}px;
   background: ${({ theme }) => theme.colors.surface.raised};
   border-right: 1px solid ${({ theme }) => theme.colors.surface.border};
   border-top: 2px solid ${({ theme }) => theme.colors.primary.main};
@@ -148,6 +151,7 @@ const DrawerCloseBtn = styled.button`
 const DrawerBody = styled.div`
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 12px;
   display: flex;
   flex-direction: column;
@@ -237,6 +241,24 @@ const ModeButton = styled.button<{ $active: boolean }>`
     border-color: ${({ theme }) => theme.colors.primary.main};
     color: ${({ theme }) => theme.colors.primary.main};
   }
+`;
+
+/* ── Structures panel extras ─────────────────────────────── */
+
+const SectionDivider = styled.div`
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: ${({ theme }) => theme.colors.text.muted};
+  border-top: 1px solid ${({ theme }) => theme.colors.surface.border};
+  padding-top: ${({ theme }) => theme.spacing.sm};
+  margin-top: ${({ theme }) => theme.spacing.xs};
+`;
+
+const SsuHint = styled.div`
+  font-size: 11px;
+  color: ${({ theme }) => theme.colors.text.muted};
 `;
 
 /* ── Reset view button ────────────────────────────────────── */
@@ -375,11 +397,46 @@ export function BuildCanvasView({
     blueprints,
   );
 
+  // SSU inventory toggles (node-scoped)
+  const [ssuInventoryEnabled, setSsuInventoryEnabled] = useState(false);
+  const [selectedSsuIds, setSelectedSsuIds] = useState<Set<string>>(new Set());
+
+  // SSUs connected to the selected network node
+  const nodeSSUs = useMemo(
+    () =>
+      structures.filter(
+        (s) => s.moveType === "StorageUnit" && s.energySourceId === selectedNodeId,
+      ),
+    [structures, selectedNodeId],
+  );
+
+  // Reset SSU selection when the network node changes
+  useEffect(() => {
+    setSelectedSsuIds(new Set());
+    setSsuInventoryEnabled(false);
+  }, [selectedNodeId]);
+
+  const selectedSsuObjects = useMemo(
+    () => nodeSSUs.filter((s) => selectedSsuIds.has(s.id)),
+    [nodeSSUs, selectedSsuIds],
+  );
+
+  const {
+    inventory: ssuInventory,
+    isLoading: inventoryLoading,
+    uniqueTypeCount,
+    ssuCount,
+  } = useAggregatedSsuInventory(selectedSsuObjects, ssuInventoryEnabled);
+
   // Canvas transform state
   const [canvasTransform, setCanvasTransform] = useState<CanvasTransform>(DEFAULT_TRANSFORM);
 
-  // Optimizer (no SSU inventory subtraction — structures panel replaced it)
+  // Optimizer — inventory is sourced from SSU toggles in the structures panel
   const emptyInventory = useMemo(() => new Map<number, number>(), []);
+  const effectiveInventory = useMemo(
+    () => (ssuInventoryEnabled ? ssuInventory : emptyInventory),
+    [ssuInventoryEnabled, ssuInventory, emptyInventory],
+  );
   const { result, optimize } = useOptimizer(recipesForOptimizer);
 
   const recipeLookup = useCallback<RecipeLookup>(
@@ -389,23 +446,23 @@ export function BuildCanvasView({
 
   const runOptimize = useCallback(
     (typeId: number, qty: number) => {
-      optimize(typeId, qty, emptyInventory, recipeLookup);
+      optimize(typeId, qty, effectiveInventory, recipeLookup);
     },
-    [optimize, emptyInventory, recipeLookup],
+    [optimize, effectiveInventory, recipeLookup],
   );
 
   function handleResolve(outputTypeId: number) {
     setSelectedTypeId(outputTypeId);
     setShowBrowser(false);
     const qty = Math.max(1, parseInt(quantity, 10) || 1);
-    optimize(outputTypeId, qty, emptyInventory, recipeLookup);
+    optimize(outputTypeId, qty, effectiveInventory, recipeLookup);
   }
 
   function handleQuantityChange(value: string) {
     setQuantity(value);
     if (selectedTypeId != null) {
       const qty = Math.max(1, parseInt(value, 10) || 1);
-      optimize(selectedTypeId, qty, emptyInventory, recipeLookup);
+      optimize(selectedTypeId, qty, effectiveInventory, recipeLookup);
     }
   }
 
@@ -462,9 +519,9 @@ export function BuildCanvasView({
         <PanelTab
           $active={openPanel === "route"}
           onClick={() => togglePanel("route")}
-          title="Route"
+          title="Refining Method"
         >
-          Route
+          Refining Method
         </PanelTab>
         <PanelTab
           $active={openPanel === "structures"}
@@ -505,11 +562,11 @@ export function BuildCanvasView({
         </PanelDrawer>
       )}
 
-      {/* ── Route panel ── */}
+      {/* ── Refining Method panel ── */}
       {openPanel === "route" && (
         <PanelDrawer>
           <DrawerHeader>
-            <DrawerTitle>Route</DrawerTitle>
+            <DrawerTitle>Refining Method</DrawerTitle>
             <DrawerCloseBtn onClick={() => setOpenPanel(null)}>&times;</DrawerCloseBtn>
           </DrawerHeader>
           <DrawerBody>
@@ -536,7 +593,7 @@ export function BuildCanvasView({
 
       {/* ── Structures panel ── */}
       {openPanel === "structures" && (
-        <PanelDrawer>
+        <PanelDrawer $width={STRUCTURES_DRAWER_WIDTH}>
           <DrawerHeader>
             <DrawerTitle>Structures</DrawerTitle>
             <DrawerCloseBtn onClick={() => setOpenPanel(null)}>&times;</DrawerCloseBtn>
@@ -554,6 +611,23 @@ export function BuildCanvasView({
               structureStates={structureStates}
               onStateChange={setOverride}
             />
+            <SectionDivider>SSU Inventory</SectionDivider>
+            {selectedNodeId == null ? (
+              <SsuHint>Select a network node to see connected SSUs.</SsuHint>
+            ) : (
+              <SsuInventoryToggle
+                ssus={nodeSSUs}
+                enabled={ssuInventoryEnabled}
+                onToggle={setSsuInventoryEnabled}
+                selectedIds={selectedSsuIds}
+                onSelectionChange={setSelectedSsuIds}
+                isLoadingStructures={structuresLoading}
+                isLoadingInventory={inventoryLoading}
+                uniqueTypeCount={uniqueTypeCount}
+                ssuCount={ssuCount}
+                walletConnected={!!address}
+              />
+            )}
           </DrawerBody>
         </PanelDrawer>
       )}
