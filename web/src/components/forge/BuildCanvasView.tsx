@@ -10,6 +10,12 @@ import { buildCanvasLayout } from "../../lib/buildCanvasLayout";
 import type { BlueprintEntry, BlueprintRecipe } from "../../hooks/useBlueprints";
 import type { RecipeData } from "../../lib/types";
 import type { CraftingStyle } from "../../hooks/useCraftingStyle";
+import {
+  buildByproductIndex,
+  collectRefiningDemands,
+  optimizeOreUsage,
+  type OreSummary,
+} from "../../lib/oreOptimizer";
 import { NetworkNodeSelector } from "./NetworkNodeSelector";
 import { StructureToggleList } from "./StructureToggleList";
 import { SsuInventoryToggle } from "./SsuInventoryToggle";
@@ -18,7 +24,7 @@ import { BuildCanvas, type CanvasTransform } from "./canvas/BuildCanvas";
 
 /* ── Types ────────────────────────────────────────────────── */
 
-type PanelId = "blueprint" | "route" | "structures";
+type PanelId = "blueprint" | "route" | "structures" | "ore";
 
 /* ── Styled components ────────────────────────────────────── */
 
@@ -261,6 +267,69 @@ const SsuHint = styled.div`
   color: ${({ theme }) => theme.colors.text.muted};
 `;
 
+/* ── Ore summary panel ────────────────────────────────────── */
+
+const OreEmptyHint = styled.p`
+  font-size: 12px;
+  color: ${({ theme }) => theme.colors.text.muted};
+  margin: 0;
+`;
+
+const OreTotalSummary = styled.p`
+  font-size: 12px;
+  color: ${({ theme }) => theme.colors.text.secondary};
+  margin: 0 0 ${({ theme }) => theme.spacing.sm};
+`;
+
+const OreEntryCard = styled.div`
+  background: ${({ theme }) => theme.colors.surface.bg};
+  border: 1px solid ${({ theme }) => theme.colors.surface.border};
+  border-radius: ${({ theme }) => theme.radii.sm};
+  padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.md};
+  margin-bottom: ${({ theme }) => theme.spacing.sm};
+`;
+
+const OreHeader = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+`;
+
+const OreIcon = styled.img`
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  flex-shrink: 0;
+`;
+
+const OreName = styled.span`
+  font-size: 13px;
+  font-weight: 600;
+  color: ${({ theme }) => theme.colors.text.primary};
+`;
+
+const OreQty = styled.span`
+  font-size: 12px;
+  color: ${({ theme }) => theme.colors.text.secondary};
+  margin-left: auto;
+`;
+
+const ProductRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0 2px 26px;
+  font-size: 12px;
+  color: ${({ theme }) => theme.colors.text.secondary};
+`;
+
+const SurplusBadge = styled.span`
+  font-size: 10px;
+  font-weight: 600;
+  color: ${({ theme }) => theme.colors.warning};
+`;
+
 /* ── Reset view button ────────────────────────────────────── */
 
 const ResetButton = styled.button`
@@ -477,6 +546,17 @@ export function BuildCanvasView({
     return buildCanvasLayout(result.tree, getBlueprintEntry);
   }, [result, getBlueprintEntry]);
 
+  // Ore summary (lazy — only computed when the ore panel is open)
+  const byproductIdx = useMemo(
+    () => buildByproductIndex(recipesForOptimizer),
+    [recipesForOptimizer],
+  );
+  const oreSummary = useMemo<OreSummary | null>(() => {
+    if (openPanel !== "ore" || !result) return null;
+    const { demands, nonRefiningLeaves } = collectRefiningDemands(result.tree, byproductIdx);
+    return optimizeOreUsage(demands, nonRefiningLeaves, byproductIdx, effectiveInventory);
+  }, [openPanel, result, byproductIdx, effectiveInventory]);
+
   // Display name for selected blueprint
   const selectedItemName = useMemo(() => {
     if (selectedTypeId == null) return null;
@@ -529,6 +609,13 @@ export function BuildCanvasView({
           title="Structures"
         >
           Structures
+        </PanelTab>
+        <PanelTab
+          $active={openPanel === "ore"}
+          onClick={() => togglePanel("ore")}
+          title="Ore Summary"
+        >
+          Ore Summary
         </PanelTab>
       </PanelTabStrip>
 
@@ -627,6 +714,68 @@ export function BuildCanvasView({
                 ssuCount={ssuCount}
                 walletConnected={!!address}
               />
+            )}
+          </DrawerBody>
+        </PanelDrawer>
+      )}
+
+      {/* ── Ore summary panel ── */}
+      {openPanel === "ore" && (
+        <PanelDrawer $width={STRUCTURES_DRAWER_WIDTH}>
+          <DrawerHeader>
+            <DrawerTitle>Ore Summary</DrawerTitle>
+            <DrawerCloseBtn onClick={() => setOpenPanel(null)}>&times;</DrawerCloseBtn>
+          </DrawerHeader>
+          <DrawerBody>
+            {!result ? (
+              <OreEmptyHint>Select a blueprint to see ore requirements.</OreEmptyHint>
+            ) : !oreSummary || oreSummary.entries.length === 0 ? (
+              <OreEmptyHint>No multi-output refining required for this build.</OreEmptyHint>
+            ) : (
+              <>
+                <OreTotalSummary>
+                  Total: <strong>{oreSummary.totalOreUnits.toLocaleString()}</strong> ore units
+                  {oreSummary.entries.length > 1 && ` across ${oreSummary.entries.length} ore types`}
+                </OreTotalSummary>
+                {oreSummary.entries.map((entry) => {
+                  const oreItem = getItem(entry.oreTypeId);
+                  return (
+                    <OreEntryCard key={entry.oreTypeId}>
+                      <OreHeader>
+                        {oreItem?.icon ? (
+                          <OreIcon src={`/${oreItem.icon}`} alt="" loading="lazy" />
+                        ) : null}
+                        <OreName>{oreItem?.name ?? `Type ${entry.oreTypeId}`}</OreName>
+                        <OreQty>
+                          {entry.totalUnits.toLocaleString()} units · {entry.runs}× runs
+                        </OreQty>
+                      </OreHeader>
+                      {entry.products.map((p) => {
+                        const productName = getItem(p.typeId)?.name ?? `Type ${p.typeId}`;
+                        return (
+                          <ProductRow key={p.typeId}>
+                            <span>{productName}</span>
+                            <span>
+                              {p.needed > 0 ? `need ${p.needed}` : "not needed"}
+                              {" → produces "}
+                              {p.produced}
+                            </span>
+                            {p.surplus > 0 && (
+                              <SurplusBadge>+{p.surplus} surplus</SurplusBadge>
+                            )}
+                          </ProductRow>
+                        );
+                      })}
+                    </OreEntryCard>
+                  );
+                })}
+                {oreSummary.unoptimized.length > 0 && (
+                  <OreEmptyHint>
+                    + {oreSummary.unoptimized.length} other material
+                    {oreSummary.unoptimized.length > 1 ? "s" : ""} (single-output recipes)
+                  </OreEmptyHint>
+                )}
+              </>
             )}
           </DrawerBody>
         </PanelDrawer>
