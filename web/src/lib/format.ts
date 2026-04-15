@@ -84,6 +84,18 @@ export function timeAgo(timestampMs: string | number): string {
   return `${months}mo ago`;
 }
 
+/**
+ * Compact number display for tight spaces.
+ * < 1 000        → raw locale string ("999")
+ * 1 000–999 999  → one decimal K    ("469.7K", "135.5K")
+ * ≥ 1 000 000    → two decimal M    ("1.17M")
+ */
+export function formatCompact(n: number): string {
+  if (n < 1_000) return n.toLocaleString();
+  if (n < 1_000_000) return `${(n / 1_000).toFixed(1)}K`;
+  return `${(n / 1_000_000).toFixed(2)}M`;
+}
+
 /** Deterministic hex colour derived from a Sui object ID, for avatar placeholders. */
 export function generateAvatarColor(id: string): string {
   let hash = 0;

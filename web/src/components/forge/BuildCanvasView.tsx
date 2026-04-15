@@ -18,6 +18,7 @@ import {
   optimizeOreUsage,
   type OreSummary,
 } from "../../lib/oreOptimizer";
+import { formatCompact } from "../../lib/format";
 import { NetworkNodeSelector } from "./NetworkNodeSelector";
 import { StructureToggleList } from "./StructureToggleList";
 import { SsuInventoryToggle } from "./SsuInventoryToggle";
@@ -289,6 +290,7 @@ const OreEntryCard = styled.div`
   border-radius: ${({ theme }) => theme.radii.sm};
   padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.md};
   margin-bottom: ${({ theme }) => theme.spacing.sm};
+  overflow: hidden;
 `;
 
 const OreHeader = styled.div`
@@ -319,7 +321,7 @@ const OreQty = styled.span`
 
 const ProductGrid = styled.div`
   display: grid;
-  grid-template-columns: 1fr auto auto auto;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
   margin-top: 6px;
   border-top: 1px solid ${({ theme }) => theme.colors.surface.border};
 `;
@@ -353,6 +355,7 @@ const ProductNameCell = styled(GridData)`
   color: ${({ theme }) => theme.colors.text.primary};
   font-size: 12px;
   padding-left: 0;
+  white-space: normal;
 `;
 
 const NumericCell = styled(GridData)`
@@ -855,12 +858,12 @@ export function BuildCanvasView({
                             <Fragment key={p.typeId}>
                               <ProductNameCell $even={even}>{productName}</ProductNameCell>
                               <NumericCell $even={even}>
-                                {p.needed > 0 ? p.needed.toLocaleString() : "—"}
+                                {p.needed > 0 ? formatCompact(p.needed) : "—"}
                               </NumericCell>
-                              <NumericCell $even={even}>{p.produced.toLocaleString()}</NumericCell>
+                              <NumericCell $even={even}>{formatCompact(p.produced)}</NumericCell>
                               <NumericCell $even={even}>
                                 {p.surplus > 0 ? (
-                                  <SurplusBadge>+{p.surplus.toLocaleString()}</SurplusBadge>
+                                  <SurplusBadge>+{formatCompact(p.surplus)}</SurplusBadge>
                                 ) : (
                                   "—"
                                 )}
