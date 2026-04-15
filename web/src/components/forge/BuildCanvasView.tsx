@@ -13,128 +13,21 @@ import { SsuInventoryToggle } from "./SsuInventoryToggle";
 import { BlueprintBrowser } from "./BlueprintBrowser";
 import { BuildCanvas, type CanvasTransform } from "./canvas/BuildCanvas";
 
-/* ── Styled components ────────────────────────────────────────── */
+/* ── Types ────────────────────────────────────────────────── */
+
+type PanelId = "blueprint" | "route" | "ssu";
+
+/* ── Styled components ────────────────────────────────────── */
 
 const ViewWrapper = styled.div`
-  display: flex;
-  flex-direction: column;
+  position: relative;
   height: calc(100vh - 200px);
   min-height: 500px;
-  gap: 0;
-`;
-
-const Toolbar = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: ${({ theme }) => theme.spacing.md};
-  padding: ${({ theme }) => theme.spacing.md};
-  background: ${({ theme }) => theme.colors.surface.raised};
-  border: 1px solid ${({ theme }) => theme.colors.surface.border};
-  border-bottom: none;
-  flex-shrink: 0;
-`;
-
-const ToolbarSection = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${({ theme }) => theme.spacing.xs};
-`;
-
-const ToolbarLabel = styled.span`
-  font-size: 9px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: ${({ theme }) => theme.colors.text.muted};
-`;
-
-const ToolbarRow = styled.div`
-  display: flex;
-  align-items: center;
-  gap: ${({ theme }) => theme.spacing.sm};
-`;
-
-const SelectButton = styled.button<{ $hasSelection: boolean }>`
-  padding: 6px 12px;
-  background: ${({ $hasSelection, theme }) =>
-    $hasSelection ? theme.colors.primary.subtle : theme.colors.surface.overlay};
-  border: 1px solid ${({ $hasSelection, theme }) =>
-    $hasSelection ? theme.colors.primary.main : theme.colors.surface.border};
-  border-radius: ${({ theme }) => theme.radii.sm};
-  color: ${({ $hasSelection, theme }) =>
-    $hasSelection ? theme.colors.primary.main : theme.colors.text.secondary};
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  max-width: 220px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  text-align: left;
-
-  &:hover {
-    border-color: ${({ theme }) => theme.colors.primary.main};
-    color: ${({ theme }) => theme.colors.primary.main};
-  }
-`;
-
-const QtyInput = styled.input`
-  width: 72px;
-  padding: 6px 8px;
-  background: ${({ theme }) => theme.colors.surface.bg};
-  border: 1px solid ${({ theme }) => theme.colors.surface.border};
-  border-radius: ${({ theme }) => theme.radii.sm};
-  color: ${({ theme }) => theme.colors.text.primary};
-  font-size: 13px;
-  text-align: right;
-
-  &:focus {
-    outline: none;
-    border-color: ${({ theme }) => theme.colors.primary.main};
-  }
-`;
-
-const ModeButton = styled.button<{ $active: boolean }>`
-  padding: 5px 10px;
-  font-size: 12px;
-  font-weight: 600;
-  border: 1px solid ${({ $active, theme }) =>
-    $active ? theme.colors.primary.main : theme.colors.surface.border};
-  background: ${({ $active, theme }) =>
-    $active ? theme.colors.primary.main + "22" : "transparent"};
-  color: ${({ $active, theme }) =>
-    $active ? theme.colors.primary.main : theme.colors.text.muted};
-  border-radius: ${({ theme }) => theme.radii.sm};
-  cursor: pointer;
-  transition: all 0.12s;
-
-  &:hover {
-    border-color: ${({ theme }) => theme.colors.primary.main};
-    color: ${({ theme }) => theme.colors.primary.main};
-  }
-`;
-
-const ResetButton = styled.button`
-  padding: 5px 10px;
-  font-size: 12px;
-  background: none;
-  border: 1px solid ${({ theme }) => theme.colors.surface.border};
-  border-radius: ${({ theme }) => theme.radii.sm};
-  color: ${({ theme }) => theme.colors.text.muted};
-  cursor: pointer;
-  margin-left: auto;
-  align-self: flex-end;
-
-  &:hover {
-    border-color: ${({ theme }) => theme.colors.text.muted};
-    color: ${({ theme }) => theme.colors.text.secondary};
-  }
 `;
 
 const CanvasArea = styled.div`
-  flex: 1;
-  min-height: 0;
+  position: absolute;
+  inset: 0;
   border: 1px solid ${({ theme }) => theme.colors.surface.border};
 `;
 
@@ -162,7 +55,211 @@ const EmptySub = styled.p`
   margin: 0;
 `;
 
-/* ── Wide blueprint browser overlay ──────────────────────────── */
+/* ── Panel tab strip ──────────────────────────────────────── */
+
+const PanelTabStrip = styled.div`
+  position: absolute;
+  left: 0;
+  top: 24px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+`;
+
+const PanelTab = styled.button<{ $active: boolean }>`
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  transform: rotate(180deg);
+  padding: 10px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: ${({ $active, theme }) =>
+    $active ? theme.colors.primary.main + "22" : theme.colors.surface.raised};
+  border: 1px solid
+    ${({ $active, theme }) =>
+      $active ? theme.colors.primary.main : theme.colors.surface.border};
+  border-right: none;
+  color: ${({ $active, theme }) =>
+    $active ? theme.colors.primary.main : theme.colors.text.muted};
+  cursor: pointer;
+  transition: color 0.12s, background 0.12s, border-color 0.12s;
+
+  &:hover {
+    color: ${({ theme }) => theme.colors.primary.main};
+    border-color: ${({ theme }) => theme.colors.primary.main};
+  }
+`;
+
+/* ── Panel drawer ─────────────────────────────────────────── */
+
+const TAB_STRIP_WIDTH = 28;
+const DRAWER_WIDTH = 280;
+
+const PanelDrawer = styled.div`
+  position: absolute;
+  left: ${TAB_STRIP_WIDTH}px;
+  top: 0;
+  bottom: 0;
+  width: ${DRAWER_WIDTH}px;
+  background: ${({ theme }) => theme.colors.surface.raised};
+  border-right: 1px solid ${({ theme }) => theme.colors.surface.border};
+  border-top: 2px solid ${({ theme }) => theme.colors.primary.main};
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+`;
+
+const DrawerHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid ${({ theme }) => theme.colors.surface.border};
+  flex-shrink: 0;
+`;
+
+const DrawerTitle = styled.span`
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: ${({ theme }) => theme.colors.text.secondary};
+`;
+
+const DrawerCloseBtn = styled.button`
+  background: none;
+  border: none;
+  color: ${({ theme }) => theme.colors.text.muted};
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 4px;
+
+  &:hover {
+    color: ${({ theme }) => theme.colors.text.primary};
+  }
+`;
+
+const DrawerBody = styled.div`
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: ${({ theme }) => theme.spacing.md};
+`;
+
+/* ── Drawer inner controls ────────────────────────────────── */
+
+const FieldLabel = styled.span`
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: ${({ theme }) => theme.colors.text.muted};
+`;
+
+const FieldGroup = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${({ theme }) => theme.spacing.xs};
+`;
+
+const SelectButton = styled.button<{ $hasSelection: boolean }>`
+  padding: 6px 12px;
+  background: ${({ $hasSelection, theme }) =>
+    $hasSelection ? theme.colors.primary.subtle : theme.colors.surface.overlay};
+  border: 1px solid
+    ${({ $hasSelection, theme }) =>
+      $hasSelection ? theme.colors.primary.main : theme.colors.surface.border};
+  border-radius: ${({ theme }) => theme.radii.sm};
+  color: ${({ $hasSelection, theme }) =>
+    $hasSelection ? theme.colors.primary.main : theme.colors.text.secondary};
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+
+  &:hover {
+    border-color: ${({ theme }) => theme.colors.primary.main};
+    color: ${({ theme }) => theme.colors.primary.main};
+  }
+`;
+
+const QtyInput = styled.input`
+  width: 80px;
+  padding: 6px 8px;
+  background: ${({ theme }) => theme.colors.surface.bg};
+  border: 1px solid ${({ theme }) => theme.colors.surface.border};
+  border-radius: ${({ theme }) => theme.radii.sm};
+  color: ${({ theme }) => theme.colors.text.primary};
+  font-size: 13px;
+  text-align: right;
+
+  &:focus {
+    outline: none;
+    border-color: ${({ theme }) => theme.colors.primary.main};
+  }
+`;
+
+const ModeRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.sm};
+`;
+
+const ModeButton = styled.button<{ $active: boolean }>`
+  flex: 1;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid
+    ${({ $active, theme }) =>
+      $active ? theme.colors.primary.main : theme.colors.surface.border};
+  background: ${({ $active, theme }) =>
+    $active ? theme.colors.primary.main + "22" : "transparent"};
+  color: ${({ $active, theme }) =>
+    $active ? theme.colors.primary.main : theme.colors.text.muted};
+  border-radius: ${({ theme }) => theme.radii.sm};
+  cursor: pointer;
+  transition: all 0.12s;
+
+  &:hover {
+    border-color: ${({ theme }) => theme.colors.primary.main};
+    color: ${({ theme }) => theme.colors.primary.main};
+  }
+`;
+
+/* ── Reset view button ────────────────────────────────────── */
+
+const ResetButton = styled.button`
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  z-index: 10;
+  padding: 5px 10px;
+  font-size: 12px;
+  background: ${({ theme }) => theme.colors.surface.raised};
+  border: 1px solid ${({ theme }) => theme.colors.surface.border};
+  border-radius: ${({ theme }) => theme.radii.sm};
+  color: ${({ theme }) => theme.colors.text.muted};
+  cursor: pointer;
+
+  &:hover {
+    border-color: ${({ theme }) => theme.colors.text.muted};
+    color: ${({ theme }) => theme.colors.text.secondary};
+  }
+`;
+
+/* ── Blueprint browser overlay ────────────────────────────── */
 
 const BrowserOverlay = styled.div`
   position: fixed;
@@ -224,7 +321,7 @@ const BrowserContent = styled.div`
   overflow-y: auto;
 `;
 
-/* ── Component ────────────────────────────────────────────────── */
+/* ── Component ────────────────────────────────────────────── */
 
 interface Props {
   blueprints: BlueprintEntry[];
@@ -250,14 +347,22 @@ export function BuildCanvasView({
   const [selectedTypeId, setSelectedTypeId] = useState<number | null>(null);
   const [quantity, setQuantity] = useState("1");
 
-  // Blueprint browser modal
+  // Panel state
+  const [openPanel, setOpenPanel] = useState<PanelId | null>(null);
   const [showBrowser, setShowBrowser] = useState(false);
+
+  function togglePanel(id: PanelId) {
+    setOpenPanel((prev) => (prev === id ? null : id));
+  }
 
   // SSU state (mirrors OptimizerPanel pattern)
   const [ssuEnabled, setSsuEnabled] = useState(false);
   const [selectedSsuIds, setSelectedSsuIds] = useState<Set<string>>(new Set());
   const { structures, isLoading: structuresLoading } = useMyStructures();
-  const ssus = useMemo(() => structures.filter((s) => s.moveType === "StorageUnit"), [structures]);
+  const ssus = useMemo(
+    () => structures.filter((s) => s.moveType === "StorageUnit"),
+    [structures],
+  );
 
   const autoEnabledRef = useRef(false);
   useEffect(() => {
@@ -278,7 +383,10 @@ export function BuildCanvasView({
     [ssus, selectedSsuIds.size],
   );
 
-  const selectedSsus = useMemo(() => ssus.filter((s) => selectedSsuIds.has(s.id)), [ssus, selectedSsuIds]);
+  const selectedSsus = useMemo(
+    () => ssus.filter((s) => selectedSsuIds.has(s.id)),
+    [ssus, selectedSsuIds],
+  );
   const {
     inventory: aggregatedInventory,
     isLoading: inventoryLoading,
@@ -349,76 +457,7 @@ export function BuildCanvasView({
 
   return (
     <ViewWrapper>
-      {/* ── Toolbar ── */}
-      <Toolbar>
-        {/* Blueprint picker */}
-        <ToolbarSection>
-          <ToolbarLabel>Blueprint</ToolbarLabel>
-          <SelectButton
-            $hasSelection={selectedTypeId != null}
-            onClick={() => setShowBrowser(true)}
-          >
-            {selectedItemName ?? "Select blueprint…"}
-          </SelectButton>
-        </ToolbarSection>
-
-        {/* Quantity */}
-        <ToolbarSection>
-          <ToolbarLabel>Quantity</ToolbarLabel>
-          <QtyInput
-            type="number"
-            min={1}
-            value={quantity}
-            onChange={(e) => handleQuantityChange(e.target.value)}
-          />
-        </ToolbarSection>
-
-        {/* Crafting style */}
-        <ToolbarSection>
-          <ToolbarLabel>Route</ToolbarLabel>
-          <ToolbarRow>
-            <ModeButton
-              $active={craftingStyle === "field"}
-              onClick={() => onCraftingStyleChange("field")}
-            >
-              ⛺ Field
-            </ModeButton>
-            <ModeButton
-              $active={craftingStyle === "base"}
-              onClick={() => onCraftingStyleChange("base")}
-            >
-              🏭 Base
-            </ModeButton>
-          </ToolbarRow>
-        </ToolbarSection>
-
-        {/* SSU inventory toggle */}
-        <ToolbarSection style={{ flex: 1, minWidth: 220 }}>
-          <ToolbarLabel>SSU Inventory</ToolbarLabel>
-          <SsuInventoryToggle
-            ssus={ssus}
-            enabled={ssuEnabled}
-            onToggle={handleSsuToggle}
-            selectedIds={selectedSsuIds}
-            onSelectionChange={setSelectedSsuIds}
-            isLoadingStructures={structuresLoading}
-            isLoadingInventory={inventoryLoading}
-            uniqueTypeCount={uniqueTypeCount}
-            ssuCount={ssuCount}
-            walletConnected={!!address}
-          />
-        </ToolbarSection>
-
-        {/* Reset view */}
-        <ResetButton
-          onClick={() => setCanvasTransform(DEFAULT_TRANSFORM)}
-          title="Reset pan and zoom"
-        >
-          ⌖ Reset View
-        </ResetButton>
-      </Toolbar>
-
-      {/* ── Canvas area ── */}
+      {/* ── Canvas area (fills full wrapper) ── */}
       <CanvasArea>
         {canvasLayout ? (
           <BuildCanvas
@@ -432,26 +471,143 @@ export function BuildCanvasView({
             <EmptyTitle>No blueprint selected</EmptyTitle>
             <EmptySub>
               {selectedTypeId == null
-                ? 'Click "Select blueprint\u2026" above to begin.'
-                : "Resolving build chain…"}
+                ? "Open the Blueprint panel on the left to begin."
+                : "Resolving build chain\u2026"}
             </EmptySub>
           </EmptyState>
         )}
       </CanvasArea>
 
+      {/* ── Panel tab strip ── */}
+      <PanelTabStrip>
+        <PanelTab
+          $active={openPanel === "blueprint"}
+          onClick={() => togglePanel("blueprint")}
+          title="Blueprint"
+        >
+          Blueprint
+        </PanelTab>
+        <PanelTab
+          $active={openPanel === "route"}
+          onClick={() => togglePanel("route")}
+          title="Route"
+        >
+          Route
+        </PanelTab>
+        <PanelTab
+          $active={openPanel === "ssu"}
+          onClick={() => togglePanel("ssu")}
+          title="SSU Inventory"
+        >
+          SSU Inventory
+        </PanelTab>
+      </PanelTabStrip>
+
+      {/* ── Blueprint panel ── */}
+      {openPanel === "blueprint" && (
+        <PanelDrawer>
+          <DrawerHeader>
+            <DrawerTitle>Blueprint</DrawerTitle>
+            <DrawerCloseBtn onClick={() => setOpenPanel(null)}>&times;</DrawerCloseBtn>
+          </DrawerHeader>
+          <DrawerBody>
+            <FieldGroup>
+              <FieldLabel>Selected</FieldLabel>
+              <SelectButton
+                $hasSelection={selectedTypeId != null}
+                onClick={() => setShowBrowser(true)}
+              >
+                {selectedItemName ?? "Select blueprint\u2026"}
+              </SelectButton>
+            </FieldGroup>
+            <FieldGroup>
+              <FieldLabel>Quantity</FieldLabel>
+              <QtyInput
+                type="number"
+                min={1}
+                value={quantity}
+                onChange={(e) => handleQuantityChange(e.target.value)}
+              />
+            </FieldGroup>
+          </DrawerBody>
+        </PanelDrawer>
+      )}
+
+      {/* ── Route panel ── */}
+      {openPanel === "route" && (
+        <PanelDrawer>
+          <DrawerHeader>
+            <DrawerTitle>Route</DrawerTitle>
+            <DrawerCloseBtn onClick={() => setOpenPanel(null)}>&times;</DrawerCloseBtn>
+          </DrawerHeader>
+          <DrawerBody>
+            <FieldGroup>
+              <FieldLabel>Crafting Style</FieldLabel>
+              <ModeRow>
+                <ModeButton
+                  $active={craftingStyle === "field"}
+                  onClick={() => onCraftingStyleChange("field")}
+                >
+                  ⛺ Field
+                </ModeButton>
+                <ModeButton
+                  $active={craftingStyle === "base"}
+                  onClick={() => onCraftingStyleChange("base")}
+                >
+                  🏭 Base
+                </ModeButton>
+              </ModeRow>
+            </FieldGroup>
+          </DrawerBody>
+        </PanelDrawer>
+      )}
+
+      {/* ── SSU Inventory panel ── */}
+      {openPanel === "ssu" && (
+        <PanelDrawer>
+          <DrawerHeader>
+            <DrawerTitle>SSU Inventory</DrawerTitle>
+            <DrawerCloseBtn onClick={() => setOpenPanel(null)}>&times;</DrawerCloseBtn>
+          </DrawerHeader>
+          <DrawerBody>
+            <SsuInventoryToggle
+              ssus={ssus}
+              enabled={ssuEnabled}
+              onToggle={handleSsuToggle}
+              selectedIds={selectedSsuIds}
+              onSelectionChange={setSelectedSsuIds}
+              isLoadingStructures={structuresLoading}
+              isLoadingInventory={inventoryLoading}
+              uniqueTypeCount={uniqueTypeCount}
+              ssuCount={ssuCount}
+              walletConnected={!!address}
+            />
+          </DrawerBody>
+        </PanelDrawer>
+      )}
+
+      {/* ── Reset view ── */}
+      <ResetButton
+        onClick={() => setCanvasTransform(DEFAULT_TRANSFORM)}
+        title="Reset pan and zoom"
+      >
+        ⌖ Reset View
+      </ResetButton>
+
       {/* ── Blueprint browser overlay ── */}
       {showBrowser && (
-        <BrowserOverlay onMouseDown={(e) => { if (e.target === e.currentTarget) setShowBrowser(false); }}>
+        <BrowserOverlay
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setShowBrowser(false);
+          }}
+        >
           <BrowserPanel>
             <BrowserHeader>
               <BrowserTitle>Select Blueprint</BrowserTitle>
               <CloseBtn onClick={() => setShowBrowser(false)}>&times;</CloseBtn>
             </BrowserHeader>
             <BrowserContent>
-              <BlueprintBrowser
-                blueprints={blueprints}
-                onResolve={handleResolve}
-              />
+              <BlueprintBrowser blueprints={blueprints} onResolve={handleResolve} />
             </BrowserContent>
           </BrowserPanel>
         </BrowserOverlay>
