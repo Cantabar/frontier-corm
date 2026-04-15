@@ -3,6 +3,7 @@ import styled from "styled-components";
 import type { CanvasLayout, CanvasCard } from "../../../lib/buildCanvasLayout";
 import { buildEdgeIndex } from "../../../lib/buildCanvasLayout";
 import type { ItemEntry } from "../../../hooks/useItems";
+import type { StructureState } from "../../../lib/types";
 import { BlueprintCard } from "./BlueprintCard";
 import { SsuCard } from "./SsuCard";
 import { MiningCard } from "./MiningCard";
@@ -95,6 +96,8 @@ interface Props {
   getItem: (typeId: number) => ItemEntry | undefined;
   transform: CanvasTransform;
   onTransformChange: (t: CanvasTransform) => void;
+  /** Per-facilityTypeId structure availability states for indicator display. */
+  structureStates?: Map<number, StructureState>;
 }
 
 /* ── BuildCanvas (provider wrapper) ─────────────────────────── */
@@ -109,7 +112,7 @@ export function BuildCanvas(props: Props) {
 
 /* ── BuildCanvasContent (inner — consumes selection context) ─── */
 
-function BuildCanvasContent({ layout, getItem, transform, onTransformChange }: Props) {
+function BuildCanvasContent({ layout, getItem, transform, onTransformChange, structureStates }: Props) {
   const outerRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
   const [dotPositions, setDotPositions] = useState<Map<string, Point>>(new Map());
@@ -416,6 +419,9 @@ function BuildCanvasContent({ layout, getItem, transform, onTransformChange }: P
         const focused = focusedCardId === card.id;
 
         if (card.kind === "blueprint") {
+          const facilityTypeId = card.blueprintEntry?.facilities[0]?.facilityTypeId;
+          const structureState =
+            facilityTypeId != null ? structureStates?.get(facilityTypeId) : undefined;
           elements.push(
             <BlueprintCard
               key={card.id}
@@ -424,6 +430,7 @@ function BuildCanvasContent({ layout, getItem, transform, onTransformChange }: P
               style={style}
               dimmed={dimmed}
               focused={focused}
+              structureState={structureState}
               onCardPointerEnter={() => onCardPointerEnter(card.id)}
               onCardPointerLeave={() => onCardPointerLeave(card.id)}
               onCardClick={() => onCardClick(card.id)}
@@ -462,7 +469,7 @@ function BuildCanvasContent({ layout, getItem, transform, onTransformChange }: P
     }
 
     return elements;
-  }, [layout, cardPositions, getItem, focusedCardId, adjacentCardIds, onCardPointerEnter, onCardPointerLeave, onCardClick]);
+  }, [layout, cardPositions, getItem, focusedCardId, adjacentCardIds, structureStates, onCardPointerEnter, onCardPointerLeave, onCardClick]);
 
   /* ── Render belts as orthogonal polylines ── */
 

@@ -207,6 +207,12 @@ export interface TrustlessContractData {
 
 export type AssemblyStatus = "Anchored" | "Online" | "Offline" | "Unanchoring";
 
+/**
+ * Planner-level availability state for a facility structure type.
+ * Derived from on-chain data for a selected network node, with optional manual overrides.
+ */
+export type StructureState = "missing" | "offline" | "online";
+
 /** Network Node — energy source that powers connected assemblies. */
 export interface NetworkNodeData {
   id: string;

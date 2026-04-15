@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import styled from "styled-components";
 import type { BlueprintCanvasCard, CanvasPort } from "../../../lib/buildCanvasLayout";
 import type { ItemEntry } from "../../../hooks/useItems";
+import type { StructureState } from "../../../lib/types";
 
 /* ── Tier color ───────────────────────────────────────────────── */
 
@@ -182,6 +183,32 @@ const TierBadge = styled.span<{ $color: string }>`
   border-radius: 2px;
 `;
 
+const STRUCTURE_STATE_COLOR: Record<StructureState, string> = {
+  online:  "#4caf50",
+  offline: "#ffc107",
+  missing: "#ef5350",
+};
+
+const STRUCTURE_STATE_SYMBOL: Record<StructureState, string> = {
+  online:  "●",
+  offline: "○",
+  missing: "✗",
+};
+
+const STRUCTURE_STATE_TITLE: Record<StructureState, string> = {
+  online:  "Structure online",
+  offline: "Structure offline",
+  missing: "Structure not present",
+};
+
+const StructureIndicator = styled.span<{ $state: StructureState }>`
+  font-size: 9px;
+  font-weight: 700;
+  color: ${({ $state }) => STRUCTURE_STATE_COLOR[$state]};
+  line-height: 1;
+  flex-shrink: 0;
+`;
+
 const Tooltip = styled.div`
   position: absolute;
   bottom: calc(100% + 6px);
@@ -254,12 +281,14 @@ interface Props {
   style?: React.CSSProperties;
   dimmed?: boolean;
   focused?: boolean;
+  /** Availability state of the required structure, if known. */
+  structureState?: StructureState;
   onCardPointerEnter?: () => void;
   onCardPointerLeave?: () => void;
   onCardClick?: () => void;
 }
 
-export function BlueprintCard({ card, getItem, style, dimmed, focused, onCardPointerEnter, onCardPointerLeave, onCardClick }: Props) {
+export function BlueprintCard({ card, getItem, style, dimmed, focused, structureState, onCardPointerEnter, onCardPointerLeave, onCardClick }: Props) {
   const tier = card.blueprintEntry?.primaryMetaGroupName ?? null;
   const color = tierColor(tier);
   const primaryItem = getItem(card.blueprintEntry?.primaryTypeId ?? card.blueprintId);
@@ -314,6 +343,14 @@ export function BlueprintCard({ card, getItem, style, dimmed, focused, onCardPoi
         <FacilityRow>
           <FacilityBadge>{card.facilityName}</FacilityBadge>
           {tier && <TierBadge $color={color}>{tier}</TierBadge>}
+          {structureState && (
+            <StructureIndicator
+              $state={structureState}
+              title={STRUCTURE_STATE_TITLE[structureState]}
+            >
+              {STRUCTURE_STATE_SYMBOL[structureState]}
+            </StructureIndicator>
+          )}
         </FacilityRow>
       </Center>
 

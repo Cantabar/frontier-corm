@@ -1,21 +1,22 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useCallback, useMemo } from "react";
 import styled from "styled-components";
 import { useOptimizer, type RecipeLookup } from "../../hooks/useOptimizer";
 import { useItems } from "../../hooks/useItems";
 import { useIdentity } from "../../hooks/useIdentity";
 import { useMyStructures } from "../../hooks/useStructures";
-import { useAggregatedSsuInventory } from "../../hooks/useAggregatedSsuInventory";
+import { useStructureStates } from "../../hooks/useStructureStates";
 import { buildCanvasLayout } from "../../lib/buildCanvasLayout";
 import type { BlueprintEntry, BlueprintRecipe } from "../../hooks/useBlueprints";
 import type { RecipeData } from "../../lib/types";
 import type { CraftingStyle } from "../../hooks/useCraftingStyle";
-import { SsuInventoryToggle } from "./SsuInventoryToggle";
+import { NetworkNodeSelector } from "./NetworkNodeSelector";
+import { StructureToggleList } from "./StructureToggleList";
 import { BlueprintBrowser } from "./BlueprintBrowser";
 import { BuildCanvas, type CanvasTransform } from "./canvas/BuildCanvas";
 
 /* ── Types ────────────────────────────────────────────────── */
 
-type PanelId = "blueprint" | "route" | "ssu";
+type PanelId = "blueprint" | "route" | "structures";
 
 /* ── Styled components ────────────────────────────────────── */
 
@@ -329,6 +330,10 @@ interface Props {
   recipesForOptimizer: RecipeData[];
   craftingStyle: CraftingStyle;
   onCraftingStyleChange: (style: CraftingStyle) => void;
+  /** All owned structures (passed in so the canvas view can read network nodes). */
+  structures?: import("../../lib/types").AssemblyData[];
+  /** Whether the structures query is still loading. */
+  structuresLoading?: boolean;
 }
 
 const DEFAULT_TRANSFORM: CanvasTransform = { tx: 40, ty: 40, scale: 1 };
@@ -339,9 +344,16 @@ export function BuildCanvasView({
   recipesForOptimizer,
   craftingStyle,
   onCraftingStyleChange,
+  structures: structuresProp,
+  structuresLoading: structuresLoadingProp,
 }: Props) {
   const { address } = useIdentity();
   const { getItem } = useItems();
+
+  // Fall back to fetching structures locally if not provided by parent.
+  const { structures: ownStructures, isLoading: ownStructuresLoading } = useMyStructures();
+  const structures = structuresProp ?? ownStructures;
+  const structuresLoading = structuresLoadingProp ?? ownStructuresLoading;
 
   // Selected blueprint and quantity
   const [selectedTypeId, setSelectedTypeId] = useState<number | null>(null);
@@ -355,52 +367,19 @@ export function BuildCanvasView({
     setOpenPanel((prev) => (prev === id ? null : id));
   }
 
-  // SSU state (mirrors OptimizerPanel pattern)
-  const [ssuEnabled, setSsuEnabled] = useState(false);
-  const [selectedSsuIds, setSelectedSsuIds] = useState<Set<string>>(new Set());
-  const { structures, isLoading: structuresLoading } = useMyStructures();
-  const ssus = useMemo(
-    () => structures.filter((s) => s.moveType === "StorageUnit"),
-    [structures],
+  // Network node selection + structure availability states
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const { structureStates, facilityTypes, setOverride } = useStructureStates(
+    selectedNodeId,
+    structures,
+    blueprints,
   );
-
-  const autoEnabledRef = useRef(false);
-  useEffect(() => {
-    if (!autoEnabledRef.current && !structuresLoading && !!address && ssus.length > 0) {
-      autoEnabledRef.current = true;
-      setSsuEnabled(true);
-      setSelectedSsuIds(new Set(ssus.map((s) => s.id)));
-    }
-  }, [address, ssus, structuresLoading]);
-
-  const handleSsuToggle = useCallback(
-    (on: boolean) => {
-      setSsuEnabled(on);
-      if (on && selectedSsuIds.size === 0 && ssus.length > 0) {
-        setSelectedSsuIds(new Set(ssus.map((s) => s.id)));
-      }
-    },
-    [ssus, selectedSsuIds.size],
-  );
-
-  const selectedSsus = useMemo(
-    () => ssus.filter((s) => selectedSsuIds.has(s.id)),
-    [ssus, selectedSsuIds],
-  );
-  const {
-    inventory: aggregatedInventory,
-    isLoading: inventoryLoading,
-    uniqueTypeCount,
-    ssuCount,
-  } = useAggregatedSsuInventory(selectedSsus, ssuEnabled);
-
-  const emptyInventory = useMemo(() => new Map<number, number>(), []);
-  const effectiveInventory = ssuEnabled ? aggregatedInventory : emptyInventory;
 
   // Canvas transform state
   const [canvasTransform, setCanvasTransform] = useState<CanvasTransform>(DEFAULT_TRANSFORM);
 
-  // Optimizer
+  // Optimizer (no SSU inventory subtraction — structures panel replaced it)
+  const emptyInventory = useMemo(() => new Map<number, number>(), []);
   const { result, optimize } = useOptimizer(recipesForOptimizer);
 
   const recipeLookup = useCallback<RecipeLookup>(
@@ -410,31 +389,23 @@ export function BuildCanvasView({
 
   const runOptimize = useCallback(
     (typeId: number, qty: number) => {
-      optimize(typeId, qty, effectiveInventory, recipeLookup);
+      optimize(typeId, qty, emptyInventory, recipeLookup);
     },
-    [optimize, effectiveInventory, recipeLookup],
+    [optimize, emptyInventory, recipeLookup],
   );
-
-  // Re-run when inventory or recipe map changes (craftingStyle, SSU selection)
-  useEffect(() => {
-    if (selectedTypeId != null) {
-      runOptimize(selectedTypeId, Math.max(1, parseInt(quantity, 10) || 1));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [effectiveInventory, recipeLookup]);
 
   function handleResolve(outputTypeId: number) {
     setSelectedTypeId(outputTypeId);
     setShowBrowser(false);
     const qty = Math.max(1, parseInt(quantity, 10) || 1);
-    optimize(outputTypeId, qty, effectiveInventory, recipeLookup);
+    optimize(outputTypeId, qty, emptyInventory, recipeLookup);
   }
 
   function handleQuantityChange(value: string) {
     setQuantity(value);
     if (selectedTypeId != null) {
       const qty = Math.max(1, parseInt(value, 10) || 1);
-      optimize(selectedTypeId, qty, effectiveInventory, recipeLookup);
+      optimize(selectedTypeId, qty, emptyInventory, recipeLookup);
     }
   }
 
@@ -465,6 +436,7 @@ export function BuildCanvasView({
             getItem={getItem}
             transform={canvasTransform}
             onTransformChange={setCanvasTransform}
+            structureStates={structureStates}
           />
         ) : (
           <EmptyState>
@@ -495,11 +467,11 @@ export function BuildCanvasView({
           Route
         </PanelTab>
         <PanelTab
-          $active={openPanel === "ssu"}
-          onClick={() => togglePanel("ssu")}
-          title="SSU Inventory"
+          $active={openPanel === "structures"}
+          onClick={() => togglePanel("structures")}
+          title="Structures"
         >
-          SSU Inventory
+          Structures
         </PanelTab>
       </PanelTabStrip>
 
@@ -562,25 +534,25 @@ export function BuildCanvasView({
         </PanelDrawer>
       )}
 
-      {/* ── SSU Inventory panel ── */}
-      {openPanel === "ssu" && (
+      {/* ── Structures panel ── */}
+      {openPanel === "structures" && (
         <PanelDrawer>
           <DrawerHeader>
-            <DrawerTitle>SSU Inventory</DrawerTitle>
+            <DrawerTitle>Structures</DrawerTitle>
             <DrawerCloseBtn onClick={() => setOpenPanel(null)}>&times;</DrawerCloseBtn>
           </DrawerHeader>
           <DrawerBody>
-            <SsuInventoryToggle
-              ssus={ssus}
-              enabled={ssuEnabled}
-              onToggle={handleSsuToggle}
-              selectedIds={selectedSsuIds}
-              onSelectionChange={setSelectedSsuIds}
-              isLoadingStructures={structuresLoading}
-              isLoadingInventory={inventoryLoading}
-              uniqueTypeCount={uniqueTypeCount}
-              ssuCount={ssuCount}
+            <NetworkNodeSelector
+              structures={structures}
+              selectedNodeId={selectedNodeId}
+              onSelect={setSelectedNodeId}
+              isLoading={structuresLoading}
               walletConnected={!!address}
+            />
+            <StructureToggleList
+              facilityTypes={facilityTypes}
+              structureStates={structureStates}
+              onStateChange={setOverride}
             />
           </DrawerBody>
         </PanelDrawer>
