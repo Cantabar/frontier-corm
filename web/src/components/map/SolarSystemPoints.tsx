@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo } from "react";
 import { ThreeEvent, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 
 interface SolarSystemPointsProps {
   positions: Float32Array;
   ids: number[];
-  selectedId: number | null;
   onSelect: (id: number) => void;
 }
 
@@ -14,7 +13,6 @@ export function SolarSystemPoints({
   ids,
   onSelect,
 }: SolarSystemPointsProps) {
-  const pointsRef = useRef<THREE.Points>(null);
   const { raycaster } = useThree();
 
   useEffect(() => {
@@ -24,10 +22,13 @@ export function SolarSystemPoints({
   const geometry = useMemo(() => {
     const geo = new THREE.BufferGeometry();
     const attribute = new THREE.BufferAttribute(positions, 3);
-    attribute.needsUpdate = false;
     geo.setAttribute("position", attribute);
     return geo;
   }, [positions]);
+
+  useEffect(() => {
+    return () => { geometry.dispose(); };
+  }, [geometry]);
 
   const handleClick = (event: ThreeEvent<MouseEvent>) => {
     if (event.intersections.length === 0) return;
@@ -37,7 +38,7 @@ export function SolarSystemPoints({
   };
 
   return (
-    <points ref={pointsRef} geometry={geometry} onClick={handleClick}>
+    <points geometry={geometry} onClick={handleClick}>
       <pointsMaterial color="white" size={0.5} sizeAttenuation={true} />
     </points>
   );
