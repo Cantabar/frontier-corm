@@ -7,6 +7,7 @@ import {
   FileText,
   Cpu,
   MapPin,
+  Globe,
   ShieldCheck,
   Activity,
   Bell,
@@ -266,6 +267,7 @@ export function Sidebar({ mode, toggle }: SidebarProps) {
       icon: MapPin,
       disabled: !userTribeId,
     },
+    { to: "/map", label: "Map", icon: Globe },
   ];
 
   const systemEntries: NavEntry[] = [
