@@ -106,4 +106,31 @@ The `web` package has an existing vitest convention (`vitest run`, `describe/it/
 7. **Bundle size impact:** `three` is ~600 KB minified. Combined with `@react-three/fiber` and `@react-three/drei`, this may add ~900 KB to the bundle. Route-level code splitting (`React.lazy` + `Suspense` on `MapPage`) is **required** at implementation time — without it, initial load time for all pages regresses. Added to Definition of Done in SPEC.md as a gap (see gate note below).
 
 ---
-*(Test plan table appended after Phase 4)*
+
+## Test Plan
+
+| # | Test | File | Type | DoD item |
+|---|------|------|------|----------|
+| 1 | `buildGalaxyBuffer` returns Float32Array with 3 floats per system | `src/lib/galaxyMap.test.ts` | unit | All systems rendered at correct positions |
+| 2 | `buildGalaxyBuffer` converts BigInt coords to LY-scale floats | `src/lib/galaxyMap.test.ts` | unit | Correct spatial positions |
+| 3 | `buildGalaxyBuffer` `ids` array is parallel to positions buffer | `src/lib/galaxyMap.test.ts` | unit | Click resolves correct system id |
+| 4 | `buildGalaxyBuffer` `idToIndex` maps each id to its buffer index | `src/lib/galaxyMap.test.ts` | unit | `SelectionIndicator` repositions correctly |
+| 5 | `buildGalaxyBuffer` `idToIndex` reverse-maps to correct coordinates | `src/lib/galaxyMap.test.ts` | unit | Selected highlight at correct position |
+| 6 | `buildGalaxyBuffer` returns empty buffer for empty input | `src/lib/galaxyMap.test.ts` | unit | Edge case: no systems loaded |
+| 7 | `computeGalaxyBounds` returns six numeric fields | `src/lib/galaxyMap.test.ts` | unit | Camera init receives valid bounds |
+| 8 | `computeGalaxyBounds` returns correct bounds for single region | `src/lib/galaxyMap.test.ts` | unit | Camera frames galaxy correctly |
+| 9 | `computeGalaxyBounds` unions bounds across multiple regions | `src/lib/galaxyMap.test.ts` | unit | Full galaxy framed on mount |
+| 10 | `SystemInfoPanel` shows empty-state when `selectedSystemId` is null | `src/components/map/SystemInfoPanel.test.tsx` | component | Empty-state prompt visible before selection |
+| 11 | `SystemInfoPanel` shows system name for known id | `src/components/map/SystemInfoPanel.test.tsx` | component | Selected system name visible in panel |
+| 12 | `SystemInfoPanel` shows system id | `src/components/map/SystemInfoPanel.test.tsx` | component | System ID visible in panel |
+| 13 | `SystemInfoPanel` shows constellation label | `src/components/map/SystemInfoPanel.test.tsx` | component | Constellation name visible |
+| 14 | `SystemInfoPanel` shows region label | `src/components/map/SystemInfoPanel.test.tsx` | component | Region name visible |
+| 15 | `SystemInfoPanel` clears to empty state when id changes to null | `src/components/map/SystemInfoPanel.test.tsx` | component | Panel resets on deselect |
+| 16 | `SystemInfoPanel` updates when id changes to a different system | `src/components/map/SystemInfoPanel.test.tsx` | component | Panel reflects new selection |
+| 17 | Sidebar "Map" link navigates to `/map` | `e2e/map.spec.ts` | E2E | "Map" entry in sidebar nav |
+| 18 | `/map` renders a visible WebGL canvas with non-zero dimensions | `e2e/map.spec.ts` | E2E | Canvas renders on page load |
+| 19 | Frame rate ≥30fps after galaxy loads (rAF over 2s) | `e2e/map.spec.ts` | E2E | ≥30fps on mid-range hardware |
+| 20 | Mouse drag (OrbitControls) does not crash the page | `e2e/map.spec.ts` | E2E | Orbit/rotate interaction |
+| 21 | Scroll-wheel zoom does not crash the page | `e2e/map.spec.ts` | E2E | Zoom interaction |
+| 22 | Info panel shows empty-state before any selection | `e2e/map.spec.ts` | E2E | Empty state on load |
+| 23 | Clicking a star updates the info panel with a system name | `e2e/map.spec.ts` | E2E | Click-to-select flow end-to-end |
