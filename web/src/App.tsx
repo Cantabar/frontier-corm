@@ -30,6 +30,7 @@ import { ToastContainer } from "./components/shared/Toast";
 import { LoadingSpinner } from "./components/shared/LoadingSpinner";
 
 const DappApp = lazy(() => import("./DappApp"));
+const MapPage = lazy(() => import("./pages/MapPage").then(m => ({ default: m.MapPage })));
 
 const Shell = styled.div`
   display: flex;
@@ -109,6 +110,11 @@ export default function App() {
               <Route path="/structures" element={<StructuresRedirect />} />
               <Route path="/structures/:characterId" element={<MyStructuresPage />} />
               <Route path="/locations" element={<LocationsPage />} />
+              <Route path="/map" element={
+                <Suspense fallback={<div>Loading...</div>}>
+                  <MapPage />
+                </Suspense>
+              } />
               <Route path="/verify" element={<VerifyProofPage />} />
               <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
