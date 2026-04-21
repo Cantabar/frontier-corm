@@ -39,7 +39,7 @@ export function SolarSystemPoints({
 
   return (
     <points geometry={geometry} onClick={handleClick}>
-      <pointsMaterial color="white" size={0.5} sizeAttenuation={true} />
+      <pointsMaterial color="white" size={2} sizeAttenuation={false} />
     </points>
   );
 }

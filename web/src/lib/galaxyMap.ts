@@ -19,9 +19,9 @@ export function buildGalaxyBuffer(systems: SolarSystemEntry[]): {
 
   for (let i = 0; i < systems.length; i++) {
     const entry = systems[i];
-    positions[i * 3] = Number(entry.x / METERS_PER_LY);
-    positions[i * 3 + 1] = Number(entry.y / METERS_PER_LY);
-    positions[i * 3 + 2] = Number(entry.z / METERS_PER_LY);
+    positions[i * 3] = -Number(entry.x / METERS_PER_LY);
+    positions[i * 3 + 1] = -Number(entry.y / METERS_PER_LY);
+    positions[i * 3 + 2] = -Number(entry.z / METERS_PER_LY);
     ids.push(entry.id);
     idToIndex.set(entry.id, i);
   }

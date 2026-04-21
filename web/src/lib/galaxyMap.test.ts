@@ -64,9 +64,9 @@ describe("buildGalaxyBuffer", () => {
 
   it("converts BigInt coords to light-year scale floats", () => {
     const { positions } = buildGalaxyBuffer([systemA]);
-    expect(positions[0]).toBeCloseTo(5, 0);
-    expect(positions[1]).toBeCloseTo(-3, 0);
-    expect(positions[2]).toBeCloseTo(10, 0);
+    expect(positions[0]).toBeCloseTo(-5, 0);
+    expect(positions[1]).toBeCloseTo(3, 0);
+    expect(positions[2]).toBeCloseTo(-10, 0);
   });
 
   it("ids array is parallel to positions buffer", () => {
@@ -83,8 +83,8 @@ describe("buildGalaxyBuffer", () => {
   it("idToIndex reverse-maps correctly (positions[idx*3] matches system coords)", () => {
     const { positions, idToIndex } = buildGalaxyBuffer([systemA, systemB]);
     const idx = idToIndex.get(2)!;
-    expect(positions[idx * 3]).toBeCloseTo(-2, 0);
-    expect(positions[idx * 3 + 1]).toBeCloseTo(8, 0);
+    expect(positions[idx * 3]).toBeCloseTo(2, 0);
+    expect(positions[idx * 3 + 1]).toBeCloseTo(-8, 0);
     expect(positions[idx * 3 + 2]).toBeCloseTo(0, 0);
   });
 

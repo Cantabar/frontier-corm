@@ -16,7 +16,7 @@ export function SelectionIndicator({ positions, idToIndex, selectedId }: Selecti
 
   return (
     <mesh position={[x, y, z]}>
-      <sphereGeometry args={[1.5, 8, 8]} />
+      <sphereGeometry args={[60, 8, 8]} />
       <meshBasicMaterial color="#ffff00" />
     </mesh>
   );
