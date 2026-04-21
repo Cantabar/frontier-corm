@@ -83,7 +83,7 @@ Continuity Engine (Go :3300) ---------+-----> Sui RPC
 
 Services **without** tests: indexer, infra, static-data, training-data.
 
-The `web` package has vitest (`vitest run`) with colocated `*.test.ts` / `*.test.tsx` files. jsdom + `@testing-library/react` and Playwright (`npm run test:e2e`) are being introduced with the map-feature — after that, both component and E2E tests are viable.
+The `web` package has vitest (`vitest run`) with colocated `*.test.ts` / `*.test.tsx` files. jsdom + `@testing-library/react` is used for component tests. Playwright (`npm run test:e2e`, run from `web/`) is fully operational for E2E tests — specs live in `web/e2e/`. Both component and E2E tests are viable.
 
 ## External Dependencies
 
