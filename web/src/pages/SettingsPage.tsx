@@ -173,6 +173,7 @@ export function SettingsPage() {
   function handleClearEnergyCache() {
     clearCache();
     setCacheCleared(true);
+    setTimeout(() => setCacheCleared(false), 1500);
   }
 
   async function handleReloadTribes() {
