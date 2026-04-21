@@ -1,11 +1,3 @@
-/**
- * Hook for fetching a typeId → energy map from the Sui blockchain.
- *
- * The energy table is a dynamic field table stored at a known parent object.
- * This hook fetches all entries, caches them in localStorage, and exposes a
- * Map<number, number> for UI consumption.
- */
-
 import { useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSuiClient } from "@mysten/dapp-kit";
@@ -39,7 +31,7 @@ function writeCache(map: Record<string, number>): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
   } catch {
-    // Ignore write errors (e.g. private browsing quota)
+    // private browsing / storage quota — safe to skip
   }
 }
 
@@ -47,7 +39,7 @@ function removeCache(): void {
   try {
     localStorage.removeItem(STORAGE_KEY);
   } catch {
-    // Ignore
+    // private browsing / storage quota — safe to skip
   }
 }
 
@@ -55,13 +47,6 @@ function removeCache(): void {
 // Pure export
 // ---------------------------------------------------------------------------
 
-/**
- * Returns a formatted energy string for a typeId.
- *
- * @example
- * formatEnergyDisplay(88067, map) // "⚡ 100 GJ"
- * formatEnergyDisplay(99999, map) // "⚡ — GJ"
- */
 export function formatEnergyDisplay(
   typeId: number,
   energyMap: Map<number, number>,
@@ -90,11 +75,9 @@ export function useEnergyMap(): {
     gcTime: Infinity,
 
     queryFn: async () => {
-      // Step 1: check localStorage — return immediately on cache hit
       const cached = readCache();
       if (cached) return cached;
 
-      // Step 2: fetch dynamic field entries from Sui
       const fieldResult = await suiClient.getDynamicFields({
         parentId: ENERGY_TABLE_PARENT,
       });
@@ -107,7 +90,6 @@ export function useEnergyMap(): {
 
       const entries = fieldResult.data ?? [];
 
-      // Build parallel arrays of typeId strings and objectIds
       const typeIds: string[] = entries.map(
         (e: { name: { value: string }; objectId: string }) => e.name.value,
       );
@@ -121,7 +103,6 @@ export function useEnergyMap(): {
         return empty;
       }
 
-      // Step 3: multi-get the field objects to read their `.value` (u64)
       const objects = await suiClient.multiGetObjects({
         ids: objectIds,
         options: { showContent: true },
@@ -171,7 +152,6 @@ export function useEnergyMap(): {
   const clearCache = () => {
     removeCache();
     queryClient.removeQueries({ queryKey: QUERY_KEY });
-    // Trigger a fresh fetch on the current subscriber
     refetch();
   };
 
