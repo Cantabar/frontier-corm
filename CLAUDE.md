@@ -60,6 +60,10 @@ Continuity Engine (Go :3300) ---------+-----> Sui RPC
 
 **Infra** (AWS CDK): ECS Fargate, RDS Postgres 16, S3 + CloudFront, ALB with sticky sessions, Route 53. Two environments: utopia (testnet A) and stillness (production testnet).
 
+## Workflow
+
+- **Feature artifact root:** `./plan/artifacts` — phase artifacts (DISCOVERY.md, SPEC.md, etc.) are written to `./plan/artifacts/<feature-slug>/`
+
 ## Key Conventions
 
 - **Commit messages:** `<type>(<scope>): <description>` — types: feat, fix, refactor, chore, docs; scopes: web, indexer, continuity-engine, contracts, infra, chain, scripts
@@ -74,7 +78,9 @@ Continuity Engine (Go :3300) ---------+-----> Sui RPC
 - `contracts/` — Sui Move `#[test]` in all 6 packages
 - `dev-tools/transfer_exploit_poc/` — Move security tests
 
-Services **without** tests: indexer, web, infra, static-data, training-data.
+Services **without** tests: indexer, infra, static-data, training-data.
+
+The `web` package has vitest (`vitest run`) with colocated `*.test.ts` / `*.test.tsx` files. jsdom + `@testing-library/react` and Playwright (`npm run test:e2e`) are being introduced with the map-feature — after that, both component and E2E tests are viable.
 
 ## External Dependencies
 
