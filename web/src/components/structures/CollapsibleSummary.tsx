@@ -20,6 +20,10 @@ interface CollapsibleSummaryProps {
 // Styled components
 // ---------------------------------------------------------------------------
 
+const SummaryContainer = styled.div`
+  margin-bottom: ${({ theme }) => theme.spacing.lg};
+`;
+
 const SummaryHeader = styled.div`
   display: flex;
   flex-direction: row;
@@ -121,11 +125,11 @@ export function CollapsibleSummary({
   }
 
   return (
-    <div>
+    <SummaryContainer>
       <SummaryHeader>
         <SummaryTitle>Summary</SummaryTitle>
         <SummaryToggle
-          aria-label="Toggle summary"
+          aria-label={collapsed ? "Expand summary" : "Collapse summary"}
           onClick={handleToggle}
         >
           {collapsed ? "▸" : "▾"}
@@ -161,6 +165,6 @@ export function CollapsibleSummary({
           </CardValue>
         </SummaryCard>
       </SummaryBody>
-    </div>
+    </SummaryContainer>
   );
 }
