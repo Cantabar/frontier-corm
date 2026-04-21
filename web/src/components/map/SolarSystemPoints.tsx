@@ -82,7 +82,7 @@ export function SolarSystemPoints({
 
   return (
     <points geometry={geometry} onClick={handleClick}>
-      <pointsMaterial vertexColors={true} size={2} />
+      <pointsMaterial vertexColors={true} size={2} sizeAttenuation={false} />
     </points>
   );
 }
