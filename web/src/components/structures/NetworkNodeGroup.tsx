@@ -3,7 +3,7 @@ import styled from "styled-components";
 import { Link } from "react-router-dom";
 import { useSignAndExecuteTransaction, useSuiClient } from "@mysten/dapp-kit";
 import { CopyableId } from "../shared/CopyableId";
-import { buildOnlineStructure, buildOfflineStructure, buildUpdateNetworkNodeUrl, buildUpdateMetadataName, getContinuityUrl } from "../../lib/sui";
+import { buildOnlineStructure, buildOfflineStructure, buildUpdateNetworkNodeUrl, buildClearNetworkNodeUrl, buildUpdateMetadataName, getContinuityUrl } from "../../lib/sui";
 import { useIdentity } from "../../hooks/useIdentity";
 import { config } from "../../config";
 import { truncateAddress } from "../../lib/format";
@@ -389,6 +389,7 @@ export function NetworkNodeGroup({
   const { characterId: myCharacterId } = useIdentity();
   const [pending, setPending] = useState(false);
   const [updatingUrl, setUpdatingUrl] = useState(false);
+  const [clearingUrl, setClearingUrl] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState("");
   const [savingName, setSavingName] = useState(false);
@@ -430,10 +431,11 @@ export function NetworkNodeGroup({
   const canOnline = isOwner && node.status === "Offline" && !!characterId && !!assembly;
   const canOffline = isOwner && node.status === "Online" && !!characterId && !!assembly;
 
-  // Determine if the metadata URL needs to be set/updated
+  // Determine if the metadata URL needs to be set/updated/cleared
   const expectedUrl = getContinuityUrl(node.id);
   const urlSynced = node.metadataUrl === expectedUrl;
   const canUpdateUrl = isOwner && !!myCharacterId && !!assembly && !urlSynced;
+  const canClearUrl = isOwner && !!myCharacterId && !!assembly && !!node.metadataUrl && urlSynced;
 
   async function handleUpdateUrl() {
     if (!myCharacterId || !assembly) return;
@@ -455,6 +457,29 @@ export function NetworkNodeGroup({
       console.error("Failed to update network node URL:", err);
     } finally {
       setUpdatingUrl(false);
+    }
+  }
+
+  async function handleClearUrl() {
+    if (!myCharacterId || !assembly) return;
+    setClearingUrl(true);
+    try {
+      const capObj = await suiClient.getObject({ id: assembly.ownerCapId });
+      const tx = buildClearNetworkNodeUrl({
+        characterId: myCharacterId,
+        networkNodeId: assembly.id,
+        ownerCapId: assembly.ownerCapId,
+        ownerCapVersion: capObj.data?.version ?? assembly.ownerCapVersion,
+        ownerCapDigest: capObj.data?.digest ?? assembly.ownerCapDigest,
+      });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await signAndExecute({ transaction: tx as any });
+      await new Promise((r) => setTimeout(r, 1500));
+      onRefreshNodes();
+    } catch (err) {
+      console.error("Failed to clear network node URL:", err);
+    } finally {
+      setClearingUrl(false);
     }
   }
 
@@ -640,6 +665,19 @@ export function NetworkNodeGroup({
               }}
             >
               {updatingUrl ? "…" : "🔗 Set Link"}
+            </ActionButton>
+          )}
+          {canClearUrl && (
+            <ActionButton
+              $variant="offline"
+              disabled={clearingUrl}
+              title="Clear the on-chain metadata URL from this network node"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleClearUrl();
+              }}
+            >
+              {clearingUrl ? "…" : "🔗 Clear Link"}
             </ActionButton>
           )}
           {canOnline && (

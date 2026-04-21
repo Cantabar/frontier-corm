@@ -1306,6 +1306,57 @@ export function buildInstallCormWithUrl(params: {
 }
 
 /**
+ * Clear the Network Node metadata URL by setting it to an empty string.
+ */
+export function buildClearNetworkNodeUrl(params: {
+  characterId: string;
+  networkNodeId: string;
+  ownerCapId: string;
+  ownerCapVersion: string;
+  ownerCapDigest: string;
+}): Transaction {
+  const tx = new Transaction();
+  const pkg = worldPkg();
+  const nnTypeArg = `${pkg}::network_node::NetworkNode`;
+
+  const [ownerCap, receipt] = tx.moveCall({
+    target: `${pkg}::character::borrow_owner_cap`,
+    typeArguments: [nnTypeArg],
+    arguments: [
+      tx.object(params.characterId),
+      tx.object(
+        Inputs.ReceivingRef({
+          objectId: params.ownerCapId,
+          version: params.ownerCapVersion,
+          digest: params.ownerCapDigest,
+        }),
+      ),
+    ],
+  });
+
+  tx.moveCall({
+    target: `${pkg}::network_node::update_metadata_url`,
+    arguments: [
+      tx.object(params.networkNodeId),
+      ownerCap,
+      tx.pure.string(""),
+    ],
+  });
+
+  tx.moveCall({
+    target: `${pkg}::character::return_owner_cap`,
+    typeArguments: [nnTypeArg],
+    arguments: [
+      tx.object(params.characterId),
+      ownerCap,
+      receipt,
+    ],
+  });
+
+  return tx;
+}
+
+/**
  * Update (or set) the Network Node metadata URL to the full-page
  * Continuity Engine link. Used as a repair action for nodes that were
  * installed before URL-writing was added to the install flow.
