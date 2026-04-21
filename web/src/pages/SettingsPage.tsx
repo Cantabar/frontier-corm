@@ -15,6 +15,7 @@ import { clearLocationSession } from "../hooks/useLocationPods";
 import { useNotifications } from "../hooks/useNotifications";
 import { useInstalledCorms, type InstalledCorm } from "../hooks/useInstalledCorms";
 import { resetCormPhase } from "../continuity-engine/resetCormPhase";
+import { useEnergyMap } from "../hooks/useEnergyMap";
 
 // ---------------------------------------------------------------------------
 // Styled components
@@ -166,6 +167,13 @@ export function SettingsPage() {
   const [reloading, setReloading] = useState(false);
   const { installedCorms, isLoading: cormsLoading } = useInstalledCorms();
   const [resettingCorm, setResettingCorm] = useState<string | null>(null);
+  const { clearCache } = useEnergyMap();
+  const [cacheCleared, setCacheCleared] = useState(false);
+
+  function handleClearEnergyCache() {
+    clearCache();
+    setCacheCleared(true);
+  }
 
   async function handleReloadTribes() {
     setReloading(true);
@@ -205,6 +213,18 @@ export function SettingsPage() {
         </StatRow>
         <ActionButton $busy={reloading} onClick={handleReloadTribes}>
           {reloading ? "Reloading…" : "Reload Tribe Data"}
+        </ActionButton>
+      </Card>
+
+      <Card>
+        <CardTitle>Energy Data</CardTitle>
+        <CardDescription>
+          Structure energy costs are fetched from the Sui blockchain and cached
+          locally. Clear the cache to force a fresh fetch on your next visit to
+          the Structures page.
+        </CardDescription>
+        <ActionButton onClick={handleClearEnergyCache}>
+          {cacheCleared ? "Cache cleared." : "Clear energy cache"}
         </ActionButton>
       </Card>
 
