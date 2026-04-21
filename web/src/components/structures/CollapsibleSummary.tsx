@@ -25,7 +25,7 @@ const SummaryHeader = styled.div`
   flex-direction: row;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  margin-bottom: ${({ theme }) => theme.spacing?.sm ?? "8px"};
 `;
 
 const SummaryTitle = styled.h3`
@@ -34,6 +34,7 @@ const SummaryTitle = styled.h3`
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
+  color: ${({ theme }) => theme.colors?.text?.primary ?? "#F0F4F8"};
 `;
 
 const SummaryToggle = styled.button`
@@ -43,29 +44,34 @@ const SummaryToggle = styled.button`
   font-size: 16px;
   padding: 0 4px;
   line-height: 1;
+  color: ${({ theme }) => theme.colors?.text?.muted ?? "#78909C"};
 `;
 
 const SummaryBody = styled.div<{ $open: boolean }>`
-  display: ${({ $open }) => ($open ? "flex" : "none")};
-  flex-direction: row;
-  flex-wrap: wrap;
-  gap: 16px;
+  display: ${({ $open }) => ($open ? "grid" : "none")};
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: ${({ theme }) => theme.spacing?.md ?? "16px"};
 `;
 
 const SummaryCard = styled.div`
-  padding: 16px;
+  background: ${({ theme }) => theme.colors?.surface?.raised ?? "#13171D"};
+  border: 1px solid ${({ theme }) => theme.colors?.surface?.border ?? "#2D3038"};
+  border-radius: ${({ theme }) => theme.radii?.md ?? "2px"};
+  padding: ${({ theme }) => theme.spacing?.md ?? "16px"};
 `;
 
 const CardLabel = styled.div`
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  margin-bottom: 4px;
+  color: ${({ theme }) => theme.colors?.text?.muted ?? "#78909C"};
+  margin-bottom: ${({ theme }) => theme.spacing?.xs ?? "4px"};
 `;
 
 const CardValue = styled.div`
   font-size: 20px;
   font-weight: 700;
+  color: ${({ theme }) => theme.colors?.text?.primary ?? "#F0F4F8"};
 `;
 
 // ---------------------------------------------------------------------------
