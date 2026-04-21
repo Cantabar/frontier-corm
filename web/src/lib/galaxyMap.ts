@@ -2,7 +2,7 @@ import type { SolarSystemEntry } from "./solarSystems";
 import type { RegionEntry } from "./regions";
 
 /** 1 light-year in meters (game coordinate unit). */
-const METERS_PER_LY = 9_460_730_472_580_800n;
+export const METERS_PER_LY = 9_460_730_472_580_800n;
 
 /**
  * Converts an array of solar systems into a flat Float32Array buffer suitable
@@ -27,6 +27,12 @@ export function buildGalaxyBuffer(systems: SolarSystemEntry[]): {
   }
 
   return { positions, ids, idToIndex };
+}
+
+/** Uses float division so sub-LY fractional values are preserved (BigInt division truncates to zero). */
+export function formatCoordLy(coord: bigint): string {
+  const ly = Number(coord) / Number(METERS_PER_LY);
+  return `${ly.toFixed(1)} LY`;
 }
 
 /**
