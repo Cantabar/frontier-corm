@@ -8,6 +8,9 @@ Frontier Corm is an AI-powered autonomous NPC system for [Eve Frontier](https://
 
 **Caution:** Eve Frontier is migrating from EVM to SUI. External resources may reference EVM patterns — ignore those.
 
+## Git Management
+post-hackathon branch is temporarily the trunk branch
+
 ## Common Commands
 
 ```bash
