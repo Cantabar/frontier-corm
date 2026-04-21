@@ -45,7 +45,7 @@ procs:
       VITE_INDEXER_URL=/api/v1 \
       VITE_CONTINUITY_ENGINE_URL=http://localhost:3300 \
       VITE_WEB_UI_HOST=http://localhost:5173 \
-      npm --prefix web run dev -- --mode stillness
+      npm --prefix web run dev:stillness
     stop: "SIGTERM"
 
   # ── Continuity Engine (Go + HTMX on :3300) ──────────────────────
