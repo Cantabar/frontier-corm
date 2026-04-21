@@ -90,12 +90,8 @@ export function useEnergyMap(): {
 
       const entries = fieldResult.data ?? [];
 
-      const typeIds: string[] = entries.map(
-        (e: { name: { value: string }; objectId: string }) => e.name.value,
-      );
-      const objectIds: string[] = entries.map(
-        (e: { name: { value: string }; objectId: string }) => e.objectId,
-      );
+      const typeIds: string[] = entries.map((e) => String(e.name.value));
+      const objectIds: string[] = entries.map((e) => e.objectId);
 
       if (objectIds.length === 0) {
         const empty: Record<string, number> = {};
