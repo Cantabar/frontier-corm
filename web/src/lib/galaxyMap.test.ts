@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildGalaxyBuffer, computeGalaxyBounds } from "./galaxyMap";
+import { buildGalaxyBuffer, computeGalaxyBounds, formatCoordLy } from "./galaxyMap";
 import type { SolarSystemEntry } from "./solarSystems";
 import type { RegionEntry } from "./regions";
 
@@ -93,6 +93,36 @@ describe("buildGalaxyBuffer", () => {
     expect(positions.length).toBe(0);
     expect(ids).toHaveLength(0);
     expect(idToIndex.size).toBe(0);
+  });
+});
+
+// ── formatCoordLy ────────────────────────────────────────────────────────────
+
+describe("formatCoordLy", () => {
+  it("formats a positive whole-number LY value", () => {
+    expect(formatCoordLy(METERS_PER_LY * 5n)).toBe("5.0 LY");
+  });
+
+  it("formats a negative whole-number LY value", () => {
+    expect(formatCoordLy(METERS_PER_LY * -3n)).toBe("-3.0 LY");
+  });
+
+  it("formats zero as 0.0 LY", () => {
+    expect(formatCoordLy(0n)).toBe("0.0 LY");
+  });
+
+  it("formats a fractional sub-LY value (float path, not BigInt division)", () => {
+    // Half a light-year: must display as "0.5 LY", not "0.0 LY"
+    const halfLy = METERS_PER_LY / 2n;
+    expect(formatCoordLy(halfLy)).toBe("0.5 LY");
+  });
+
+  it("formats a large galaxy-scale positive value", () => {
+    expect(formatCoordLy(METERS_PER_LY * 540n)).toBe("540.0 LY");
+  });
+
+  it("formats a large galaxy-scale negative value", () => {
+    expect(formatCoordLy(METERS_PER_LY * -305n)).toBe("-305.0 LY");
   });
 });
 
