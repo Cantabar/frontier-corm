@@ -36,7 +36,7 @@ function TorusRing({ x, y, z }: TorusRingProps) {
     if (meshRef.current) {
       meshRef.current.quaternion.copy(camera.quaternion);
       const dist = camera.position.distanceTo(starWorldPos);
-      meshRef.current.scale.setScalar(dist * 0.035);
+      meshRef.current.scale.setScalar(dist * 0.008);
     }
   });
 
