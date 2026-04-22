@@ -2,7 +2,7 @@
 /**
  * build-overlay-data.mjs
  *
- * Reads three static-data source files and emits web/src/data/overlay-data.json
+ * Reads static-data source files and emits web/src/data/overlay-data.json
  * with pre-processed map overlay data for the React frontend.
  *
  * Output format:
@@ -11,6 +11,9 @@
  *     "regionAdj": [[r1, r2], ...],
  *     "constAdj": [[c1, c2], ...]
  *   }
+ *
+ * Note: regionAdj is derived from k-NN over solar system positions (from
+ * web/src/data/solar-systems.json), not from jumps — Eve Frontier has no inter-region jumps.
  *
  * Usage:  node scripts/build-overlay-data.mjs
  */
@@ -54,6 +57,204 @@ function requireFile(path) {
   return JSON.parse(readFileSync(path, "utf8"));
 }
 
+/**
+ * Build region adjacency from solar system positions using k-nearest-neighbors.
+ *
+ * Two regions are considered adjacent iff a star from each sits among its
+ * cross-region k-nearest neighbors in 3D space.
+ *
+ * @param {Array} solarSystems - web/src/data/solar-systems.json rows
+ *   [sysId, name, constellationId, regionId, xStr, yStr, zStr]
+ * @returns {Set<string>} set of "a,b" keys with a<b for region pairs
+ */
+function buildRegionAdjacencyFromStars(solarSystems) {
+  const LY_METERS = 9.4607e15;
+  const CELL_SIZE_LY = 50;
+  const K = 6;
+  const MAX_SHELL_RADIUS = 5;
+
+  const N = solarSystems.length;
+  const xs = new Float64Array(N);
+  const ys = new Float64Array(N);
+  const zs = new Float64Array(N);
+  const regions = new Int32Array(N);
+
+  for (let i = 0; i < N; i++) {
+    const s = solarSystems[i];
+    xs[i] = Number(BigInt(s[4])) / LY_METERS;
+    ys[i] = Number(BigInt(s[5])) / LY_METERS;
+    zs[i] = Number(BigInt(s[6])) / LY_METERS;
+    regions[i] = s[3];
+  }
+
+  // Uniform 3D grid index: "cx,cy,cz" -> int[] of star indices
+  const grid = new Map();
+  const cellOf = (v) => Math.floor(v / CELL_SIZE_LY);
+  const cxs = new Int32Array(N);
+  const cys = new Int32Array(N);
+  const czs = new Int32Array(N);
+  for (let i = 0; i < N; i++) {
+    const cx = cellOf(xs[i]);
+    const cy = cellOf(ys[i]);
+    const cz = cellOf(zs[i]);
+    cxs[i] = cx;
+    cys[i] = cy;
+    czs[i] = cz;
+    const key = `${cx},${cy},${cz}`;
+    let bucket = grid.get(key);
+    if (!bucket) {
+      bucket = [];
+      grid.set(key, bucket);
+    }
+    bucket.push(i);
+  }
+
+  const regionAdjSet = new Set();
+
+  // Scratch buffer for candidate indices, reused per star
+  const candidates = [];
+
+  for (let i = 0; i < N; i++) {
+    const cx = cxs[i];
+    const cy = cys[i];
+    const cz = czs[i];
+
+    candidates.length = 0;
+
+    // Shell-expanding search: r=0 covers the home cell only, r=1 adds the
+    // surrounding 3x3x3 shell, etc. We only scan new cells per shell.
+    for (let r = 0; r <= MAX_SHELL_RADIUS; r++) {
+      for (let dx = -r; dx <= r; dx++) {
+        for (let dy = -r; dy <= r; dy++) {
+          for (let dz = -r; dz <= r; dz++) {
+            const maxAbs = Math.max(Math.abs(dx), Math.abs(dy), Math.abs(dz));
+            if (maxAbs !== r) continue; // only the outer shell at this radius
+            const bucket = grid.get(`${cx + dx},${cy + dy},${cz + dz}`);
+            if (!bucket) continue;
+            for (let k = 0; k < bucket.length; k++) {
+              candidates.push(bucket[k]);
+            }
+          }
+        }
+      }
+      if (candidates.length >= K + 1) break;
+    }
+
+    if (candidates.length < K + 1) {
+      console.warn(
+        `  WARN: star sysId=${solarSystems[i][0]} found only ${candidates.length - 1} neighbor(s) within r=${MAX_SHELL_RADIUS} shells`
+      );
+    }
+
+    // Score candidates by squared distance, drop self
+    const scored = [];
+    const xi = xs[i], yi = ys[i], zi = zs[i];
+    for (let c = 0; c < candidates.length; c++) {
+      const j = candidates[c];
+      if (j === i) continue;
+      const ddx = xs[j] - xi;
+      const ddy = ys[j] - yi;
+      const ddz = zs[j] - zi;
+      scored.push([ddx * ddx + ddy * ddy + ddz * ddz, j]);
+    }
+    scored.sort((a, b) => a[0] - b[0]);
+
+    const take = Math.min(K, scored.length);
+    const ri = regions[i];
+    for (let n = 0; n < take; n++) {
+      const j = scored[n][1];
+      const rj = regions[j];
+      if (ri === rj) continue;
+      const key = ri < rj ? `${ri},${rj}` : `${rj},${ri}`;
+      regionAdjSet.add(key);
+    }
+  }
+
+  // Fallback for isolated regions: any region with zero cross-region neighbors
+  // gets its closest foreign star attached.
+  const universeRegions = new Set();
+  for (let i = 0; i < N; i++) universeRegions.add(regions[i]);
+
+  const touched = new Set();
+  for (const k of regionAdjSet) {
+    const [a, b] = k.split(",").map(Number);
+    touched.add(a);
+    touched.add(b);
+  }
+
+  // Index first-seen star per region for fallback lookup
+  const regionFirstStar = new Map();
+  for (let i = 0; i < N; i++) {
+    if (!regionFirstStar.has(regions[i])) regionFirstStar.set(regions[i], i);
+  }
+
+  let fallbacks = 0;
+  for (const regionId of universeRegions) {
+    if (touched.has(regionId)) continue;
+    const i = regionFirstStar.get(regionId);
+    if (i === undefined) continue;
+
+    // Brute-force: find this star's closest foreign-region star globally.
+    let bestJ = -1;
+    let bestD2 = Infinity;
+    const xi = xs[i], yi = ys[i], zi = zs[i];
+    for (let j = 0; j < N; j++) {
+      if (regions[j] === regionId) continue;
+      const ddx = xs[j] - xi;
+      const ddy = ys[j] - yi;
+      const ddz = zs[j] - zi;
+      const d2 = ddx * ddx + ddy * ddy + ddz * ddz;
+      if (d2 < bestD2) {
+        bestD2 = d2;
+        bestJ = j;
+      }
+    }
+    if (bestJ === -1) continue;
+    const rj = regions[bestJ];
+    const key = regionId < rj ? `${regionId},${rj}` : `${rj},${regionId}`;
+    if (!regionAdjSet.has(key)) {
+      regionAdjSet.add(key);
+      fallbacks++;
+    }
+  }
+
+  // Stats logging
+  const degreeMap = new Map();
+  for (const k of regionAdjSet) {
+    const [a, b] = k.split(",").map(Number);
+    if (!degreeMap.has(a)) degreeMap.set(a, new Set());
+    if (!degreeMap.has(b)) degreeMap.set(b, new Set());
+    degreeMap.get(a).add(b);
+    degreeMap.get(b).add(a);
+  }
+  const degrees = [];
+  let maxDeg = 0;
+  let maxDegRegion = -1;
+  for (const [rid, nset] of degreeMap) {
+    const d = nset.size;
+    degrees.push(d);
+    if (d > maxDeg) {
+      maxDeg = d;
+      maxDegRegion = rid;
+    }
+  }
+  degrees.sort((a, b) => a - b);
+  const median = degrees.length === 0
+    ? 0
+    : degrees.length % 2 === 1
+      ? degrees[(degrees.length - 1) >> 1]
+      : (degrees[degrees.length / 2 - 1] + degrees[degrees.length / 2]) / 2;
+
+  console.log("\n  Region adjacency (star k-NN):");
+  console.log(`    pairs: ${regionAdjSet.size}`);
+  console.log(`    regions with ≥1 neighbor: ${degreeMap.size} / ${universeRegions.size}`);
+  console.log(`    max degree: ${maxDeg} (region ${maxDegRegion})`);
+  console.log(`    median degree: ${median}`);
+  console.log(`    fallback additions: ${fallbacks}`);
+
+  return regionAdjSet;
+}
+
 function main() {
   console.log("Building overlay data from static sources...\n");
 
@@ -66,7 +267,7 @@ function main() {
   console.log("  Reading npcStations...");
   const npcStations = requireFile(NPC_STATIONS_PATH);
 
-  console.log("  Reading solar-systems (for validation)...\n");
+  console.log("  Reading solar-systems (for validation and region adjacency)...\n");
   const webSolarSystems = requireFile(SOLAR_SYSTEMS_PATH);
 
   const { solarSystems: cacheSystemsMap, jumps } = starmapcache;
@@ -123,22 +324,14 @@ function main() {
   // Sort ascending by sysId
   systems.sort((a, b) => a[0] - b[0]);
 
-  // Build region and constellation adjacency pairs from jumps
-  const regionAdjSet = new Set();
+  // Build constellation adjacency pairs from jumps.
+  // Region adjacency is built separately from star k-NN — Eve Frontier has no inter-region jumps.
   const constAdjSet = new Set();
 
   for (const jump of jumps) {
     const fromSys = cacheSystemsMap[String(jump.fromSystemID)];
     const toSys = cacheSystemsMap[String(jump.toSystemID)];
-
     if (!fromSys || !toSys) continue;
-
-    const rFrom = fromSys.regionID;
-    const rTo = toSys.regionID;
-    if (rFrom !== rTo) {
-      const key = rFrom < rTo ? `${rFrom},${rTo}` : `${rTo},${rFrom}`;
-      regionAdjSet.add(key);
-    }
 
     const cFrom = fromSys.constellationID;
     const cTo = toSys.constellationID;
@@ -147,6 +340,9 @@ function main() {
       constAdjSet.add(key);
     }
   }
+
+  // Region adjacency from k-NN over solar system positions.
+  const regionAdjSet = buildRegionAdjacencyFromStars(webSolarSystems);
 
   const regionAdj = [...regionAdjSet]
     .map((k) => k.split(",").map(Number))
