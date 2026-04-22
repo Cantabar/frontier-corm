@@ -120,10 +120,10 @@ export function OverlayLegend({ overlayConfig }: OverlayLegendProps) {
     return (
       <CategoricalLegend
         entries={[
-          { label: "Jove Empire",      color: ANCIENT_CIV_COLORS[500074] },
-          { label: "Triglavian",        color: ANCIENT_CIV_COLORS[500075] },
-          { label: "Drifters",          color: ANCIENT_CIV_COLORS[500078] },
-          { label: "Unclaimed",         color: ANCIENT_CIV_COLORS.unclaimed },
+          { label: "Moe Ancient Civilization",    color: ANCIENT_CIV_COLORS[500074] },
+          { label: "Larry Ancient Civilization",  color: ANCIENT_CIV_COLORS[500075] },
+          { label: "Curly Ancient Civilization",  color: ANCIENT_CIV_COLORS[500078] },
+          { label: "Unclaimed",                   color: ANCIENT_CIV_COLORS.unclaimed },
         ]}
       />
     );
