@@ -37,17 +37,20 @@ export function assignCategoricalColors(
       }
     }
 
+    // Start the palette scan at idx % len so categories with empty adjacency
+    // still cycle through the palette instead of collapsing onto PALETTE[0].
+    // Where adjacency exists, the scan still skips any colour a neighbour is
+    // already using, so the "no neighbour shares a colour" guarantee holds.
+    const start = idx % PALETTE.length;
     let chosen: THREE.Color | undefined;
     for (let i = 0; i < PALETTE.length; i++) {
-      if (!usedHex.has(PALETTE[i].getHex())) {
-        chosen = PALETTE[i];
+      const c = PALETTE[(start + i) % PALETTE.length];
+      if (!usedHex.has(c.getHex())) {
+        chosen = c;
         break;
       }
     }
-
-    if (chosen === undefined) {
-      chosen = PALETTE[idx % PALETTE.length];
-    }
+    if (chosen === undefined) chosen = PALETTE[start];
 
     result.set(id, chosen.clone());
   }
@@ -86,12 +89,12 @@ export const ANCIENT_CIV_COLORS: {
   500074: THREE.Color;
   500075: THREE.Color;
   500078: THREE.Color;
-  unclaimed: THREE.Color;
+  unmatched: THREE.Color;
 } = {
   500074: new THREE.Color('#e15759'),
   500075: new THREE.Color('#4e79a7'),
   500078: new THREE.Color('#59a14f'),
-  unclaimed: new THREE.Color('#3a3a4a'),
+  unmatched: new THREE.Color('#ffffff'),
 };
 
 export const ACCENT_COLOR: THREE.Color = new THREE.Color('#edc948');

@@ -12,8 +12,9 @@
  *     "constAdj": [[c1, c2], ...]
  *   }
  *
- * Note: regionAdj is derived from k-NN over solar system positions (from
- * web/src/data/solar-systems.json), not from jumps — Eve Frontier has no inter-region jumps.
+ * Note: both regionAdj and constAdj are derived from k-NN over solar system
+ * positions (from web/src/data/solar-systems.json), not from jumps —
+ * Eve Frontier has no inter-region jumps and very few inter-constellation jumps.
  *
  * Usage:  node scripts/build-overlay-data.mjs
  */
@@ -58,16 +59,20 @@ function requireFile(path) {
 }
 
 /**
- * Build region adjacency from solar system positions using k-nearest-neighbors.
+ * Build category adjacency from solar system positions using k-nearest-neighbors.
  *
- * Two regions are considered adjacent iff a star from each sits among its
- * cross-region k-nearest neighbors in 3D space.
+ * Two categories are considered adjacent iff a star from each sits among its
+ * cross-category k-nearest neighbors in 3D space. Works for any partitioning
+ * of the star field (regions, constellations, etc.) — the caller supplies the
+ * column index into the solar-systems row that holds the category id.
  *
  * @param {Array} solarSystems - web/src/data/solar-systems.json rows
  *   [sysId, name, constellationId, regionId, xStr, yStr, zStr]
- * @returns {Set<string>} set of "a,b" keys with a<b for region pairs
+ * @param {number} categoryColumn - row index that holds the category id (3 for region, 2 for constellation)
+ * @param {string} label - short label used in stats output
+ * @returns {Set<string>} set of "a,b" keys with a<b for category pairs
  */
-function buildRegionAdjacencyFromStars(solarSystems) {
+function buildCategoryAdjacencyFromStars(solarSystems, categoryColumn, label) {
   const LY_METERS = 9.4607e15;
   const CELL_SIZE_LY = 50;
   const K = 6;
@@ -77,14 +82,14 @@ function buildRegionAdjacencyFromStars(solarSystems) {
   const xs = new Float64Array(N);
   const ys = new Float64Array(N);
   const zs = new Float64Array(N);
-  const regions = new Int32Array(N);
+  const categories = new Int32Array(N);
 
   for (let i = 0; i < N; i++) {
     const s = solarSystems[i];
     xs[i] = Number(BigInt(s[4])) / LY_METERS;
     ys[i] = Number(BigInt(s[5])) / LY_METERS;
     zs[i] = Number(BigInt(s[6])) / LY_METERS;
-    regions[i] = s[3];
+    categories[i] = s[categoryColumn];
   }
 
   // Uniform 3D grid index: "cx,cy,cz" -> int[] of star indices
@@ -109,7 +114,7 @@ function buildRegionAdjacencyFromStars(solarSystems) {
     bucket.push(i);
   }
 
-  const regionAdjSet = new Set();
+  const adjSet = new Set();
 
   // Scratch buffer for candidate indices, reused per star
   const candidates = [];
@@ -160,46 +165,46 @@ function buildRegionAdjacencyFromStars(solarSystems) {
     scored.sort((a, b) => a[0] - b[0]);
 
     const take = Math.min(K, scored.length);
-    const ri = regions[i];
+    const ri = categories[i];
     for (let n = 0; n < take; n++) {
       const j = scored[n][1];
-      const rj = regions[j];
+      const rj = categories[j];
       if (ri === rj) continue;
       const key = ri < rj ? `${ri},${rj}` : `${rj},${ri}`;
-      regionAdjSet.add(key);
+      adjSet.add(key);
     }
   }
 
-  // Fallback for isolated regions: any region with zero cross-region neighbors
-  // gets its closest foreign star attached.
-  const universeRegions = new Set();
-  for (let i = 0; i < N; i++) universeRegions.add(regions[i]);
+  // Fallback for isolated categories: any category with zero cross-category
+  // neighbors gets its closest foreign star attached.
+  const universe = new Set();
+  for (let i = 0; i < N; i++) universe.add(categories[i]);
 
   const touched = new Set();
-  for (const k of regionAdjSet) {
+  for (const k of adjSet) {
     const [a, b] = k.split(",").map(Number);
     touched.add(a);
     touched.add(b);
   }
 
-  // Index first-seen star per region for fallback lookup
-  const regionFirstStar = new Map();
+  // Index first-seen star per category for fallback lookup
+  const firstStarByCategory = new Map();
   for (let i = 0; i < N; i++) {
-    if (!regionFirstStar.has(regions[i])) regionFirstStar.set(regions[i], i);
+    if (!firstStarByCategory.has(categories[i])) firstStarByCategory.set(categories[i], i);
   }
 
   let fallbacks = 0;
-  for (const regionId of universeRegions) {
-    if (touched.has(regionId)) continue;
-    const i = regionFirstStar.get(regionId);
+  for (const catId of universe) {
+    if (touched.has(catId)) continue;
+    const i = firstStarByCategory.get(catId);
     if (i === undefined) continue;
 
-    // Brute-force: find this star's closest foreign-region star globally.
+    // Brute-force: find this star's closest foreign-category star globally.
     let bestJ = -1;
     let bestD2 = Infinity;
     const xi = xs[i], yi = ys[i], zi = zs[i];
     for (let j = 0; j < N; j++) {
-      if (regions[j] === regionId) continue;
+      if (categories[j] === catId) continue;
       const ddx = xs[j] - xi;
       const ddy = ys[j] - yi;
       const ddz = zs[j] - zi;
@@ -210,17 +215,17 @@ function buildRegionAdjacencyFromStars(solarSystems) {
       }
     }
     if (bestJ === -1) continue;
-    const rj = regions[bestJ];
-    const key = regionId < rj ? `${regionId},${rj}` : `${rj},${regionId}`;
-    if (!regionAdjSet.has(key)) {
-      regionAdjSet.add(key);
+    const rj = categories[bestJ];
+    const key = catId < rj ? `${catId},${rj}` : `${rj},${catId}`;
+    if (!adjSet.has(key)) {
+      adjSet.add(key);
       fallbacks++;
     }
   }
 
   // Stats logging
   const degreeMap = new Map();
-  for (const k of regionAdjSet) {
+  for (const k of adjSet) {
     const [a, b] = k.split(",").map(Number);
     if (!degreeMap.has(a)) degreeMap.set(a, new Set());
     if (!degreeMap.has(b)) degreeMap.set(b, new Set());
@@ -229,13 +234,13 @@ function buildRegionAdjacencyFromStars(solarSystems) {
   }
   const degrees = [];
   let maxDeg = 0;
-  let maxDegRegion = -1;
-  for (const [rid, nset] of degreeMap) {
+  let maxDegCat = -1;
+  for (const [cid, nset] of degreeMap) {
     const d = nset.size;
     degrees.push(d);
     if (d > maxDeg) {
       maxDeg = d;
-      maxDegRegion = rid;
+      maxDegCat = cid;
     }
   }
   degrees.sort((a, b) => a - b);
@@ -245,14 +250,14 @@ function buildRegionAdjacencyFromStars(solarSystems) {
       ? degrees[(degrees.length - 1) >> 1]
       : (degrees[degrees.length / 2 - 1] + degrees[degrees.length / 2]) / 2;
 
-  console.log("\n  Region adjacency (star k-NN):");
-  console.log(`    pairs: ${regionAdjSet.size}`);
-  console.log(`    regions with ≥1 neighbor: ${degreeMap.size} / ${universeRegions.size}`);
-  console.log(`    max degree: ${maxDeg} (region ${maxDegRegion})`);
+  console.log(`\n  ${label} adjacency (star k-NN):`);
+  console.log(`    pairs: ${adjSet.size}`);
+  console.log(`    ${label}s with ≥1 neighbor: ${degreeMap.size} / ${universe.size}`);
+  console.log(`    max degree: ${maxDeg} (${label} ${maxDegCat})`);
   console.log(`    median degree: ${median}`);
   console.log(`    fallback additions: ${fallbacks}`);
 
-  return regionAdjSet;
+  return adjSet;
 }
 
 function main() {
@@ -270,7 +275,7 @@ function main() {
   console.log("  Reading solar-systems (for validation and region adjacency)...\n");
   const webSolarSystems = requireFile(SOLAR_SYSTEMS_PATH);
 
-  const { solarSystems: cacheSystemsMap, jumps } = starmapcache;
+  const { solarSystems: cacheSystemsMap } = starmapcache;
 
   // Moon counts per solarSystemID (groupID=8)
   const moonCountMap = new Map();
@@ -324,25 +329,11 @@ function main() {
   // Sort ascending by sysId
   systems.sort((a, b) => a[0] - b[0]);
 
-  // Build constellation adjacency pairs from jumps.
-  // Region adjacency is built separately from star k-NN — Eve Frontier has no inter-region jumps.
-  const constAdjSet = new Set();
-
-  for (const jump of jumps) {
-    const fromSys = cacheSystemsMap[String(jump.fromSystemID)];
-    const toSys = cacheSystemsMap[String(jump.toSystemID)];
-    if (!fromSys || !toSys) continue;
-
-    const cFrom = fromSys.constellationID;
-    const cTo = toSys.constellationID;
-    if (cFrom !== cTo) {
-      const key = cFrom < cTo ? `${cFrom},${cTo}` : `${cTo},${cFrom}`;
-      constAdjSet.add(key);
-    }
-  }
-
-  // Region adjacency from k-NN over solar system positions.
-  const regionAdjSet = buildRegionAdjacencyFromStars(webSolarSystems);
+  // Region and constellation adjacency from k-NN over solar system positions.
+  // Eve Frontier has no inter-region jumps and very few inter-constellation
+  // jumps, so the old jump-based constellation approach missed ~73% of pairs.
+  const regionAdjSet = buildCategoryAdjacencyFromStars(webSolarSystems, 3, "region");
+  const constAdjSet  = buildCategoryAdjacencyFromStars(webSolarSystems, 2, "constellation");
 
   const regionAdj = [...regionAdjSet]
     .map((k) => k.split(",").map(Number))

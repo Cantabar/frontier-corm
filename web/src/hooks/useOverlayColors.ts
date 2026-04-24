@@ -21,12 +21,13 @@ export function useOverlayColors(params: {
   colors: Float32Array | null;
   glowMask: Float32Array | null;
   densityMask: Float32Array | null;
+  categoryKeys: Int32Array | null;
 } {
   const { overlayConfig, ids, pods } = params;
 
   return useMemo(() => {
     if (overlayConfig === null) {
-      return { colors: null, glowMask: null, densityMask: null };
+      return { colors: null, glowMask: null, densityMask: null, categoryKeys: null };
     }
 
     const { filter, mode, planetTypeId } = overlayConfig;
@@ -48,7 +49,7 @@ export function useOverlayColors(params: {
           if (factionId === 500074 || factionId === 500075 || factionId === 500078) {
             return ANCIENT_CIV_COLORS[factionId];
           }
-          return ANCIENT_CIV_COLORS.unclaimed;
+          return ANCIENT_CIV_COLORS.unmatched;
         }
         case 'planetCount': {
           return gradientColor(
@@ -84,6 +85,43 @@ export function useOverlayColors(params: {
         }
         default:
           return DIM_COLOR;
+      }
+    }
+
+    // Helper: category key for a system. Two qualifying systems share a cluster
+    // only when they share a category; foreign categories separate. Returns -1
+    // for non-qualifying systems and for filters without a meaningful
+    // categorical split (gradient filters use 1 for any qualifier).
+    function categoryKey(id: number): number {
+      switch (filter) {
+        case 'region': {
+          const sys = SOLAR_SYSTEMS.get(id);
+          if (sys == null) return -1;
+          return REGION_COLOR_MAP.has(sys.regionId) ? sys.regionId : -1;
+        }
+        case 'constellation': {
+          const sys = SOLAR_SYSTEMS.get(id);
+          if (sys == null) return -1;
+          return CONSTELLATION_COLOR_MAP.has(sys.constellationId) ? sys.constellationId : -1;
+        }
+        case 'ancientCivilizations': {
+          const factionId = SYSTEM_FACTION.get(id);
+          if (factionId === 500074 || factionId === 500075 || factionId === 500078) return factionId;
+          return -1;
+        }
+        case 'planetType': {
+          if (planetTypeId == null) return -1;
+          const entry = PLANET_TYPES.find((pt) => pt.typeId === planetTypeId);
+          if (entry == null) return -1;
+          const bitmask = SYSTEM_PLANET_BITMASK.get(id) ?? 0;
+          return (bitmask & (1 << entry.bit)) !== 0 ? 1 : -1;
+        }
+        case 'planetCount': return (SYSTEM_PLANET_COUNT.get(id) ?? 0) > 0 ? 1 : -1;
+        case 'moonCount':   return (SYSTEM_MOON_COUNT.get(id)   ?? 0) > 0 ? 1 : -1;
+        case 'npcStations': return SYSTEM_HAS_NPC_STATION.has(id) ? 1 : -1;
+        case 'myStructures':
+          return pods.some((pod) => pod.location.solarSystemId === id) ? 1 : -1;
+        default: return -1;
       }
     }
 
@@ -128,15 +166,8 @@ export function useOverlayColors(params: {
       }
     }
 
-    if (mode === 'densityGradient') {
-      const densityMask = new Float32Array(N);
-      for (let i = 0; i < N; i++) {
-        densityMask[i] = qualifies(ids[i]) ? 1.0 : 0.0;
-      }
-      return { colors: null, glowMask: null, densityMask };
-    }
-
-    // Both 'color' and 'glow' modes produce a colors buffer
+    // All overlay modes share the same per-system color assignment; only the
+    // visual effect (color swatch, glow, density cloud, area fill) differs.
     const colors = new Float32Array(N * 3);
     for (let i = 0; i < N; i++) {
       const c = getColor(ids[i]);
@@ -145,15 +176,26 @@ export function useOverlayColors(params: {
       colors[i * 3 + 2] = c.b;
     }
 
+    const categoryKeys = new Int32Array(N);
+    for (let i = 0; i < N; i++) categoryKeys[i] = categoryKey(ids[i]);
+
     if (mode === 'glow') {
       const glowMask = new Float32Array(N);
       for (let i = 0; i < N; i++) {
         glowMask[i] = qualifies(ids[i]) ? 1.0 : 0.0;
       }
-      return { colors, glowMask, densityMask: null };
+      return { colors, glowMask, densityMask: null, categoryKeys };
+    }
+
+    if (mode === 'densityGradient' || mode === 'area') {
+      const densityMask = new Float32Array(N);
+      for (let i = 0; i < N; i++) {
+        densityMask[i] = qualifies(ids[i]) ? 1.0 : 0.0;
+      }
+      return { colors, glowMask: null, densityMask, categoryKeys };
     }
 
     // mode === 'color'
-    return { colors, glowMask: null, densityMask: null };
+    return { colors, glowMask: null, densityMask: null, categoryKeys };
   }, [overlayConfig, ids, pods]);
 }

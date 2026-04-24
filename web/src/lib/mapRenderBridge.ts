@@ -10,6 +10,7 @@
 export const mapRenderBridge = {
   finalStarColors: new Float32Array(0) as Float32Array,
   glowMask: null as Float32Array | null,
+  overlayColors: null as Float32Array | null,
   colorsDirty: false,
   glowDirty: false,
 };

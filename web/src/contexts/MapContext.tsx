@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useDeferredValue, useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
 import * as THREE from "three";
 import { buildGalaxyBuffer } from "../lib/galaxyMap";
 import { SOLAR_SYSTEMS } from "../lib/solarSystems";
@@ -29,9 +29,21 @@ interface MapContextValue {
   setOverlayConfig: (cfg: OverlayConfig | null) => void;
   pods: DecryptedPod[];
 
+  densityOpacity: number;
+  setDensityOpacity: (opacity: number) => void;
+
+  glowRadiusLy: number;
+  setGlowRadiusLy: (ly: number) => void;
+
+  areaDiscoveryDistanceLy: number;
+  setAreaDiscoveryDistanceLy: (ly: number) => void;
+  /** Debounced version of `areaDiscoveryDistanceLy` — use for heavy recomputes that lag slider drag. */
+  deferredAreaDiscoveryDistanceLy: number;
+
   overlayColors: Float32Array | null;
   glowMask: Float32Array | null;
   densityMask: Float32Array | null;
+  categoryKeys: Int32Array | null;
 
   finalStarColors: Float32Array;
 }
@@ -48,6 +60,10 @@ export function MapProvider({ children }: { children: ReactNode }) {
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>("system");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [overlayConfig, setOverlayConfig] = useState<OverlayConfig | null>(null);
+  const [densityOpacity, setDensityOpacity] = useState<number>(0.15);
+  const [glowRadiusLy, setGlowRadiusLy] = useState<number>(20);
+  const [areaDiscoveryDistanceLy, setAreaDiscoveryDistanceLy] = useState<number>(50);
+  const deferredAreaDiscoveryDistanceLy = useDeferredValue(areaDiscoveryDistanceLy);
 
   const { positions, ids, idToIndex } = useMemo(
     () => buildGalaxyBuffer(Array.from(SOLAR_SYSTEMS.values())),
@@ -56,16 +72,19 @@ export function MapProvider({ children }: { children: ReactNode }) {
 
   const { pods } = useLocationPods();
 
-  const { colors: overlayColors, glowMask, densityMask } = useOverlayColors({
+  const { colors: overlayColors, glowMask, densityMask, categoryKeys } = useOverlayColors({
     overlayConfig,
     ids,
     pods,
   });
 
+  const tintStarsByOverlay =
+    overlayConfig !== null && overlayConfig.mode === "color";
+
   const finalStarColors = useMemo<Float32Array>(() => {
     const N = ids.length;
     const buf = new Float32Array(N * 3);
-    if (overlayColors) {
+    if (overlayColors && tintStarsByOverlay) {
       buf.set(overlayColors);
     } else {
       buf.fill(1);
@@ -79,7 +98,7 @@ export function MapProvider({ children }: { children: ReactNode }) {
       }
     }
     return buf;
-  }, [overlayColors, selectedId, idToIndex, ids.length]);
+  }, [overlayColors, tintStarsByOverlay, selectedId, idToIndex, ids.length]);
 
   useLayoutEffect(() => {
     mapRenderBridge.finalStarColors = finalStarColors;
@@ -88,8 +107,9 @@ export function MapProvider({ children }: { children: ReactNode }) {
 
   useLayoutEffect(() => {
     mapRenderBridge.glowMask = glowMask;
+    mapRenderBridge.overlayColors = overlayColors;
     mapRenderBridge.glowDirty = true;
-  }, [glowMask]);
+  }, [glowMask, overlayColors]);
 
   const value: MapContextValue = {
     positions,
@@ -102,9 +122,17 @@ export function MapProvider({ children }: { children: ReactNode }) {
     overlayConfig,
     setOverlayConfig,
     pods,
+    densityOpacity,
+    setDensityOpacity,
+    glowRadiusLy,
+    setGlowRadiusLy,
+    areaDiscoveryDistanceLy,
+    setAreaDiscoveryDistanceLy,
+    deferredAreaDiscoveryDistanceLy,
     overlayColors,
     glowMask,
     densityMask,
+    categoryKeys,
     finalStarColors,
   };
 

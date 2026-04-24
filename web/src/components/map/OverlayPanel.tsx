@@ -58,6 +58,25 @@ const ModeButton = styled.button<{ $active: boolean }>`
   }
 `;
 
+const SliderRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
+
+const Slider = styled.input`
+  flex: 1;
+  accent-color: #64a0dc;
+`;
+
+const SliderValue = styled.span`
+  font-size: 11px;
+  color: #a0b8cc;
+  font-variant-numeric: tabular-nums;
+  min-width: 32px;
+  text-align: right;
+`;
+
 const Select = styled.select`
   background: rgba(8, 12, 20, 0.9);
   border: 1px solid rgba(60, 90, 120, 0.5);
@@ -90,6 +109,7 @@ const MODE_LABELS: Record<OverlayMode, string> = {
   color:           "Color",
   glow:            "Glow",
   densityGradient: "Density",
+  area:            "Area",
 };
 
 const ALL_FILTERS: OverlayFilter[] = [
@@ -103,10 +123,20 @@ const ALL_FILTERS: OverlayFilter[] = [
   "myStructures",
 ];
 
-const ALL_MODES: OverlayMode[] = ["color", "glow", "densityGradient"];
+const ALL_MODES: OverlayMode[] = ["color", "glow", "densityGradient", "area"];
 
 export function OverlayPanel() {
-  const { overlayConfig, setOverlayConfig, pods } = useMapContext();
+  const {
+    overlayConfig,
+    setOverlayConfig,
+    pods,
+    densityOpacity,
+    setDensityOpacity,
+    glowRadiusLy,
+    setGlowRadiusLy,
+    areaDiscoveryDistanceLy,
+    setAreaDiscoveryDistanceLy,
+  } = useMapContext();
 
   const hasPods = pods.length > 0;
   const activeFilter = overlayConfig?.filter ?? null;
@@ -167,6 +197,57 @@ export function OverlayPanel() {
               </ModeButton>
             ))}
           </ModeRow>
+        </Section>
+      )}
+
+      {overlayConfig && (activeMode === "densityGradient" || activeMode === "area" || activeMode === "glow") && (
+        <Section>
+          <Label>Opacity</Label>
+          <SliderRow>
+            <Slider
+              type="range"
+              min={0.01}
+              max={0.5}
+              step={0.001}
+              value={densityOpacity}
+              onChange={(e) => setDensityOpacity(Number(e.target.value))}
+            />
+            <SliderValue>{densityOpacity.toFixed(3)}</SliderValue>
+          </SliderRow>
+        </Section>
+      )}
+
+      {overlayConfig && activeMode === "glow" && (
+        <Section>
+          <Label>Glow Radius (ly)</Label>
+          <SliderRow>
+            <Slider
+              type="range"
+              min={1}
+              max={1000}
+              step={1}
+              value={glowRadiusLy}
+              onChange={(e) => setGlowRadiusLy(Number(e.target.value))}
+            />
+            <SliderValue>{glowRadiusLy}</SliderValue>
+          </SliderRow>
+        </Section>
+      )}
+
+      {overlayConfig && activeMode === "area" && (
+        <Section>
+          <Label>Discovery Distance (ly)</Label>
+          <SliderRow>
+            <Slider
+              type="range"
+              min={1}
+              max={1000}
+              step={1}
+              value={areaDiscoveryDistanceLy}
+              onChange={(e) => setAreaDiscoveryDistanceLy(Number(e.target.value))}
+            />
+            <SliderValue>{areaDiscoveryDistanceLy}</SliderValue>
+          </SliderRow>
         </Section>
       )}
 

@@ -43,7 +43,7 @@ vi.mock("../lib/overlayPalette", () => ({
     500074: new THREE.Color(1, 0.5, 0),
     500075: new THREE.Color(0.5, 0, 1),
     500078: new THREE.Color(0, 1, 0.5),
-    unclaimed: new THREE.Color(0.1, 0.1, 0.1),
+    unmatched: new THREE.Color(0.1, 0.1, 0.1),
   },
   ACCENT_COLOR: new THREE.Color(0, 0.8, 1),
   DIM_COLOR: new THREE.Color(0.15, 0.15, 0.15),

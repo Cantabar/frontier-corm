@@ -123,7 +123,7 @@ export function OverlayLegend({ overlayConfig }: OverlayLegendProps) {
           { label: "Moe Ancient Civilization",    color: ANCIENT_CIV_COLORS[500074] },
           { label: "Larry Ancient Civilization",  color: ANCIENT_CIV_COLORS[500075] },
           { label: "Curly Ancient Civilization",  color: ANCIENT_CIV_COLORS[500078] },
-          { label: "Unclaimed",                   color: ANCIENT_CIV_COLORS.unclaimed },
+          { label: "Unmatched",                   color: ANCIENT_CIV_COLORS.unmatched },
         ]}
       />
     );

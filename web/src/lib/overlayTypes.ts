@@ -1,4 +1,4 @@
-export type OverlayMode = 'color' | 'glow' | 'densityGradient';
+export type OverlayMode = 'color' | 'glow' | 'densityGradient' | 'area';
 
 export type OverlayFilter =
   | 'region'

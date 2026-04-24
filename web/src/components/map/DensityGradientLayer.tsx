@@ -1,10 +1,9 @@
 import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 import { useMapContext } from "../../contexts/MapContext";
-import { ACCENT_COLOR } from "../../lib/overlayPalette";
 
 export function DensityGradientLayer() {
-  const { positions, densityMask } = useMapContext();
+  const { positions, densityMask, densityOpacity, overlayColors } = useMapContext();
 
   const texture = useMemo(() => {
     const size = 64;
@@ -22,32 +21,39 @@ export function DensityGradientLayer() {
   useEffect(() => () => { texture.dispose(); }, [texture]);
 
   const geometry = useMemo(() => {
-    const qualifying: number[] = [];
+    const qualifyingPos: number[] = [];
+    const qualifyingColor: number[] = [];
     if (densityMask) {
       for (let i = 0; i < densityMask.length; i++) {
         if (densityMask[i] > 0.5) {
-          qualifying.push(positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]);
+          qualifyingPos.push(positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]);
+          if (overlayColors) {
+            qualifyingColor.push(overlayColors[i * 3], overlayColors[i * 3 + 1], overlayColors[i * 3 + 2]);
+          } else {
+            qualifyingColor.push(1, 1, 1);
+          }
         }
       }
     }
     const geo = new THREE.BufferGeometry();
-    geo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(qualifying), 3));
+    geo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(qualifyingPos), 3));
+    geo.setAttribute("color",    new THREE.BufferAttribute(new Float32Array(qualifyingColor), 3));
     return geo;
-  }, [positions, densityMask]);
+  }, [positions, densityMask, overlayColors]);
 
   useEffect(() => () => { geometry.dispose(); }, [geometry]);
 
   return (
     <points geometry={geometry}>
       <pointsMaterial
-        color={ACCENT_COLOR}
+        vertexColors
         size={2000}
         sizeAttenuation
         map={texture}
         blending={THREE.AdditiveBlending}
         transparent
         depthWrite={false}
-        opacity={0.15}
+        opacity={densityOpacity}
       />
     </points>
   );

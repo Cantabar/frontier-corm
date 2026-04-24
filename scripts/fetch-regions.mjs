@@ -40,45 +40,49 @@ const LY_PADDING = 9_460_730_472_580_800n;
 
 const PHOBOS_DIR = resolve(ROOT, "static-data/data/phobos/resource_pickle");
 
-/**
- * Loads Phobos static-data localization files and returns Map<regionId, name>.
- *
- * Parses 'region_<id>' out of labels with FullPath === 'Map/Regions',
- * then looks up translations[String(messageID)][0].
- */
-function loadRegionNameMap() {
+let _phobosCache = null;
+function loadPhobosLocalization() {
+  if (_phobosCache) return _phobosCache;
   const mainPath = resolve(PHOBOS_DIR, "res__localizationfsd_localization_fsd_main.json");
   const enUsPath = resolve(PHOBOS_DIR, "res__localizationfsd_localization_fsd_en-us.json");
-
-  let mainRaw;
-  let enUsRaw;
   try {
-    mainRaw = JSON.parse(readFileSync(mainPath, "utf8"));
+    const main = JSON.parse(readFileSync(mainPath, "utf8"));
+    const enUs = JSON.parse(readFileSync(enUsPath, "utf8"));
+    _phobosCache = {
+      labels: main.labels ?? {},
+      translations: enUs[1] ?? {}, // index 1 is messageID → [text, ...]
+    };
+    return _phobosCache;
   } catch (err) {
-    console.error(`Error: failed to read Phobos labels file at ${mainPath}: ${err.message}`);
+    console.error(`Error: failed to read Phobos localization files under ${PHOBOS_DIR}: ${err.message}`);
     process.exit(1);
   }
-  try {
-    enUsRaw = JSON.parse(readFileSync(enUsPath, "utf8"));
-  } catch (err) {
-    console.error(`Error: failed to read Phobos translations file at ${enUsPath}: ${err.message}`);
-    process.exit(1);
-  }
+}
 
-  const labels = mainRaw.labels ?? {};
-  const translations = enUsRaw[1] ?? {}; // index 1 is messageID → [text, ...]
-
+/**
+ * Resolves Phobos label entries under a given FullPath, parsing the numeric
+ * id out of each label via `labelPattern`, and returns a Map<id, name>.
+ */
+function loadPhobosNameMap(fullPath, labelPattern) {
+  const { labels, translations } = loadPhobosLocalization();
   const names = new Map();
   for (const entry of Object.values(labels)) {
-    if (entry.FullPath !== "Map/Regions") continue;
-    const match = entry.label?.match(/^region_(\d+)$/);
+    if (entry.FullPath !== fullPath) continue;
+    const match = entry.label?.match(labelPattern);
     if (!match) continue;
-    const regionId = Number(match[1]);
+    const id = Number(match[1]);
     const text = translations[String(entry.messageID)]?.[0];
-    if (text) names.set(regionId, text);
+    if (text) names.set(id, text);
   }
-
   return names;
+}
+
+function loadRegionNameMap() {
+  return loadPhobosNameMap("Map/Regions", /^region_(\d+)$/);
+}
+
+function loadConstellationNameMap() {
+  return loadPhobosNameMap("Map/Constellations", /^constellation_(\d+)$/);
 }
 
 // ============================================================
@@ -192,9 +196,10 @@ function mergeBounds(boundsArray) {
 // ============================================================
 
 async function main() {
-  console.log("Loading region names from static data…");
+  console.log("Loading region and constellation names from static data…");
   const regionNameMap = loadRegionNameMap();
-  console.log(`  Loaded ${regionNameMap.size} region names from static data\n`);
+  const constellationNameMap = loadConstellationNameMap();
+  console.log(`  Loaded ${regionNameMap.size} region names and ${constellationNameMap.size} constellation names from static data\n`);
 
   console.log("Fetching constellations from Stillness World API…\n");
 
@@ -208,7 +213,9 @@ async function main() {
     if (!c.solarSystems || c.solarSystems.length === 0) continue;
 
     const bounds = computeBoundingBox(c.solarSystems);
-    const name = c.name || String(c.id);
+    // Prefer Phobos-resolved name (properly localised), fall back to the API
+    // name (often empty for procedurally-generated constellations), then ID.
+    const name = constellationNameMap.get(c.id) || c.name || String(c.id);
 
     constellationTuples.push([
       c.id,

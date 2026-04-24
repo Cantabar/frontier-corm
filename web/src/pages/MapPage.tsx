@@ -6,6 +6,7 @@ import { SystemInfoPanel } from "../components/map/SystemInfoPanel";
 import { OverlayPanel } from "../components/map/OverlayPanel";
 import { GlowLayer } from "../components/map/GlowLayer";
 import { DensityGradientLayer } from "../components/map/DensityGradientLayer";
+import { AreaFillLayer } from "../components/map/AreaFillLayer";
 
 const PageContainer = styled.div`
   display: flex;
@@ -60,14 +61,16 @@ const TabContent = styled.div`
 `;
 
 function MapPageInner() {
-  const { sidebarTab, setSidebarTab, selectedId, glowMask, densityMask } = useMapContext();
+  const { sidebarTab, setSidebarTab, selectedId, glowMask, densityMask, overlayConfig } = useMapContext();
+  const overlayMode = overlayConfig?.mode ?? null;
 
   const sceneOverlays = useMemo(() => (
     <>
       {glowMask && <GlowLayer />}
-      {densityMask && <DensityGradientLayer />}
+      {densityMask && overlayMode === "densityGradient" && <DensityGradientLayer />}
+      {densityMask && overlayMode === "area" && <AreaFillLayer />}
     </>
-  ), [glowMask, densityMask]);
+  ), [glowMask, densityMask, overlayMode]);
 
   return (
     <PageContainer>

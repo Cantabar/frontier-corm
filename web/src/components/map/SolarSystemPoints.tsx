@@ -42,6 +42,8 @@ export function SolarSystemPoints() {
   });
 
   const handleClick = (event: ThreeEvent<MouseEvent>) => {
+    // Ctrl+click selects; plain click is reserved for OrbitControls drag.
+    if (!event.nativeEvent.ctrlKey) return;
     if (event.intersections.length === 0) return;
     const index = event.intersections[0].index;
     if (index === undefined) return;
